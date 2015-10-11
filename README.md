@@ -7,10 +7,16 @@ We use a system known in the literature as
 [**Session Types**](http://mrg.doc.ic.ac.uk/publications/multiparty-asynchronous-session-types/)
 to look for potential communication mismatches to preempt potential deadlocks.
 
+## Usage
+
+To run dingo-hunter on a command 'example':
+
+    $ go build
+    $ ./dingo-hunter example/main.go
 
 ## Contributors
 
-* [nickng](http://github.com/nickng)
+  * [nickng](http://github.com/nickng)
 
 ## License
 
