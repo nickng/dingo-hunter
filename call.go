@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"golang.org/x/tools/go/ssa"
+	"golang.org/x/tools/go/types"
 
 	"github.com/nickng/dingo-hunter/sesstype"
 )
@@ -30,6 +31,7 @@ type frame struct {
 type environ struct {
 	session *sesstype.Session           // For lookup channels and roles.
 	chans   map[ssa.Value]sesstype.Chan // Checks currently defined channels.
+	extern  map[ssa.Value]types.Type    // Values that originates externally, we are only sure of its type.
 	tuples  map[ssa.Value][]ssa.Value   // Maps return value to multi-value tuples
 	globals map[string]ssa.Value        // Maps of global varnames to SSA Values.
 }

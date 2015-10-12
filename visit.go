@@ -45,14 +45,16 @@ func visitBlock(blk *ssa.BasicBlock, fr *frame) {
 }
 
 // visitFunc is called to traverse a function using given callee frame
-func visitFunc(fn *ssa.Function, callee *frame) {
+// Returns a boolean representing whether or not there are code in the func.
+func visitFunc(fn *ssa.Function, callee *frame) bool {
 	fmt.Fprintf(os.Stderr, " -- Enter Function %s()\n", fn.String())
 	if fn.Blocks == nil {
 		fmt.Fprintf(os.Stderr, "  # Ignore builtin/external '"+fn.String()+"' with no Blocks\n")
-		return
+		return false
 	}
 
 	visitBlock(fn.Blocks[0], callee)
+	return true
 }
 
 func visitInst(inst ssa.Instruction, fr *frame) nextAction {
@@ -75,16 +77,35 @@ func visitInst(inst ssa.Instruction, fr *frame) nextAction {
 
 	case *ssa.Call:
 		calleeFr := call(inst.Call, fr)
-		visitFunc(inst.Call.StaticCallee(), calleeFr)
-		if len(calleeFr.retvals) > 0 {
-			if len(calleeFr.retvals) == 1 {
-				fmt.Fprintf(os.Stderr, "  -- Return from %s with a single value %s\n", calleeFr.fn.String(), calleeFr.retvals[0].Name())
-				fr.locals[inst.Value()] = calleeFr.retvals[0]
-			} else {
-				fmt.Fprintf(os.Stderr, "  -- Return from %s with %d-tuple\n", calleeFr.fn.String(), len(calleeFr.retvals))
-				fr.env.tuples[inst.Value()] = calleeFr.retvals
-				for _, retval := range calleeFr.retvals {
-					fmt.Fprintf(os.Stderr, "    - %s\n", retval.String())
+		if hasCode := visitFunc(inst.Call.StaticCallee(), calleeFr); hasCode {
+			if len(calleeFr.retvals) > 0 {
+				if len(calleeFr.retvals) == 1 {
+					fmt.Fprintf(os.Stderr, "  -- Return from %s with a single value %s\n", calleeFr.fn.String(), calleeFr.retvals[0].Name())
+					fr.locals[inst.Value()] = calleeFr.retvals[0]
+				} else {
+					fmt.Fprintf(os.Stderr, "  -- Return from %s with %d-tuple\n", calleeFr.fn.String(), len(calleeFr.retvals))
+					fr.env.tuples[inst.Value()] = calleeFr.retvals
+					for _, retval := range calleeFr.retvals {
+						fmt.Fprintf(os.Stderr, "    - %s\n", retval.String())
+					}
+				}
+			}
+		} else {
+			// Since there are no code for the function, we use the function
+			// signature to see if any of these are channels.
+			// XXX We don't know where these come from so we put them in extern.
+			resultsLen := calleeFr.fn.Signature.Results().Len()
+			if resultsLen > 0 {
+				fr.env.extern[inst.Value()] = calleeFr.fn.Signature.Results()
+				if resultsLen == 1 {
+					fmt.Fprintf(os.Stderr, "  -- Return from %s (builtin/ext) with a single value\n", calleeFr.fn.String())
+					if t, ok := calleeFr.fn.Signature.Results().At(0).Type().(*types.Chan); ok {
+						fr.env.chans[inst.Value()] = fr.env.session.MakeChan(inst.Name(), fr.gortn.role, t.Elem())
+						fmt.Fprintf(os.Stderr, "  -- Return value from %s (builtin/ext) is a channel %s (ext)\n", calleeFr.fn.String(), fr.env.chans[inst.Value()].Name())
+					}
+				} else {
+					fmt.Fprintf(os.Stderr, "  -- Return from %s (builtin/ext) with %d-tuple\n", calleeFr.fn.String(), resultsLen)
+					// Do not assign new channels here, only when accessed.
 				}
 			}
 		}
@@ -133,7 +154,21 @@ func visitExtract(e *ssa.Extract, fr *frame) {
 	if tpl, ok := fr.env.tuples[e.Tuple]; ok {
 		fmt.Fprintf(os.Stderr, "  (Extract Tuple %s #%d == %s)\n", e.Tuple.Name(), e.Index, tpl[e.Index].String())
 	} else {
-		fmt.Fprintf(os.Stderr, "  # "+red("%s")+" of type %s\n", e.String(), e.Type().String())
+		// Check if value is an external tuple (return value)
+		if extType, isExtern := fr.env.extern[e.Tuple]; isExtern {
+			if extTpl, isTuple := extType.(*types.Tuple); isTuple {
+				if extTpl.Len() < e.Index {
+					panic("Cannot extract from tuple " + e.Tuple.Name() + "\n")
+				}
+				// if extracted value is a chan create a new channel for it
+				if t, ok := extTpl.At(e.Index).Type().(*types.Chan); ok {
+					fr.env.chans[e] = fr.env.session.MakeChan(e.Tuple.Name(), fr.gortn.role, t.Elem())
+				}
+			}
+			fmt.Fprintf(os.Stderr, "  (Extract Tuple %s #%d == %s)\n", e.Tuple.Name(), e.Index, tpl[e.Index].String())
+		} else {
+			fmt.Fprintf(os.Stderr, "  # "+red("%s")+" of type %s\n", e.String(), e.Type().String())
+		}
 	}
 }
 

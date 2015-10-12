@@ -17,6 +17,7 @@ import (
 	"golang.org/x/tools/go/loader"
 	"golang.org/x/tools/go/ssa"
 	"golang.org/x/tools/go/ssa/ssautil"
+	"golang.org/x/tools/go/types"
 
 	"github.com/nickng/dingo-hunter/sesstype"
 )
@@ -137,6 +138,7 @@ func newFrame(fn *ssa.Function) *frame {
 		env: &environ{
 			session: session,
 			chans:   make(map[ssa.Value]sesstype.Chan),
+			extern:  make(map[ssa.Value]types.Type),
 			tuples:  make(map[ssa.Value][]ssa.Value),
 			globals: make(map[string]ssa.Value),
 		},
