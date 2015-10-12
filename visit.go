@@ -167,11 +167,11 @@ func visitSelect(s *ssa.Select, fr *frame) {
 		if ch, ok := fr.env.chans[fr.get(state.Chan)]; ok {
 			switch state.Dir {
 			case types.SendOnly:
-				parentNode.Append(sesstype.MkSelectSendNode(fr.gortn.role, ch))
+				fr.gortn.end = parentNode.Append(sesstype.MkSelectSendNode(fr.gortn.role, ch))
 				fmt.Fprintf(os.Stderr, "  select "+orange("%s")+"\n", fr.gortn.end.String())
 				// TODO(nickng) continuation in this state
 			case types.RecvOnly:
-				parentNode.Append(sesstype.MkSelectRecvNode(ch, fr.gortn.role))
+				fr.gortn.end = parentNode.Append(sesstype.MkSelectRecvNode(ch, fr.gortn.role))
 				fmt.Fprintf(os.Stderr, "  select "+orange("%s")+"\n", fr.gortn.end.String())
 				// TODO(nickng) continuation in this state
 			default:
