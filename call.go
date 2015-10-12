@@ -130,9 +130,10 @@ func callgo(c ssa.CallCommon, caller *frame, pos token.Pos) {
 		caller:  caller,
 		env:     caller.env,
 		gortn: &goroutine{
-			role:  gorole,
-			begin: nil,
-			end:   nil,
+			role:    gorole,
+			begin:   nil,
+			end:     nil,
+			visited: make(map[*ssa.BasicBlock]sesstype.Node),
 		},
 	}
 
