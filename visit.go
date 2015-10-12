@@ -110,6 +110,9 @@ func visitInst(inst ssa.Instruction, fr *frame) nextAction {
 	case *ssa.Select:
 		visitSelect(inst, fr)
 
+	case *ssa.ChangeType:
+		visitChangeType(inst, fr)
+
 	case *ssa.If:
 		visitIf(inst, fr)
 		return done
@@ -141,15 +144,13 @@ func visitMakeClosure(inst *ssa.MakeClosure, frm *frame) {
 
 // visitAlloc is for variable allocation (usually by 'new')
 // Registers created here are pointers
-func visitAlloc(inst *ssa.Alloc, fr *frame) *ssa.Value {
+func visitAlloc(inst *ssa.Alloc, fr *frame) {
 	t := inst.Type().Underlying().(*types.Pointer).Elem()
-	if t.String()[:4] == "chan" {
+	if _, ok := t.(*types.Chan); ok {
 		ch := fr.env.session.MakeChan(inst.Name(), fr.gortn.role, t)
 		fr.env.chans[inst] = ch // Ptr to channel
-	} else {
-		fmt.Fprintf(os.Stderr, "  # "+red("Alloc %s")+" of type %s \n", inst.String(), t.String())
 	}
-	return nil
+	fmt.Fprintf(os.Stderr, "  # "+red("Alloc %s")+" of type %s \n", inst.String(), t.String())
 }
 
 func visitValueof(inst *ssa.UnOp, fr *frame) {
@@ -251,5 +252,18 @@ func visitStore(inst *ssa.Store, fr *frame) {
 		fmt.Fprintf(os.Stderr, "  & store *%s -> channel %s\n", dstPtr.Name(), ch.Name())
 	} else {
 		fmt.Fprintf(os.Stderr, "  # "+red("store *%s = %s")+" of type %s\n", dstPtr.Name(), source.Name(), source.Type().String())
+	}
+}
+
+func visitChangeType(inst *ssa.ChangeType, fr *frame) {
+	if _, ok := inst.Type().(*types.Chan); ok {
+		if ch, found := fr.env.chans[fr.get(inst.X)]; found {
+			fr.env.chans[inst] = ch
+			fmt.Fprintf(os.Stderr, "  & changetype from %s to %s (channel %s)\n", inst.X.Name(), inst.Name(), ch.Name())
+		} else {
+			panic("Channel " + inst.X.Name() + " not found!\n")
+		}
+	} else {
+		fmt.Fprintf(os.Stderr, "  # "+red("%s")+"\n", inst.String())
 	}
 }
