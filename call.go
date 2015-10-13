@@ -76,47 +76,78 @@ func (gortn *goroutine) append(node sesstype.Node) {
 }
 
 // call Converts a caller-perspective frame into a callee frame.
-func call(c ssa.CallCommon, caller *frame) *frame {
-	switch fn := c.Value.(type) {
+func call(c *ssa.Call, caller *frame) {
+	common := c.Common()
+	switch fn := common.Value.(type) {
 	case *ssa.Builtin:
-		// TODO(nickng) Handle builtin functions.
-		fmt.Fprintf(os.Stderr, " # TODO (handle builtin) %s\n", fn.String())
+		if fn.Name() == "close" {
+			if len(common.Args) == 1 {
+				if ch, ok := caller.env.chans[caller.get(common.Args[0])]; ok {
+					fmt.Fprintf(os.Stderr, " ++ builtin close(" + green("%s")+" channel %s)\n", common.Args[0].Name(), ch.Name())
+					visitClose(ch, caller)
+				} else {
+					panic("Builtin close() called with non-channel\n")
+				}
+			} else {
+				panic("Builtin close() called with wrong number of parameters\n")
+			}
+		} else {
+			// TODO(nickng) Handle builtin functions.
+			fmt.Fprintf(os.Stderr, " # TODO (handle builtin) %s\n", fn.String())
+			fmt.Fprintf(os.Stderr, "  ++ builtin %s(", fn.Name())
+
+			// Do parameter translation
+			for i, arg := range common.Args {
+				fmt.Fprintf(os.Stderr, "\n    #%d: %s", i, arg.Name())
+			}
+			fmt.Fprintf(os.Stderr, ")\n")
+		}
+
+
 	case *ssa.MakeClosure:
 		// TODO(nickng) Handle calling closure
 		fmt.Fprintf(os.Stderr, " # TODO (handle closure) %s\n", fn.String())
+
 	case *ssa.Function:
 		if fn.Signature.Recv() != nil {
 			// TODO(nickng) Handle method call with receiver
 			fmt.Fprintf(os.Stderr, " # TODO (handle method call) (%s) %s\n", fn.Signature.Recv().String(), fn.String())
 		}
-	}
-	if c.StaticCallee() == nil {
-		panic("Call with nil CallCommon!")
-	}
-
-	fr := &frame{
-		fn:      c.StaticCallee(),
-		locals:  make(map[ssa.Value]ssa.Value),
-		retvals: make([]ssa.Value, 0),
-		caller:  caller,
-		env:     caller.env,   // Use the same env as caller (i.e. ptr)
-		gortn:   caller.gortn, // Use the same role as caller
-	}
-
-	fmt.Fprintf(os.Stderr, "  ++ call %s(", c.StaticCallee().String())
-	// Do parameter translation
-	for i, param := range c.StaticCallee().Params {
-		fr.locals[param] = c.Args[i]
-
-		if ch, ok := fr.env.chans[fr.get(c.Args[i])]; ok {
-			fmt.Fprintf(os.Stderr, "\n    #%d: "+green("%s")+" channel %s", i, param.Name(), ch.Name())
-		} else {
-			fmt.Fprintf(os.Stderr, "\n    #%d: %s", i, param.Name())
+		if common.StaticCallee() == nil {
+			panic("Call with nil CallCommon!")
 		}
-	}
-	fmt.Fprintf(os.Stderr, ")\n")
 
-	return fr
+		callee := &frame{
+			fn:      common.StaticCallee(),
+			locals:  make(map[ssa.Value]ssa.Value),
+			retvals: make([]ssa.Value, 0),
+			caller:  caller,
+			env:     caller.env,   // Use the same env as caller (i.e. ptr)
+			gortn:   caller.gortn, // Use the same role as caller
+		}
+
+		fmt.Fprintf(os.Stderr, "  ++ call %s(", common.StaticCallee().Name())
+		// Do parameter translation
+		for i, param := range common.StaticCallee().Params {
+			callee.locals[param] = common.Args[i]
+
+			if ch, ok := callee.env.chans[callee.get(common.Args[i])]; ok {
+				fmt.Fprintf(os.Stderr, "\n    #%d: "+green("%s")+" channel %s", i, param.Name(), ch.Name())
+			} else {
+				fmt.Fprintf(os.Stderr, "\n    #%d: %s", i, param.Name())
+			}
+		}
+		fmt.Fprintf(os.Stderr, ")\n")
+
+		if hasCode := visitFunc(callee.fn, callee); hasCode {
+			handleRetvals(c, caller, callee)
+		} else {
+			handleExtRetvals(c, caller, callee)
+		}
+
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown call type \n")
+	}
 }
 
 func callgo(c ssa.CallCommon, caller *frame, pos token.Pos) {
@@ -152,4 +183,44 @@ func callgo(c ssa.CallCommon, caller *frame, pos token.Pos) {
 
 	// TODO(nickng) Does not stop at recursive call.
 	goQueue = append(goQueue, fr)
+}
+
+// handleRetvals looks up and stores return value from function calls.
+// Nothing will be done if there are no return values from the function.
+func handleRetvals(call *ssa.Call, caller, callee *frame) {
+	if len(callee.retvals) > 0 {
+		if len(callee.retvals) == 1 {
+			fmt.Fprintf(os.Stderr, "  -- Return from %s with a single value %s\n", callee.fn.String(), callee.retvals[0].Name())
+			caller.locals[call.Value()] = callee.retvals[0]
+		} else {
+			fmt.Fprintf(os.Stderr, "  -- Return from %s with %d-tuple\n", callee.fn.String(), len(callee.retvals))
+			caller.env.tuples[call.Value()] = callee.retvals
+			for _, retval := range callee.retvals {
+				fmt.Fprintf(os.Stderr, "    - %s\n", retval.String())
+			}
+		}
+	}
+}
+
+// handleExtRetvals looks up and stores return value from (ext) function calls.
+// Ext functions have no code (no body to analyse) and unlike normal values,
+// the return values/tuples are stored until they are referenced.
+func handleExtRetvals(call *ssa.Call, caller, callee *frame) {
+	// Since there are no code for the function, we use the function
+	// signature to see if any of these are channels.
+	// XXX We don't know where these come from so we put them in extern.
+	resultsLen := callee.fn.Signature.Results().Len()
+	if resultsLen > 0 {
+		caller.env.extern[call.Value()] = callee.fn.Signature.Results()
+		if resultsLen == 1 {
+			fmt.Fprintf(os.Stderr, "  -- Return from %s (builtin/ext) with a single value\n", callee.fn.String())
+			if t, ok := callee.fn.Signature.Results().At(0).Type().(*types.Chan); ok {
+				caller.env.chans[call.Value()] = caller.env.session.MakeChan(call.Name(), caller.gortn.role, t.Elem())
+				fmt.Fprintf(os.Stderr, "  -- Return value from %s (builtin/ext) is a channel %s (ext)\n", callee.fn.String(), caller.env.chans[call.Value()].Name())
+			}
+		} else {
+			fmt.Fprintf(os.Stderr, "  -- Return from %s (builtin/ext) with %d-tuple\n", callee.fn.String(), resultsLen)
+			// Do not assign new channels here, only when accessed.
+		}
+	}
 }

@@ -76,39 +76,7 @@ func visitInst(inst ssa.Instruction, fr *frame) nextAction {
 		}
 
 	case *ssa.Call:
-		calleeFr := call(inst.Call, fr)
-		if hasCode := visitFunc(inst.Call.StaticCallee(), calleeFr); hasCode {
-			if len(calleeFr.retvals) > 0 {
-				if len(calleeFr.retvals) == 1 {
-					fmt.Fprintf(os.Stderr, "  -- Return from %s with a single value %s\n", calleeFr.fn.String(), calleeFr.retvals[0].Name())
-					fr.locals[inst.Value()] = calleeFr.retvals[0]
-				} else {
-					fmt.Fprintf(os.Stderr, "  -- Return from %s with %d-tuple\n", calleeFr.fn.String(), len(calleeFr.retvals))
-					fr.env.tuples[inst.Value()] = calleeFr.retvals
-					for _, retval := range calleeFr.retvals {
-						fmt.Fprintf(os.Stderr, "    - %s\n", retval.String())
-					}
-				}
-			}
-		} else {
-			// Since there are no code for the function, we use the function
-			// signature to see if any of these are channels.
-			// XXX We don't know where these come from so we put them in extern.
-			resultsLen := calleeFr.fn.Signature.Results().Len()
-			if resultsLen > 0 {
-				fr.env.extern[inst.Value()] = calleeFr.fn.Signature.Results()
-				if resultsLen == 1 {
-					fmt.Fprintf(os.Stderr, "  -- Return from %s (builtin/ext) with a single value\n", calleeFr.fn.String())
-					if t, ok := calleeFr.fn.Signature.Results().At(0).Type().(*types.Chan); ok {
-						fr.env.chans[inst.Value()] = fr.env.session.MakeChan(inst.Name(), fr.gortn.role, t.Elem())
-						fmt.Fprintf(os.Stderr, "  -- Return value from %s (builtin/ext) is a channel %s (ext)\n", calleeFr.fn.String(), fr.env.chans[inst.Value()].Name())
-					}
-				} else {
-					fmt.Fprintf(os.Stderr, "  -- Return from %s (builtin/ext) with %d-tuple\n", calleeFr.fn.String(), resultsLen)
-					// Do not assign new channels here, only when accessed.
-				}
-			}
-		}
+		visitCall(inst, fr)
 
 	case *ssa.Extract:
 		visitExtract(inst, fr)
@@ -227,9 +195,8 @@ func visitReturn(ret *ssa.Return, fr *frame) []ssa.Value {
 
 // Handles function call.
 // Wrapper for calling visitFunc and performing argument translation.
-func visitCall(c ssa.CallCommon, caller *frame) {
-	calleeFr := call(c, caller)
-	visitFunc(calleeFr.fn, calleeFr)
+func visitCall(c *ssa.Call, caller *frame) {
+	call(c, caller)
 }
 
 func visitIf(inst *ssa.If, fr *frame) {
@@ -268,6 +235,14 @@ func visitRecv(recv *ssa.UnOp, fr *frame) {
 	} else {
 		fmt.Fprintf(os.Stderr, "Recv%s: '%s' is not a channel", loc(fr.fn.Prog.Fset, recv.Pos()), recv.X.Name())
 	}
+}
+
+// visitClose for the close() builtin primitive.
+func visitClose(ch sesstype.Chan,  fr *frame) {
+	fmt.Fprintf(os.Stderr, " -- Enter close()\n")
+
+	fr.gortn.append(sesstype.MkSendNode(fr.gortn.role, ch))
+	fr.gortn.append(sesstype.MkEndNode())
 }
 
 func visitJump(inst *ssa.Jump, fr *frame) {

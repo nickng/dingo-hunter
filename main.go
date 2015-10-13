@@ -74,6 +74,7 @@ func main() {
 	var goFrm *frame
 	for len(goQueue) > 0 {
 		goFrm, goQueue = goQueue[0], goQueue[1:]
+		fmt.Fprintf(os.Stderr, "\n%s\n\n", goFrm.fn.Name())
 		visitFunc(goFrm.fn, goFrm)
 		goFrm.env.session.SetType(goFrm.gortn.role, goFrm.gortn.begin)
 	}
