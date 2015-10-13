@@ -242,7 +242,7 @@ func visitClose(ch sesstype.Chan,  fr *frame) {
 	fmt.Fprintf(os.Stderr, " -- Enter close()\n")
 
 	fr.gortn.append(sesstype.MkSendNode(fr.gortn.role, ch))
-	fr.gortn.append(sesstype.MkEndNode())
+	fr.gortn.append(sesstype.MkEndNode(ch))
 }
 
 func visitJump(inst *ssa.Jump, fr *frame) {

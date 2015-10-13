@@ -224,13 +224,24 @@ func (g *GotoNode) Child(index int) Node {
 }
 func (g *GotoNode) String() string { return fmt.Sprintf("Goto %s", g.name) }
 
-type EndNode struct{}
+type EndNode struct{
+	ch       Chan
+	children []Node
+}
 
 func (e *EndNode) Kind() op              { return EndOp }
-func (e *EndNode) Children() []Node      { return []Node{} } // Always return empty
-func (e *EndNode) Append(node Node) Node { panic("Cannot append to End") }
-func (e *EndNode) Child(index int) Node  { return nil }
-func (e *EndNode) String() string        { return "End" }
+func (e *EndNode) Children() []Node      { return e.children }
+func (e *EndNode) Append(node Node) Node {
+	e.children = append(e.children, node)
+	return node
+}
+func (e *EndNode) Child(index int) Node {
+	if len(e.children) >= index {
+		return nil
+	}
+	return e.children[index]
+}
+func (e *EndNode) String() string { return fmt.Sprintf("End %s", e.ch.Name()) }
 
 // MkNewChanNode makes a NewChanNode.
 func MkNewChanNode(ch Chan) Node {
@@ -294,8 +305,10 @@ func MkGotoNode(name string) Node {
 }
 
 // MkEndNode makse an EndNode.
-func MkEndNode() Node {
-	return &EndNode{}
+func MkEndNode(ch Chan) Node {
+	return &EndNode{
+		ch: ch,
+	}
 }
 
 // String displays session details.
