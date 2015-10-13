@@ -224,13 +224,13 @@ func (g *GotoNode) Child(index int) Node {
 }
 func (g *GotoNode) String() string { return fmt.Sprintf("Goto %s", g.name) }
 
-type EndNode struct{
+type EndNode struct {
 	ch       Chan
 	children []Node
 }
 
-func (e *EndNode) Kind() op              { return EndOp }
-func (e *EndNode) Children() []Node      { return e.children }
+func (e *EndNode) Kind() op         { return EndOp }
+func (e *EndNode) Children() []Node { return e.children }
 func (e *EndNode) Append(node Node) Node {
 	e.children = append(e.children, node)
 	return node

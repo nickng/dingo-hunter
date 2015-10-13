@@ -82,7 +82,7 @@ func call(c *ssa.Call, caller *frame) {
 		if fn.Name() == "close" {
 			if len(common.Args) == 1 {
 				if ch, ok := caller.env.chans[caller.get(common.Args[0])]; ok {
-					fmt.Fprintf(os.Stderr, " ++ builtin close(" + green("%s")+" channel %s)\n", common.Args[0].Name(), ch.Name())
+					fmt.Fprintf(os.Stderr, " ++ builtin close("+green("%s")+" channel %s)\n", common.Args[0].Name(), ch.Name())
 					visitClose(ch, caller)
 				} else {
 					panic("Builtin close() called with non-channel\n")
@@ -101,7 +101,6 @@ func call(c *ssa.Call, caller *frame) {
 			}
 			fmt.Fprintf(os.Stderr, ")\n")
 		}
-
 
 	case *ssa.MakeClosure:
 		// TODO(nickng) Handle calling closure

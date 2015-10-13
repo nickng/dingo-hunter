@@ -238,7 +238,7 @@ func visitRecv(recv *ssa.UnOp, fr *frame) {
 }
 
 // visitClose for the close() builtin primitive.
-func visitClose(ch sesstype.Chan,  fr *frame) {
+func visitClose(ch sesstype.Chan, fr *frame) {
 	fmt.Fprintf(os.Stderr, " -- Enter close()\n")
 
 	fr.gortn.append(sesstype.MkSendNode(fr.gortn.role, ch))
