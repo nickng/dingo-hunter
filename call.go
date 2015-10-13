@@ -7,7 +7,6 @@ package main
 
 import (
 	"fmt"
-	"go/token"
 	"os"
 
 	"golang.org/x/tools/go/ssa"
@@ -150,12 +149,13 @@ func call(c *ssa.Call, caller *frame) {
 	}
 }
 
-func callgo(c ssa.CallCommon, caller *frame, pos token.Pos) {
+func callgo(g *ssa.Go, caller *frame) {
 	// XXX A unique name for the goroutine invocation using position in code
-	gorole := caller.env.session.GetRole(fmt.Sprintf("%s_%d", c.Value.Name(), int(pos)))
+	common := g.Common()
+	gorole := caller.env.session.GetRole(fmt.Sprintf("%s_%d", common.Value.Name(), int(g.Pos())))
 
-	fr := &frame{
-		fn:      c.StaticCallee(),
+	callee := &frame{
+		fn:      common.StaticCallee(),
 		locals:  make(map[ssa.Value]ssa.Value),
 		retvals: make([]ssa.Value, 0),
 		caller:  caller,
@@ -168,12 +168,12 @@ func callgo(c ssa.CallCommon, caller *frame, pos token.Pos) {
 		},
 	}
 
-	fmt.Fprintf(os.Stderr, "  ++ queue go %s(", c.StaticCallee().String())
+	fmt.Fprintf(os.Stderr, "  ++ queue go %s(", common.StaticCallee().String())
 	// Do parameter translation
-	for i, param := range c.StaticCallee().Params {
-		fr.locals[param] = c.Args[i]
+	for i, param := range common.StaticCallee().Params {
+		callee.locals[param] = common.Args[i]
 
-		if ch, ok := fr.env.chans[fr.get(c.Args[i])]; ok {
+		if ch, ok := callee.env.chans[callee.get(common.Args[i])]; ok {
 			fmt.Fprintf(os.Stderr, "\n    #%d: "+green("%s")+" channel %s", i, param.Name(), ch.Name())
 		} else {
 			fmt.Fprintf(os.Stderr, "\n    #%d: %s", i, param.Name())
@@ -182,7 +182,7 @@ func callgo(c ssa.CallCommon, caller *frame, pos token.Pos) {
 	fmt.Fprintf(os.Stderr, ")\n")
 
 	// TODO(nickng) Does not stop at recursive call.
-	goQueue = append(goQueue, fr)
+	goQueue = append(goQueue, callee)
 }
 
 // handleRetvals looks up and stores return value from function calls.

@@ -82,7 +82,7 @@ func visitInst(inst ssa.Instruction, fr *frame) nextAction {
 		visitExtract(inst, fr)
 
 	case *ssa.Go:
-		callgo(inst.Call, fr, inst.Pos())
+		callgo(inst, fr)
 
 	case *ssa.Return:
 		fr.retvals = visitReturn(inst, fr)
