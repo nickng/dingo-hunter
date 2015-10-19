@@ -10,6 +10,7 @@ import (
 	"golang.org/x/tools/go/types"
 )
 
+//go:generate stringer -type=op
 type op int
 
 // Chan is a typed channel in a session.
@@ -46,7 +47,6 @@ const (
 	NewChanOp
 	SendOp
 	RecvOp
-	NondetOp
 	EndOp
 )
 
@@ -116,12 +116,7 @@ func (nc *NewChanNode) Append(node Node) Node {
 	nc.children = append(nc.children, node)
 	return node
 }
-func (nc *NewChanNode) Child(index int) Node {
-	if len(nc.children) >= index {
-		return nil
-	}
-	return nc.children[index]
-}
+func (nc *NewChanNode) Child(index int) Node { return nc.children[index] }
 func (nc *NewChanNode) String() string {
 	return fmt.Sprintf("NewChan %s { createdby: %s }", nc.ch.Name(), nc.ch.Creator().Name())
 }
@@ -141,12 +136,7 @@ func (s *SendNode) Append(node Node) Node {
 	s.children = append(s.children, node)
 	return node
 }
-func (s *SendNode) Child(index int) Node {
-	if len(s.children) >= index {
-		return nil
-	}
-	return s.children[index]
-}
+func (s *SendNode) Child(index int) Node { return s.children[index] }
 func (s *SendNode) String() string {
 	var nd string
 	if s.nondet {
@@ -170,12 +160,7 @@ func (r *RecvNode) Append(node Node) Node {
 	r.children = append(r.children, node)
 	return node
 }
-func (r *RecvNode) Child(index int) Node {
-	if len(r.children) >= index {
-		return nil
-	}
-	return r.children[index]
-}
+func (r *RecvNode) Child(index int) Node { return r.children[index] }
 func (r *RecvNode) String() string {
 	var nd string
 	if r.nondet {
@@ -196,13 +181,8 @@ func (l *LabelNode) Append(node Node) Node {
 	l.children = append(l.children, node)
 	return node
 }
-func (l *LabelNode) Child(index int) Node {
-	if len(l.children) >= index {
-		return nil
-	}
-	return l.children[index]
-}
-func (l *LabelNode) String() string { return fmt.Sprintf("%s", l.name) }
+func (l *LabelNode) Child(index int) Node { return l.children[index] }
+func (l *LabelNode) String() string       { return fmt.Sprintf("%s", l.name) }
 
 // GotoNode represents a jump (edge to existing LabelNode)
 type GotoNode struct {
@@ -216,13 +196,8 @@ func (g *GotoNode) Append(node Node) Node {
 	g.children = append(g.children, node)
 	return node
 }
-func (g *GotoNode) Child(index int) Node {
-	if len(g.children) >= index {
-		return nil
-	}
-	return g.children[index]
-}
-func (g *GotoNode) String() string { return fmt.Sprintf("Goto %s", g.name) }
+func (g *GotoNode) Child(index int) Node { return g.children[index] }
+func (g *GotoNode) String() string       { return fmt.Sprintf("Goto %s", g.name) }
 
 type EndNode struct {
 	ch       Chan
@@ -235,13 +210,8 @@ func (e *EndNode) Append(node Node) Node {
 	e.children = append(e.children, node)
 	return node
 }
-func (e *EndNode) Child(index int) Node {
-	if len(e.children) >= index {
-		return nil
-	}
-	return e.children[index]
-}
-func (e *EndNode) String() string { return fmt.Sprintf("End %s", e.ch.Name()) }
+func (e *EndNode) Child(index int) Node { return e.children[index] }
+func (e *EndNode) String() string       { return fmt.Sprintf("End %s", e.ch.Name()) }
 
 // MkNewChanNode makes a NewChanNode.
 func MkNewChanNode(ch Chan) Node {
