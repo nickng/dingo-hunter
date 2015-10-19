@@ -110,6 +110,9 @@ func visitInst(inst ssa.Instruction, fr *frame) nextAction {
 		visitJump(inst, fr)
 		return done
 
+	case *ssa.BinOp:
+		visitBinOp(inst, fr)
+
 	default:
 		// Everything else not handled yet
 		fmt.Fprintf(os.Stderr, "  # "+red("%s")+"\n", inst.String())
@@ -122,6 +125,12 @@ func visitExtract(e *ssa.Extract, fr *frame) {
 	if tpl, ok := fr.env.tuples[e.Tuple]; ok {
 		fmt.Fprintf(os.Stderr, "  (Extract Tuple %s #%d == %s)\n", e.Tuple.Name(), e.Index, tpl[e.Index].String())
 	} else {
+		// Check if we are extracting select index
+		if _, ok := fr.env.selNode[e.Tuple]; ok && e.Index == 0 {
+			fmt.Fprintf(os.Stderr, "  (Select %s index = %s)\n", e.Tuple.Name(), e.Name())
+			fr.env.selIdx[e] = e.Tuple
+			return
+		}
 		// Check if value is an external tuple (return value)
 		if extType, isExtern := fr.env.extern[e.Tuple]; isExtern {
 			if extTpl, isTuple := extType.(*types.Tuple); isTuple {
@@ -166,21 +175,20 @@ func visitValueof(inst *ssa.UnOp, fr *frame) {
 }
 
 func visitSelect(s *ssa.Select, fr *frame) {
-	parentNode := fr.gortn.end
+	fr.env.selNode[s] = fr.gortn.end
 	for _, state := range s.States {
 		if ch, ok := fr.env.chans[fr.get(state.Chan)]; ok {
 			switch state.Dir {
 			case types.SendOnly:
-				fr.gortn.end = parentNode.Append(sesstype.MkSelectSendNode(fr.gortn.role, ch))
-				fmt.Fprintf(os.Stderr, "  select "+orange("%s")+"\n", fr.gortn.end.String())
-				// TODO(nickng) continuation in this state
+				fr.gortn.end = fr.env.selNode[s]
+				fr.gortn.append(sesstype.MkSelectSendNode(fr.gortn.role, ch))
 			case types.RecvOnly:
-				fr.gortn.end = parentNode.Append(sesstype.MkSelectRecvNode(ch, fr.gortn.role))
-				fmt.Fprintf(os.Stderr, "  select "+orange("%s")+"\n", fr.gortn.end.String())
-				// TODO(nickng) continuation in this state
+				fr.gortn.end = fr.env.selNode[s]
+				fr.gortn.append(sesstype.MkSelectRecvNode(ch, fr.gortn.role))
 			default:
 				panic("Cannot handle 'select' with SendRecv channels")
 			}
+			fmt.Fprintf(os.Stderr, "  select "+orange("%s")+"\n", fr.gortn.end.String())
 		} else {
 			panic("Channel " + state.Chan.Name() + " not found!\n")
 		}
@@ -204,11 +212,26 @@ func visitIf(inst *ssa.If, fr *frame) {
 		panic("Cannot handle If with more or less than 2 successor blocks!")
 	}
 
-	ifparent := fr.gortn.end
-	visitBlock(inst.Block().Succs[0], fr)
+	// Check if this is a select-test-jump, if so handle separately.
+	if selTest, isSelTest := fr.env.selTest[inst.Cond]; isSelTest {
+		fmt.Printf("  @ Switch to select branch #%d\n", selTest.idx)
+		if selParent, ok := fr.env.selNode[selTest.tpl]; ok {
+			ifparent := fr.gortn.end
+			fr.gortn.end = selParent.Child(selTest.idx)
+			visitBlock(inst.Block().Succs[0], fr)
 
-	fr.gortn.end = ifparent
-	visitBlock(inst.Block().Succs[1], fr)
+			fr.gortn.end = ifparent
+			visitBlock(inst.Block().Succs[1], fr)
+		} else {
+			panic("Select without corresponding sesstype.Node")
+		}
+	} else {
+		ifparent := fr.gortn.end
+		visitBlock(inst.Block().Succs[0], fr)
+
+		fr.gortn.end = ifparent
+		visitBlock(inst.Block().Succs[1], fr)
+	}
 
 	// This is end of the block so continuation should not matter
 }
@@ -274,6 +297,25 @@ func visitChangeType(inst *ssa.ChangeType, fr *frame) {
 			panic("Channel " + inst.X.Name() + " not found!\n")
 		}
 	} else {
+		fmt.Fprintf(os.Stderr, "  # "+red("%s")+"\n", inst.String())
+	}
+}
+
+func visitBinOp(inst *ssa.BinOp, fr *frame) {
+	switch inst.Op {
+	case token.EQL:
+		if selTuple, isSelTuple := fr.env.selIdx[inst.X]; isSelTuple {
+			branchId := int(inst.Y.(*ssa.Const).Int64())
+			fr.env.selTest[inst] = struct {
+				idx int
+				tpl ssa.Value
+			}{
+				branchId, selTuple,
+			}
+		} else {
+			fmt.Fprintf(os.Stderr, "  # "+red("%s")+"\n", inst.String())
+		}
+	default:
 		fmt.Fprintf(os.Stderr, "  # "+red("%s")+"\n", inst.String())
 	}
 }

@@ -31,8 +31,14 @@ type environ struct {
 	session *sesstype.Session           // For lookup channels and roles.
 	chans   map[ssa.Value]sesstype.Chan // Checks currently defined channels.
 	extern  map[ssa.Value]types.Type    // Values that originates externally, we are only sure of its type.
-	tuples  map[ssa.Value][]ssa.Value   // Maps return value to multi-value tuples
+	tuples  map[ssa.Value][]ssa.Value   // Maps return value to multi-value tuples.
 	globals map[string]ssa.Value        // Maps of global varnames to SSA Values.
+	selNode map[ssa.Value]sesstype.Node // Parent nodes of select.
+	selIdx  map[ssa.Value]ssa.Value     // Mapping from select index to select SSA Value.
+	selTest map[ssa.Value]struct {      // Records test for select-branch index.
+		idx int       // The index of the branch.
+		tpl ssa.Value // The SelectState tuple which the branch originates from.
+	}
 }
 
 // Goroutine analysis info.
@@ -214,7 +220,9 @@ func handleExtRetvals(call *ssa.Call, caller, callee *frame) {
 		if resultsLen == 1 {
 			fmt.Fprintf(os.Stderr, "  -- Return from %s (builtin/ext) with a single value\n", callee.fn.String())
 			if t, ok := callee.fn.Signature.Results().At(0).Type().(*types.Chan); ok {
-				caller.env.chans[call.Value()] = caller.env.session.MakeChan(call.Name(), caller.gortn.role, t.Elem())
+				ch := caller.env.session.MakeChan(call.Name(), caller.gortn.role, t.Elem())
+				caller.env.chans[call.Value()] = ch
+				caller.gortn.append(sesstype.MkNewChanNode(ch))
 				fmt.Fprintf(os.Stderr, "  -- Return value from %s (builtin/ext) is a channel %s (ext)\n", callee.fn.String(), caller.env.chans[call.Value()].Name())
 			}
 		} else {
