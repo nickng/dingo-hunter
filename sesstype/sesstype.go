@@ -316,7 +316,7 @@ func printRecursive(node Node, indent int) string {
 	default:
 		str += fmt.Sprintf("children: %d &{", len(node.Children()))
 		for _, child := range node.Children() {
-			str += printRecursive(child, indent+1)
+			str += printRecursive(child, indent+1) + ","
 		}
 		str += "}"
 	}
