@@ -80,6 +80,8 @@ func main() {
 	}
 
 	fmt.Printf(" ----- Results ----- \n %s\n", session.String())
+
+	sesstype.GenDot(session)
 }
 
 // Load command line arguments as SSA program for analysis

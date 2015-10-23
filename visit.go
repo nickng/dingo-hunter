@@ -24,15 +24,18 @@ const (
 func visitBlock(blk *ssa.BasicBlock, fr *frame) {
 	fmt.Fprintf(os.Stderr, "  -- Block %d (in:%d, out:%d)\n", blk.Index, len(blk.Preds), len(blk.Succs))
 
-	blkLabel := fmt.Sprintf("%s#%d", blk.Parent().String(), blk.Index)
-	// Make a label for other edges that enter this block
 	if len(blk.Preds) > 1 {
+		blkLabel := fmt.Sprintf("%s#%d", blk.Parent().String(), blk.Index)
+
 		if _, found := fr.gortn.visited[blk]; found {
 			fr.gortn.append(sesstype.MkGotoNode(blkLabel))
 			return
 		}
-		fr.gortn.visited[blk] = sesstype.MkLabelNode(blkLabel)
-		fr.gortn.append(fr.gortn.visited[blk])
+
+		// Make a label for other edges that enter this block
+		lblNode := sesstype.MkLabelNode(blkLabel)
+		fr.gortn.append(lblNode)
+		fr.gortn.visited[blk] = lblNode // XXX visited is initialised by append if lblNode is head of tree
 	}
 
 	for _, inst := range blk.Instrs {
@@ -228,9 +231,15 @@ func visitIf(inst *ssa.If, fr *frame) {
 	} else {
 		ifparent := fr.gortn.end
 		visitBlock(inst.Block().Succs[0], fr)
+		if fr.gortn.end == ifparent {
+			fr.gortn.append(&sesstype.EmptyBodyNode{})
+		}
 
 		fr.gortn.end = ifparent
 		visitBlock(inst.Block().Succs[1], fr)
+		if fr.gortn.end == ifparent {
+			fr.gortn.append(&sesstype.EmptyBodyNode{})
+		}
 	}
 
 	// This is end of the block so continuation should not matter
