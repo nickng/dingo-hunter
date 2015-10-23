@@ -213,6 +213,19 @@ func (e *EndNode) Append(node Node) Node {
 func (e *EndNode) Child(index int) Node { return e.children[index] }
 func (e *EndNode) String() string       { return fmt.Sprintf("End %s", e.ch.Name()) }
 
+type EmptyBodyNode struct {
+	children []Node
+}
+
+func (e *EmptyBodyNode) Kind() op         { return NoOp }
+func (e *EmptyBodyNode) Children() []Node { return e.children }
+func (e *EmptyBodyNode) Append(node Node) Node {
+	e.children = append(e.children, node)
+	return node
+}
+func (e *EmptyBodyNode) Child(index int) Node { return e.children[index] }
+func (e *EmptyBodyNode) String() string       { return "(Empty)" }
+
 // MkNewChanNode makes a NewChanNode.
 func MkNewChanNode(ch Chan) Node {
 	return &NewChanNode{ch: ch, children: []Node{}}
