@@ -11,7 +11,9 @@ to look for potential communication mismatches to preempt potential deadlocks.
 
 To run dingo-hunter on a command 'example':
 
+    $ cd sesstype; go generate; cd ..
     $ go build
+    $ go generate
     $ ./dingo-hunter example/main.go
 
 ## Contributors

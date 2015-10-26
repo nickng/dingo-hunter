@@ -53,7 +53,7 @@ func CreateNode(node Node) *gographviz.Node {
 	case *NewChanNode:
 		defer func() { count++ }()
 		return &gographviz.Node{
-			Name: fmt.Sprintf("%s%d", node.Kind().String(), count),
+			Name: fmt.Sprintf("%s%d", node.Kind(), count),
 			Attrs: map[string]string{
 				"label": fmt.Sprintf("New channel %s", node.ch.Name()),
 				"shape": "rect",
@@ -70,7 +70,7 @@ func CreateNode(node Node) *gographviz.Node {
 			desc = " nondet"
 		}
 		return &gographviz.Node{
-			Name: fmt.Sprintf("%s%d", node.Kind().String(), count),
+			Name: fmt.Sprintf("%s%d", node.Kind(), count),
 			Attrs: map[string]string{
 				"label": fmt.Sprintf("Send %s%s", node.dest.Name(), desc),
 				"shape": "rect",
@@ -87,7 +87,7 @@ func CreateNode(node Node) *gographviz.Node {
 			desc = " nondet"
 		}
 		return &gographviz.Node{
-			Name: fmt.Sprintf("%s%d", node.Kind().String(), count),
+			Name: fmt.Sprintf("%s%d", node.Kind(), count),
 			Attrs: map[string]string{
 				"label": fmt.Sprintf("Receive %s%s", node.orig.Name(), desc),
 				"shape": "rect",
@@ -101,7 +101,7 @@ func CreateNode(node Node) *gographviz.Node {
 	default:
 		defer func() { count++ }()
 		dotNode := gographviz.Node{
-			Name: fmt.Sprintf("%s%d", node.Kind().String(), count),
+			Name: fmt.Sprintf("%s%d", node.Kind(), count),
 			Attrs: map[string]string{
 				"label": fmt.Sprintf("%s", node.String()),
 				"shape": "rect",
