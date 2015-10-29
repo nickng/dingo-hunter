@@ -153,8 +153,7 @@ func visitExtract(e *ssa.Extract, fr *frame) {
 }
 
 func visitMakeClosure(inst *ssa.MakeClosure, frm *frame) {
-	// TODO(nickng) Do call but copy current local variables
-	return
+	frm.env.closures[inst] = inst.Bindings
 }
 
 // visitAlloc is for variable allocation (usually by 'new')

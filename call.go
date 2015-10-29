@@ -28,14 +28,15 @@ type frame struct {
 // Environment.
 // Variables/information available globally for all goroutines.
 type environ struct {
-	session *sesstype.Session           // For lookup channels and roles.
-	chans   map[ssa.Value]sesstype.Chan // Checks currently defined channels.
-	extern  map[ssa.Value]types.Type    // Values that originates externally, we are only sure of its type.
-	tuples  map[ssa.Value][]ssa.Value   // Maps return value to multi-value tuples.
-	globals map[string]ssa.Value        // Maps of global varnames to SSA Values.
-	selNode map[ssa.Value]sesstype.Node // Parent nodes of select.
-	selIdx  map[ssa.Value]ssa.Value     // Mapping from select index to select SSA Value.
-	selTest map[ssa.Value]struct {      // Records test for select-branch index.
+	session  *sesstype.Session           // For lookup channels and roles.
+	chans    map[ssa.Value]sesstype.Chan // Checks currently defined channels.
+	extern   map[ssa.Value]types.Type    // Values that originates externally, we are only sure of its type.
+	tuples   map[ssa.Value][]ssa.Value   // Maps return value to multi-value tuples.
+	globals  map[string]ssa.Value        // Maps of global varnames to SSA Values.
+	closures map[ssa.Value][]ssa.Value   // Closure captures.
+	selNode  map[ssa.Value]sesstype.Node // Parent nodes of select.
+	selIdx   map[ssa.Value]ssa.Value     // Mapping from select index to select SSA Value.
+	selTest  map[ssa.Value]struct {      // Records test for select-branch index.
 		idx int       // The index of the branch.
 		tpl ssa.Value // The SelectState tuple which the branch originates from.
 	}
@@ -131,16 +132,7 @@ func call(c *ssa.Call, caller *frame) {
 		}
 
 		fmt.Fprintf(os.Stderr, "  ++ call %s(", common.StaticCallee().Name())
-		// Do parameter translation
-		for i, param := range common.StaticCallee().Params {
-			callee.locals[param] = common.Args[i]
-
-			if ch, ok := callee.env.chans[callee.get(common.Args[i])]; ok {
-				fmt.Fprintf(os.Stderr, "\n    #%d: "+green("%s")+" channel %s", i, param.Name(), ch.Name())
-			} else {
-				fmt.Fprintf(os.Stderr, "\n    #%d: %s", i, param.Name())
-			}
-		}
+		translateParams(callee, common)
 		fmt.Fprintf(os.Stderr, ")\n")
 
 		if hasCode := visitFunc(callee.fn, callee); hasCode {
@@ -174,16 +166,7 @@ func callgo(g *ssa.Go, caller *frame) {
 	}
 
 	fmt.Fprintf(os.Stderr, "  ++ queue go %s(", common.StaticCallee().String())
-	// Do parameter translation
-	for i, param := range common.StaticCallee().Params {
-		callee.locals[param] = common.Args[i]
-
-		if ch, ok := callee.env.chans[callee.get(common.Args[i])]; ok {
-			fmt.Fprintf(os.Stderr, "\n    #%d: "+green("%s")+" channel %s", i, param.Name(), ch.Name())
-		} else {
-			fmt.Fprintf(os.Stderr, "\n    #%d: %s", i, param.Name())
-		}
-	}
+	translateParams(callee, common)
 	fmt.Fprintf(os.Stderr, ")\n")
 
 	// TODO(nickng) Does not stop at recursive call.
@@ -228,6 +211,27 @@ func handleExtRetvals(call *ssa.Call, caller, callee *frame) {
 		} else {
 			fmt.Fprintf(os.Stderr, "  -- Return from %s (builtin/ext) with %d-tuple\n", callee.fn.String(), resultsLen)
 			// Do not assign new channels here, only when accessed.
+		}
+	}
+}
+
+func translateParams(callee *frame, common *ssa.CallCommon) {
+	// Do parameter translation
+	for i, param := range common.StaticCallee().Params {
+		callee.locals[param] = common.Args[i]
+
+		if ch, ok := callee.env.chans[callee.get(common.Args[i])]; ok {
+			fmt.Fprintf(os.Stderr, "\n    #%d: "+green("%s")+" channel %s", i, param.Name(), ch.Name())
+		} else {
+			fmt.Fprintf(os.Stderr, "\n    #%d: %s", i, param.Name())
+		}
+	}
+
+	// Do closure capture translation
+	if captures, isClosure := callee.env.closures[common.Value]; isClosure {
+		for idx, fv := range callee.fn.FreeVars {
+			callee.locals[fv] = captures[idx]
+			fmt.Fprintf(os.Stderr, "\n    capture %s = %s\n", fv.Name(), captures[idx].Name())
 		}
 	}
 }

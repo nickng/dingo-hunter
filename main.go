@@ -139,13 +139,14 @@ func newFrame(fn *ssa.Function) *frame {
 		retvals: make([]ssa.Value, 0),
 		caller:  nil,
 		env: &environ{
-			session: session,
-			chans:   make(map[ssa.Value]sesstype.Chan),
-			extern:  make(map[ssa.Value]types.Type),
-			tuples:  make(map[ssa.Value][]ssa.Value),
-			globals: make(map[string]ssa.Value),
-			selNode: make(map[ssa.Value]sesstype.Node),
-			selIdx:  make(map[ssa.Value]ssa.Value),
+			session:  session,
+			chans:    make(map[ssa.Value]sesstype.Chan),
+			extern:   make(map[ssa.Value]types.Type),
+			tuples:   make(map[ssa.Value][]ssa.Value),
+			globals:  make(map[string]ssa.Value),
+			closures: make(map[ssa.Value][]ssa.Value),
+			selNode:  make(map[ssa.Value]sesstype.Node),
+			selIdx:   make(map[ssa.Value]ssa.Value),
 			selTest: make(map[ssa.Value]struct {
 				idx int
 				tpl ssa.Value
