@@ -24,9 +24,15 @@ type channel struct {
 	name    string
 	payload types.Type
 	creator Role
+	ext     bool
 }
 
-func (ch channel) Name() string     { return ch.name }
+func (ch channel) Name() string {
+	if ch.ext {
+		return ch.name + "*"
+	}
+	return ch.name
+}
 func (ch channel) Type() types.Type { return ch.payload }
 func (ch channel) Creator() Role    { return ch.creator }
 
@@ -100,6 +106,18 @@ func (s *Session) MakeChan(name string, creator Role, t types.Type) Chan {
 		name:    name,
 		payload: t,
 		creator: creator,
+		ext:     false,
+	}
+	return s.chans[name]
+}
+
+// MakeExtChan creates and stores a new channel and mark as externally created
+func (s *Session) MakeExtChan(name string, creator Role, t types.Type) Chan {
+	s.chans[name] = &channel{
+		name:    name,
+		payload: t,
+		creator: creator,
+		ext:     true,
 	}
 	return s.chans[name]
 }

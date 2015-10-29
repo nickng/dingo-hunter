@@ -203,9 +203,8 @@ func handleExtRetvals(call *ssa.Call, caller, callee *frame) {
 		if resultsLen == 1 {
 			fmt.Fprintf(os.Stderr, "  -- Return from %s (builtin/ext) with a single value\n", callee.fn.String())
 			if t, ok := callee.fn.Signature.Results().At(0).Type().(*types.Chan); ok {
-				ch := caller.env.session.MakeChan(call.Name(), caller.gortn.role, t.Elem())
+				ch := caller.env.session.MakeExtChan(call.Name(), caller.gortn.role, t.Elem())
 				caller.env.chans[call.Value()] = ch
-				caller.gortn.append(sesstype.MkNewChanNode(ch))
 				fmt.Fprintf(os.Stderr, "  -- Return value from %s (builtin/ext) is a channel %s (ext)\n", callee.fn.String(), caller.env.chans[call.Value()].Name())
 			}
 		} else {
