@@ -1,7 +1,5 @@
 package main
 
-// Visitors for relevant SSA constructs
-
 import (
 	"fmt"
 	"go/token"
@@ -28,13 +26,13 @@ func visitBlock(blk *ssa.BasicBlock, fr *frame) {
 		blkLabel := fmt.Sprintf("%s#%d", blk.Parent().String(), blk.Index)
 
 		if _, found := fr.gortn.visited[blk]; found {
-			fr.gortn.append(sesstype.MkGotoNode(blkLabel))
+			fr.gortn.AddNode(sesstype.MkGotoNode(blkLabel))
 			return
 		}
 
 		// Make a label for other edges that enter this block
 		lblNode := sesstype.MkLabelNode(blkLabel)
-		fr.gortn.append(lblNode)
+		fr.gortn.AddNode(lblNode)
 		fr.gortn.visited[blk] = lblNode // XXX visited is initialised by append if lblNode is head of tree
 	}
 
@@ -51,6 +49,12 @@ func visitBlock(blk *ssa.BasicBlock, fr *frame) {
 // Returns a boolean representing whether or not there are code in the func.
 func visitFunc(fn *ssa.Function, callee *frame) bool {
 	fmt.Fprintf(os.Stderr, " -- Enter Function %s()\n", fn.String())
+
+	if fn != nil && callee.caller != nil && fn.String() == callee.caller.fn.String() {
+		fmt.Fprintf(os.Stderr, "  !! Recursive function %s\n", fn.Name())
+		return false
+	}
+
 	if fn.Blocks == nil {
 		fmt.Fprintf(os.Stderr, "  # Ignore builtin/external '"+fn.String()+"' with no Blocks\n")
 		return false
@@ -75,7 +79,7 @@ func visitInst(inst ssa.Instruction, fr *frame) nextAction {
 		case token.MUL:
 			visitValueof(inst, fr)
 		default:
-			fmt.Fprintf(os.Stderr, "  # "+red("%s")+"\n", inst.String())
+			fmt.Fprintf(os.Stderr, "   # unhandled %s = "+red("%s")+"\n", inst.Name(), inst.String())
 		}
 
 	case *ssa.Call:
@@ -116,9 +120,31 @@ func visitInst(inst ssa.Instruction, fr *frame) nextAction {
 	case *ssa.BinOp:
 		visitBinOp(inst, fr)
 
+	case *ssa.Slice:
+		visitSlice(inst, fr)
+
+	case *ssa.MakeSlice:
+		visitMakeSlice(inst, fr)
+
+	case *ssa.FieldAddr:
+		visitFieldAddr(inst, fr)
+
+	case *ssa.Field:
+		visitField(inst, fr)
+
+	case *ssa.IndexAddr:
+		visitIndexAddr(inst, fr)
+
+	case *ssa.Index:
+		visitIndex(inst, fr)
+
 	default:
 		// Everything else not handled yet
-		fmt.Fprintf(os.Stderr, "  # "+red("%s")+"\n", inst.String())
+		if v, ok := inst.(ssa.Value); ok {
+			fmt.Fprintf(os.Stderr, "   # unhandled %s = "+red("%s")+"\n", v.Name(), v.String())
+		} else {
+			fmt.Fprintf(os.Stderr, "   # unhandled "+red("%s")+"\n", inst.String())
+		}
 	}
 
 	return cont
@@ -145,7 +171,11 @@ func visitExtract(e *ssa.Extract, fr *frame) {
 					fr.env.chans[e] = fr.env.session.MakeChan(e.Tuple.Name(), fr.gortn.role, t.Elem())
 				}
 			}
-			fmt.Fprintf(os.Stderr, "  (Extract Tuple %s #%d == %s)\n", e.Tuple.Name(), e.Index, tpl[e.Index].String())
+			if e.Index < len(tpl) {
+				fmt.Fprintf(os.Stderr, "  (Extract Tuple %s #%d == %s)\n", e.Tuple.Name(), e.Index, tpl[e.Index].String())
+			} else {
+				fmt.Fprintf(os.Stderr, "  (Extract Tuple %s #%d from length %d)\n", e.Tuple.Name(), e.Index, len(tpl))
+			}
 		} else {
 			fmt.Fprintf(os.Stderr, "  # "+red("%s")+" of type %s\n", e.String(), e.Type().String())
 		}
@@ -157,14 +187,21 @@ func visitMakeClosure(inst *ssa.MakeClosure, frm *frame) {
 }
 
 // visitAlloc is for variable allocation (usually by 'new')
-// Registers created here are pointers
+// Everything allocated here are pointers
 func visitAlloc(inst *ssa.Alloc, fr *frame) {
 	t := inst.Type().Underlying().(*types.Pointer).Elem()
 	if _, ok := t.(*types.Chan); ok {
 		ch := fr.env.session.MakeChan(inst.Name(), fr.gortn.role, t)
 		fr.env.chans[inst] = ch // Ptr to channel
+	} else if st, ok := t.Underlying().(*types.Struct); ok {
+		fr.env.structs[inst] = make([]ssa.Value, st.NumFields())
+		fmt.Fprintf(os.Stderr, "   Alloc (struct) %s of type %s (%d fields)%s\n", inst.Name(), inst.Type().String(), st.NumFields(), loc(fr.fn.Prog.Fset, inst.Pos()))
+	} else if ar, ok := t.Underlying().(*types.Array); ok {
+		fr.env.arrays[inst] = make(map[ssa.Value]ssa.Value)
+		fmt.Fprintf(os.Stderr, "   Alloc (array) %s of type %s (%d elems)%s\n", inst.Name(), inst.Type().String(), ar.Len(), loc(fr.fn.Prog.Fset, inst.Pos()))
+	} else {
+		fmt.Fprintf(os.Stderr, "   # %s = "+red("Alloc %s")+" of type %s\n", inst.Name(), inst.String(), t.String())
 	}
-	fmt.Fprintf(os.Stderr, "  # "+red("Alloc %s")+" of type %s \n", inst.String(), t.String())
 }
 
 func visitValueof(inst *ssa.UnOp, fr *frame) {
@@ -172,33 +209,38 @@ func visitValueof(inst *ssa.UnOp, fr *frame) {
 	val := inst
 	if ch, found := fr.env.chans[fr.get(ptr)]; found {
 		fr.env.chans[val] = ch
+		fmt.Fprintf(os.Stderr, " --> It's a channel\n")
 	}
 	fr.locals[val] = ptr
+	fmt.Fprintf(os.Stderr, "   %s = &%s\n", val.Name(), ptr.Name())
 }
 
 func visitSelect(s *ssa.Select, fr *frame) {
-	fr.env.selNode[s] = fr.gortn.end
+	if fr.gortn.leaf == nil {
+		fr.gortn.AddNode(sesstype.MkLabelNode("__head__"))
+	}
+	fr.env.selNode[s] = fr.gortn.leaf
 	for _, state := range s.States {
 		if ch, ok := fr.env.chans[fr.get(state.Chan)]; ok {
 			switch state.Dir {
 			case types.SendOnly:
-				fr.gortn.end = fr.env.selNode[s]
-				fr.gortn.append(sesstype.MkSelectSendNode(fr.gortn.role, ch))
+				fr.gortn.leaf = fr.env.selNode[s]
+				fr.gortn.AddNode(sesstype.MkSelectSendNode(fr.gortn.role, ch))
 			case types.RecvOnly:
-				fr.gortn.end = fr.env.selNode[s]
-				fr.gortn.append(sesstype.MkSelectRecvNode(ch, fr.gortn.role))
+				fr.gortn.leaf = fr.env.selNode[s]
+				fr.gortn.AddNode(sesstype.MkSelectRecvNode(ch, fr.gortn.role))
 			default:
 				panic("Cannot handle 'select' with SendRecv channels")
 			}
-			fmt.Fprintf(os.Stderr, "  select "+orange("%s")+"\n", fr.gortn.end.String())
+			fmt.Fprintf(os.Stderr, "   select "+orange("%s")+"\n", fr.gortn.leaf.String())
 		} else {
-			panic("Channel " + state.Chan.Name() + " not found!\n")
+			panic("Channel " + fr.get(state.Chan).Name() + fr.get(state.Chan).Parent().String() + " " + loc(fr.fn.Prog.Fset, state.Chan.Pos()) + " not found!\n")
 		}
 	}
 }
 
 func visitReturn(ret *ssa.Return, fr *frame) []ssa.Value {
-	fmt.Printf(" -- Return from %s\n", fr.fn.String())
+	fmt.Fprintf(os.Stderr, " -- Return from %s\n", fr.fn.String())
 	//fr.gortn.append(sesstype.MkEndNode())
 	return ret.Results
 }
@@ -206,7 +248,10 @@ func visitReturn(ret *ssa.Return, fr *frame) []ssa.Value {
 // Handles function call.
 // Wrapper for calling visitFunc and performing argument translation.
 func visitCall(c *ssa.Call, caller *frame) {
-	call(c, caller)
+	if !caller.env.calls[c] {
+		call(c, caller)
+		caller.env.calls[c] = true
+	}
 }
 
 func visitIf(inst *ssa.If, fr *frame) {
@@ -216,44 +261,46 @@ func visitIf(inst *ssa.If, fr *frame) {
 
 	// Check if this is a select-test-jump, if so handle separately.
 	if selTest, isSelTest := fr.env.selTest[inst.Cond]; isSelTest {
-		fmt.Printf("  @ Switch to select branch #%d\n", selTest.idx)
+		fmt.Fprintf(os.Stderr, "  @ Switch to select branch #%d\n", selTest.idx)
 		if selParent, ok := fr.env.selNode[selTest.tpl]; ok {
-			ifparent := fr.gortn.end
-			fr.gortn.end = selParent.Child(selTest.idx)
+			ifparent := fr.gortn.leaf
+			fmt.Fprintf(os.Stderr, "parent %s\n", selParent)
+			fr.gortn.leaf = selParent.Child(selTest.idx)
 			visitBlock(inst.Block().Succs[0], fr)
 
-			fr.gortn.end = ifparent
+			fr.gortn.leaf = ifparent
 			visitBlock(inst.Block().Succs[1], fr)
 		} else {
 			panic("Select without corresponding sesstype.Node")
 		}
 	} else {
-		ifparent := fr.gortn.end
+		ifparent := fr.gortn.leaf
 		visitBlock(inst.Block().Succs[0], fr)
-		if fr.gortn.end == ifparent {
-			fr.gortn.append(&sesstype.EmptyBodyNode{})
+		if fr.gortn.leaf == ifparent {
+			fr.gortn.AddNode(&sesstype.EmptyBodyNode{})
 		}
 
-		fr.gortn.end = ifparent
+		fr.gortn.leaf = ifparent
 		visitBlock(inst.Block().Succs[1], fr)
-		if fr.gortn.end == ifparent {
-			fr.gortn.append(&sesstype.EmptyBodyNode{})
+		if fr.gortn.leaf == ifparent {
+			fr.gortn.AddNode(&sesstype.EmptyBodyNode{})
 		}
 	}
 
-	// This is end of the block so continuation should not matter
+	// This is end of the block so no continuation
 }
 
 func visitMakeChan(mc *ssa.MakeChan, fr *frame) {
 	ch := fr.env.session.MakeChan(mc.Name(), fr.gortn.role, mc.Type())
 	fr.env.chans[mc] = ch // Ptr to channel
-	fr.gortn.append(sesstype.MkNewChanNode(ch))
+	fr.gortn.AddNode(sesstype.MkNewChanNode(ch))
+	fmt.Fprintf(os.Stderr, "   MakeChan %s of type %s for %s %v\n", mc.Name(), mc.Type().String(), fr.gortn.role.Name(), fr.gortn.leaf)
 }
 
 func visitSend(send *ssa.Send, fr *frame) {
 	if ch, ok := fr.env.chans[fr.get(send.Chan)]; ok {
-		fr.gortn.append(sesstype.MkSendNode(fr.gortn.role, ch))
-		fmt.Fprintf(os.Stderr, "  "+orange("%s")+"\n", fr.gortn.end.String())
+		fr.gortn.AddNode(sesstype.MkSendNode(fr.gortn.role, ch))
+		fmt.Fprintf(os.Stderr, "  "+orange("%s")+"\n", fr.gortn.leaf.String())
 	} else {
 		fmt.Fprintf(os.Stderr, "Send%s: '%s' is not a channel", loc(fr.fn.Prog.Fset, send.Pos()), send.Chan.Name())
 	}
@@ -261,8 +308,8 @@ func visitSend(send *ssa.Send, fr *frame) {
 
 func visitRecv(recv *ssa.UnOp, fr *frame) {
 	if ch, ok := fr.env.chans[fr.get(recv.X)]; ok {
-		fr.gortn.append(sesstype.MkRecvNode(ch, fr.gortn.role))
-		fmt.Fprintf(os.Stderr, "  "+orange("%s")+"\n", fr.gortn.end.String())
+		fr.gortn.AddNode(sesstype.MkRecvNode(ch, fr.gortn.role))
+		fmt.Fprintf(os.Stderr, "  "+orange("%s")+"\n", fr.gortn.leaf.String())
 	} else {
 		fmt.Fprintf(os.Stderr, "Recv%s: '%s' is not a channel", loc(fr.fn.Prog.Fset, recv.Pos()), recv.X.Name())
 	}
@@ -272,8 +319,8 @@ func visitRecv(recv *ssa.UnOp, fr *frame) {
 func visitClose(ch sesstype.Chan, fr *frame) {
 	fmt.Fprintf(os.Stderr, " -- Enter close()\n")
 
-	fr.gortn.append(sesstype.MkSendNode(fr.gortn.role, ch))
-	fr.gortn.append(sesstype.MkEndNode(ch))
+	fr.gortn.AddNode(sesstype.MkSendNode(fr.gortn.role, ch))
+	fr.gortn.AddNode(sesstype.MkEndNode(ch))
 }
 
 func visitJump(inst *ssa.Jump, fr *frame) {
@@ -287,12 +334,27 @@ func visitJump(inst *ssa.Jump, fr *frame) {
 func visitStore(inst *ssa.Store, fr *frame) {
 	source := inst.Val
 	dstPtr := inst.Addr
-	fr.locals[dstPtr] = source
-	if ch, found := fr.env.chans[fr.get(source)]; found {
-		fr.env.chans[dstPtr] = ch
-		fmt.Fprintf(os.Stderr, "  & store *%s -> channel %s\n", dstPtr.Name(), ch.Name())
+
+	if _, ok := dstPtr.(*ssa.Global); ok {
+		fr.env.globals[dstPtr] = source
+		fmt.Fprintf(os.Stderr, "   # store (global) *%s = %s of type %s\n", dstPtr.Name(), source.Name(), source.Type().String())
 	} else {
-		fmt.Fprintf(os.Stderr, "  # "+red("store *%s = %s")+" of type %s\n", dstPtr.Name(), source.Name(), source.Type().String())
+		fr.locals[dstPtr] = source
+		fmt.Fprintf(os.Stderr, "   # store *%s = %s of type %s\n", dstPtr.Name(), source.Name(), source.Type().String())
+	}
+
+	//if ch, found := fr.env.chans[fr.get(source)]; found {
+	//	fr.env.chans[dstPtr] = ch
+	//	fmt.Fprintf(os.Stderr, "   & store (chan) *%s -> ch{ %s }\n", dstPtr.Name(), ch.Name())
+	//}
+
+	// Check if this is a field or array element.
+	if fInfo, ok := fr.fields[dstPtr]; ok {
+		fr.env.structs[fInfo.str][fInfo.idx] = source // Update existing field to source
+		fmt.Fprintf(os.Stderr, "   & store (struct) %s as %s:%s.[%d] of type %s\n", source.Name(), fInfo.str.Name(), fr.get(fInfo.str).Name(), fInfo.idx, source.Type().String())
+	} else if aInfo, ok := fr.elems[dstPtr]; ok {
+		fr.env.arrays[fr.get(aInfo.arr)][aInfo.idx] = source
+		fmt.Fprintf(os.Stderr, "   & store (array) %s as %s:%s[%d] of type %s\n", source.Name(), aInfo.arr.Name(), fr.get(aInfo.arr).Name(), aInfo.idx, source.Type().String())
 	}
 }
 
@@ -300,12 +362,13 @@ func visitChangeType(inst *ssa.ChangeType, fr *frame) {
 	if _, ok := inst.Type().(*types.Chan); ok {
 		if ch, found := fr.env.chans[fr.get(inst.X)]; found {
 			fr.env.chans[inst] = ch
-			fmt.Fprintf(os.Stderr, "  & changetype from %s to %s (channel %s)\n", inst.X.Name(), inst.Name(), ch.Name())
+			fmt.Fprintf(os.Stderr, "   & changetype from %s to %s (channel %s)\n", inst.X.Name(), inst.Name(), ch.Name())
 		} else {
-			panic("Channel " + inst.X.Name() + " not found!\n")
+			panic("Channel " + inst.X.Name() + loc(fr.fn.Prog.Fset, inst.Pos()) + " not found!\n")
 		}
 	} else {
-		fmt.Fprintf(os.Stderr, "  # "+red("%s")+"\n", inst.String())
+		fr.locals[inst] = inst.X
+		fmt.Fprintf(os.Stderr, "   # %s = "+red("%s")+"\n", inst.Name(), inst.String())
 	}
 }
 
@@ -321,9 +384,202 @@ func visitBinOp(inst *ssa.BinOp, fr *frame) {
 				branchId, selTuple,
 			}
 		} else {
-			fmt.Fprintf(os.Stderr, "  # "+red("%s")+"\n", inst.String())
+			fmt.Fprintf(os.Stderr, "   # %s = "+red("%s")+"\n", inst.Name(), inst.String())
 		}
 	default:
-		fmt.Fprintf(os.Stderr, "  # "+red("%s")+"\n", inst.String())
+		fmt.Fprintf(os.Stderr, "   # %s = "+red("%s")+"\n", inst.Name(), inst.String())
+	}
+}
+
+func visitFieldAddr(inst *ssa.FieldAddr, fr *frame) {
+	field := inst
+	struc := fr.get(inst.X)
+	index := inst.Field
+
+	if struc == nil {
+		panic("struct cannot be nil!")
+	}
+
+	// If struct has been allocated
+	if _str, ok := fr.env.structs[struc]; ok {
+		// If struct exists but struc->#index is empty, point to field
+		if f := _str[index]; f == nil {
+			_str[index] = field
+			fmt.Fprintf(os.Stderr, "   %s->[%d] uninitialised\n", struc.Name(), index)
+		} else if _str[index] != field {
+			fr.locals[field] = _str[index]
+		}
+		fr.fields[field] = struct {
+			idx int
+			str ssa.Value
+		}{
+			index,
+			struc,
+		}
+		fmt.Fprintf(os.Stderr, "   %s = %s(=%s)->[%d] of type %s\n", field.Name(), inst.X.Name(), struc.Name(), index, field.Type().String())
+	} else if strucType, ok := deref(deref(struc.Type())).Underlying().(*types.Struct); ok { // struct has not been allocated but is a struct (e.g. uninitialised)
+		// XXX Double dereferencing, luckily Underlying seems to be idempotent.
+		fr.env.structs[struc] = make([]ssa.Value, strucType.NumFields())
+		fr.fields[field] = struct {
+			idx int
+			str ssa.Value
+		}{
+			index,
+			struc,
+		}
+		fmt.Fprintf(os.Stderr, "   %s = (new empty) %s(=%s)->[%d] of type %s\n", field.Name(), inst.X.Name(), struc.Name(), index, field.Type().String())
+	} else {
+		fmt.Fprintf(os.Stderr, "   "+red("%s = %s->[%d] of type %s")+"\n", field.Name(), struc.Name(), index, field.Type().String())
+		panic("Wrong type and struct not found")
+	}
+}
+
+func visitField(inst *ssa.Field, fr *frame) {
+	field := inst
+	struc := fr.get(inst.X)
+	index := inst.Field
+
+	if struc == nil {
+		panic("struct cannot be nil!")
+	}
+
+	// If struct has been allocated
+	if _str, ok := fr.env.structs[struc]; ok {
+		// If struct exists but struc->#index is empty, point to field
+		if f := _str[index]; f == nil {
+			_str[index] = field
+			fmt.Fprintf(os.Stderr, "   %s.[%d] uninitialised\n", struc.Name(), index)
+		} else if _str[index] != field {
+			fr.locals[field] = _str[index]
+		}
+		fr.fields[field] = struct {
+			idx int
+			str ssa.Value
+		}{
+			index,
+			struc,
+		}
+		fmt.Fprintf(os.Stderr, "   %s = %s(=%s).[%d] of type %s\n", field.Name(), inst.X.Name(), struc.Name(), index, field.Type().String())
+	} else if strucType, ok := struc.Type().(*types.Struct); ok { // struct has not been allocated but is a struct (e.g. uninitialised)
+		fr.env.structs[struc] = make([]ssa.Value, strucType.NumFields())
+		fr.fields[field] = struct {
+			idx int
+			str ssa.Value
+		}{
+			index,
+			struc,
+		}
+		fmt.Fprintf(os.Stderr, "   %s = (new empty) %s:%s.[%d] of type %s\n", field.Name(), inst.X.Name(), struc.Name(), index, field.Type().String())
+	} else {
+		fmt.Fprintf(os.Stderr, "   "+red("%s = %s.[%d] of type %s")+"\n", field.Name(), struc.Name(), index, field.Type().String())
+		panic("Wrong type and struct not found")
+	}
+}
+
+func visitSlice(inst *ssa.Slice, fr *frame) {
+	fr.env.arrays[inst] = make(map[ssa.Value]ssa.Value)
+}
+
+func visitMakeSlice(inst *ssa.MakeSlice, fr *frame) {
+	fr.env.arrays[inst] = make(map[ssa.Value]ssa.Value)
+}
+
+func visitIndexAddr(inst *ssa.IndexAddr, fr *frame) {
+	elem := inst
+	array := fr.get(inst.X)
+	index := fr.get(inst.Index)
+
+	if array == nil {
+		panic("array cannot be nil!")
+	}
+
+	if index == nil {
+		panic("index cannot be nil!")
+	}
+
+	if _arr, ok := fr.env.arrays[array]; ok {
+		// if array exists but array[#index] is empty, point to elem
+		if f := _arr[index]; f == nil {
+			_arr[index] = elem
+			fmt.Fprintf(os.Stderr, "   &%s[%s] uninitialised\n", array.Name(), index.Name())
+		} else if _arr[index] != elem {
+			fr.locals[elem] = _arr[index]
+		}
+		fr.elems[elem] = struct {
+			idx ssa.Value
+			arr ssa.Value
+		}{
+			index,
+			array,
+		}
+		fmt.Fprintf(os.Stderr, "   %s = &%s(=%s)[%s] of type %s\n", elem.Name(), inst.X.Name(), array.Name(), index.Name(), elem.Type().String())
+	} else if _, ok := deref(deref(array.Type())).Underlying().(*types.Array); ok {
+		fr.env.arrays[array] = make(map[ssa.Value]ssa.Value)
+		fr.elems[elem] = struct {
+			idx ssa.Value
+			arr ssa.Value
+		}{
+			index,
+			array,
+		}
+		fmt.Fprintf(os.Stderr, "   %s = (new empty) &%s(=%s)[%s] of type %s\n", elem.Name(), inst.X.Name(), array.Name(), index.Name(), elem.Type().String())
+	} else if _, ok := deref(deref(array.Type())).Underlying().(*types.Slice); ok {
+		fr.env.arrays[array] = make(map[ssa.Value]ssa.Value)
+		fr.elems[elem] = struct {
+			idx ssa.Value
+			arr ssa.Value
+		}{
+			index,
+			array,
+		}
+		fmt.Fprintf(os.Stderr, "   %s = (new empty) &%s(=%s)[%s] of type %s\n", elem.Name(), inst.X.Name(), array.Name(), index.Name(), elem.Type().String())
+	} else {
+		fmt.Fprintf(os.Stderr, "   "+red("%s = &%s(=%s)[%s] of type %s")+"\n", elem.Name(), inst.X.Name(), array.Name(), index.Name(), elem.Type().String())
+		panic("Wrong type and array not found")
+	}
+}
+
+func visitIndex(inst *ssa.Index, fr *frame) {
+	elem := inst
+	array := fr.get(inst.X)
+	index := fr.get(inst.Index)
+
+	if array == nil {
+		panic("array cannot be nil!")
+	}
+
+	if index == nil {
+		panic("index cannot be nil!")
+	}
+
+	if _arr, ok := fr.env.arrays[array]; ok {
+		// if array exists but array[#index] is empty, point to elem
+		if f := _arr[index]; f == nil {
+			_arr[index] = elem
+			fmt.Fprintf(os.Stderr, "   %s[%s] uninitialised\n", array.Name(), index.Name())
+		} else if _arr[index] != elem {
+			fr.locals[elem] = _arr[index]
+		}
+		fr.elems[elem] = struct {
+			idx ssa.Value
+			arr ssa.Value
+		}{
+			index,
+			array,
+		}
+		fmt.Fprintf(os.Stderr, "   %s = %s(=%s)[%s] of type %s\n", elem.Name(), inst.X.Name(), array.Name(), index.Name(), elem.Type().String())
+	} else if _, ok := deref(array.Type()).(*types.Array); ok {
+		fr.env.arrays[array] = make(map[ssa.Value]ssa.Value)
+		fr.elems[elem] = struct {
+			idx ssa.Value
+			arr ssa.Value
+		}{
+			index,
+			array,
+		}
+		fmt.Fprintf(os.Stderr, "   %s = (new empty) %s(=%s)[%s] of type %s\n", elem.Name(), inst.X.Name(), array.Name(), index.Name(), elem.Type().String())
+	} else {
+		fmt.Fprintf(os.Stderr, "   "+red("%s = %s(=%s)[%s] of type %s")+"\n", elem.Name(), inst.X.Name(), array.Name(), index.Name(), elem.Type().String())
+		panic("Wrong type and array not found")
 	}
 }

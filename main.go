@@ -54,10 +54,10 @@ func main() {
 
 	session = sesstype.CreateSession() // init needs Session to determine
 	initFunc := mainPkg.Func("init")
-	initFrame := newFrame(initFunc)
-	initFrame.gortn.role = session.GetRole("main")
+	mainFrm := newFrame(initFunc)
+	mainFrm.gortn.role = session.GetRole("main")
 	if initFunc != nil {
-		visitFunc(initFunc, initFrame)
+		visitFunc(initFunc, mainFrm)
 	}
 
 	mainFunc := mainPkg.Func("main")
@@ -66,17 +66,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Start session then start analysing main
-	mainFrm := newFrame(mainFunc)
 	visitFunc(mainFunc, mainFrm)
-	session.SetType(mainFrm.gortn.role, mainFrm.gortn.begin)
+	session.SetType(mainFrm.gortn.role, mainFrm.gortn.root)
 
 	var goFrm *frame
 	for len(goQueue) > 0 {
 		goFrm, goQueue = goQueue[0], goQueue[1:]
 		fmt.Fprintf(os.Stderr, "\n%s\n\n", goFrm.fn.Name())
 		visitFunc(goFrm.fn, goFrm)
-		goFrm.env.session.SetType(goFrm.gortn.role, goFrm.gortn.begin)
+		goFrm.env.session.SetType(goFrm.gortn.role, goFrm.gortn.root)
 	}
 
 	fmt.Printf(" ----- Results ----- \n %s\n", session.String())
@@ -115,7 +113,13 @@ func loadSSA() (*ssa.Program, error) {
 	for _, info := range prog.InitialPackages() {
 		progSSA.Package(info.Pkg).Build()
 	}
-	//progSSA.BuildAll()
+
+	// Don't load these packages.
+	for _, info := range prog.AllPackages {
+		if info.Pkg.Name() != "fmt" {
+			progSSA.Package(info.Pkg).Build()
+		}
+	}
 
 	return progSSA, nil
 }
@@ -134,16 +138,27 @@ func findMainPkg(prog *ssa.Program) *ssa.Package {
 // Create a new frame from toplevel function
 func newFrame(fn *ssa.Function) *frame {
 	return &frame{
-		fn:      fn,
-		locals:  make(map[ssa.Value]ssa.Value),
+		fn:     fn,
+		locals: make(map[ssa.Value]ssa.Value),
+		fields: make(map[ssa.Value]struct {
+			idx int
+			str ssa.Value
+		}),
+		elems: make(map[ssa.Value]struct {
+			idx ssa.Value
+			arr ssa.Value
+		}),
 		retvals: make([]ssa.Value, 0),
 		caller:  nil,
 		env: &environ{
 			session:  session,
+			calls:    make(map[*ssa.Call]bool),
 			chans:    make(map[ssa.Value]sesstype.Chan),
+			globals:  make(map[ssa.Value]ssa.Value),
+			structs:  make(map[ssa.Value][]ssa.Value),
+			arrays:   make(map[ssa.Value]map[ssa.Value]ssa.Value),
 			extern:   make(map[ssa.Value]types.Type),
 			tuples:   make(map[ssa.Value][]ssa.Value),
-			globals:  make(map[string]ssa.Value),
 			closures: make(map[ssa.Value][]ssa.Value),
 			selNode:  make(map[ssa.Value]sesstype.Node),
 			selIdx:   make(map[ssa.Value]ssa.Value),
@@ -154,8 +169,8 @@ func newFrame(fn *ssa.Function) *frame {
 		},
 		gortn: &goroutine{
 			role:    session.GetRole(fn.Name()),
-			begin:   nil,
-			end:     nil,
+			root:    nil,
+			leaf:    nil,
 			visited: make(map[*ssa.BasicBlock]sesstype.Node),
 		},
 	}
