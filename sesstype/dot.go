@@ -17,11 +17,11 @@ func GenDot(sess *Session) {
 	graph.SetName("G")
 
 	for role, root := range sess.types {
-		sg := gographviz.NewSubGraph("cluster_" + role.Name())
+		sg := gographviz.NewSubGraph("\"cluster_" + role.Name() + "\"")
 		if root != nil {
 			visitNode(root, graph, sg)
 		}
-		graph.AddSubGraph(graph.Name, sg.Name, map[string]string{"label": role.Name()})
+		graph.AddSubGraph(graph.Name, sg.Name, map[string]string{"label": "\"" + role.Name() + "\""})
 	}
 
 	f, err := os.OpenFile("output.dot", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
@@ -103,7 +103,7 @@ func CreateNode(node Node) *gographviz.Node {
 		dotNode := gographviz.Node{
 			Name: fmt.Sprintf("%s%d", node.Kind(), count),
 			Attrs: map[string]string{
-				"label": fmt.Sprintf("%s", node.String()),
+				"label": fmt.Sprintf("\"%s\"", node.String()),
 				"shape": "rect",
 			},
 		}
@@ -118,15 +118,15 @@ func visitNode(node Node, graph *gographviz.Escape, subgraph *gographviz.SubGrap
 			gNode.Attrs.Add("style", "bold")
 		}
 		graph.AddNode(subgraph.Name, gNode.Name, gNode.Attrs)
-	}
 
-	for _, child := range node.Children() {
-		cNode := visitNode(child, graph, subgraph)
-		if cNode != nil {
-			graph.AddEdge(gNode.Name, cNode.Name, true, nil)
-		} else {
-			// Goto Node
-			graph.AddEdge(gNode.Name, labelNodes[child.(*GotoNode).name], true, nil)
+		for _, child := range node.Children() {
+			cNode := visitNode(child, graph, subgraph)
+			if cNode != nil {
+				graph.AddEdge(gNode.Name, cNode.Name, true, nil)
+			} else {
+				// Goto Node
+				graph.AddEdge(gNode.Name, labelNodes[child.(*GotoNode).name], true, nil)
+			}
 		}
 	}
 
