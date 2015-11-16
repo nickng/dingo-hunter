@@ -7,6 +7,7 @@ package sesstype // import "github.com/nickng/dingo-hunter/sesstype"
 import (
 	"fmt"
 
+	"golang.org/x/tools/go/ssa"
 	"golang.org/x/tools/go/types"
 )
 
@@ -17,24 +18,35 @@ type op int
 type Chan interface {
 	Name() string
 	Type() types.Type
-	Creator() Role
+	Role() Role
+	Value() ssa.Value
 }
 
 type channel struct {
-	name    string
-	payload types.Type
-	creator Role
-	ext     bool
+	value  ssa.Value
+	creat  Role
+	extern bool
 }
 
+// Return a name of channel.
 func (ch channel) Name() string {
-	if ch.ext {
-		return ch.name + "*"
+	fullname := fmt.Sprintf("%s.%s", ch.creat.Name(), ch.value.Name())
+	if ch.extern {
+		return fullname + "*"
 	}
-	return ch.name
+	return fullname
 }
-func (ch channel) Type() types.Type { return ch.payload }
-func (ch channel) Creator() Role    { return ch.creator }
+
+// Return the payload type of channel.
+func (ch channel) Type() types.Type {
+	return ch.value.Type().(*types.Chan).Elem()
+}
+func (ch channel) Role() Role {
+	return ch.creat
+}
+func (ch channel) Value() ssa.Value {
+	return ch.value
+}
 
 // Role in a session (main or goroutine).
 type Role interface {
@@ -68,17 +80,17 @@ type Node interface {
 // Session is a container of session graph nodes, also holds information about
 // channels and roles in the current session.
 type Session struct {
-	types  map[Role]Node   // Root Node for each Role
-	chans  map[string]Chan // Actual channels are stored here
-	roles  map[string]Role // Actual roles are stored here
-	labels map[string]int  // Count number of times label is used
+	types  map[Role]Node      // Root Node for each Role
+	chans  map[ssa.Value]Chan // Actual channels are stored here
+	roles  map[string]Role    // Actual roles are stored here
+	labels map[string]int     // Count number of times label is used
 }
 
 // CreateSession initialises a new empty Session.
 func CreateSession() *Session {
 	return &Session{
 		types: make(map[Role]Node),
-		chans: make(map[string]Chan),
+		chans: make(map[ssa.Value]Chan),
 		roles: make(map[string]Role),
 	}
 }
@@ -87,7 +99,7 @@ func CreateSession() *Session {
 func (s *Session) GetType(role Role) Node { return s.types[role] }
 
 // GetChan returns the channel variable given its name (e.g. register name).
-func (s *Session) GetChan(name string) Chan { return s.chans[name] }
+func (s *Session) GetChan(v ssa.Value) Chan { return s.chans[v] }
 
 // GetRole returns or create (if empty) a new session role using given name.
 func (s *Session) GetRole(name string) Role { // Get or create role
@@ -101,25 +113,23 @@ func (s *Session) GetRole(name string) Role { // Get or create role
 func (s *Session) SetType(role Role, root Node) { s.types[role] = root }
 
 // MakeChan creates and stores a new session channel created.
-func (s *Session) MakeChan(name string, creator Role, t types.Type) Chan {
-	s.chans[name] = &channel{
-		name:    name,
-		payload: t,
-		creator: creator,
-		ext:     false,
+func (s *Session) MakeChan(v ssa.Value, r Role) Chan {
+	s.chans[v] = &channel{
+		value:  v,
+		creat:  r,
+		extern: false,
 	}
-	return s.chans[name]
+	return s.chans[v]
 }
 
-// MakeExtChan creates and stores a new channel and mark as externally created
-func (s *Session) MakeExtChan(name string, creator Role, t types.Type) Chan {
-	s.chans[name] = &channel{
-		name:    name,
-		payload: t,
-		creator: creator,
-		ext:     true,
+// MakeExtChan creates and stores a new channel and mark as externally created.
+func (s *Session) MakeExtChan(v ssa.Value, r Role) Chan {
+	s.chans[v] = &channel{
+		value:  v,
+		creat:  r,
+		extern: true,
 	}
-	return s.chans[name]
+	return s.chans[v]
 }
 
 // NewChanNode represents creation of new channel
@@ -136,7 +146,7 @@ func (nc *NewChanNode) Append(node Node) Node {
 }
 func (nc *NewChanNode) Child(index int) Node { return nc.children[index] }
 func (nc *NewChanNode) String() string {
-	return fmt.Sprintf("NewChan %s { createdby: %s }", nc.ch.Name(), nc.ch.Creator().Name())
+	return fmt.Sprintf("NewChan %s of type %s", nc.ch.Name(), nc.ch.Type())
 }
 
 // SendNode represents a send.
@@ -324,30 +334,30 @@ func (s *Session) String() string {
 	}
 	str += "\n# Session\n"
 	for role, session := range s.types {
-		str += fmt.Sprintf("  %s: %s", role.Name(), printRecursive(session, 0))
+		str += fmt.Sprintf("  %s: %s", role.Name(), StringRecursive(session))
 		str += "\n"
 	}
 	return str
 }
 
-func printRecursive(node Node, indent int) string {
+func StringRecursive(node Node) string {
 	str := ""
 	if node == nil {
 		return str
-	}
-	for i := 0; i < indent; i++ {
-		str += " "
 	}
 
 	str += node.String() + "; "
 	switch len(node.Children()) {
 	case 0:
 	case 1:
-		str += printRecursive(node.Children()[0], indent)
+		str += StringRecursive(node.Children()[0])
 	default:
 		str += fmt.Sprintf("children: %d &{", len(node.Children()))
-		for _, child := range node.Children() {
-			str += printRecursive(child, indent+1) + ","
+		for i, child := range node.Children() {
+			if i > 0 {
+				str += ","
+			}
+			str += StringRecursive(child)
 		}
 		str += "}"
 	}

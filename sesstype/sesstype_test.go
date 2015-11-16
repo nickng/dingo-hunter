@@ -2,13 +2,15 @@ package sesstype
 
 import (
 	"testing"
+
+	"github.com/nickng/dingo-hunter/gossa"
 )
 
 // Tests SendNode creation.
 func TestSendNode(t *testing.T) {
 	s := CreateSession()
 	r := s.GetRole("main")
-	c := s.MakeChan("ch", r, nil)
+	c := s.MakeChan(gossa.EmptyValue{T: nil}, r)
 	n := MkSendNode(r, c)
 	if n.Kind() != SendOp {
 		t.Errorf("Expecting node kind to be %s but got %s\n", SendOp, n.Kind())
@@ -44,7 +46,7 @@ func TestSendNode(t *testing.T) {
 func TestRecvNode(t *testing.T) {
 	s := CreateSession()
 	r := s.GetRole("main")
-	c := s.MakeChan("ch", r, nil)
+	c := s.MakeChan(gossa.EmptyValue{T: nil}, r)
 	n := MkRecvNode(c, r)
 	if n.Kind() != RecvOp {
 		t.Errorf("Expecting node kind to be %s but got %s\n", RecvOp, n.Kind())
@@ -106,7 +108,7 @@ func TestLabelGotoNode(t *testing.T) {
 func TestNewChanNode(t *testing.T) {
 	s := CreateSession()
 	r := s.GetRole("main")
-	c := s.MakeChan("ch", r, nil)
+	c := s.MakeChan(gossa.EmptyValue{T: nil}, r)
 	n := MkNewChanNode(c)
 	if n.Kind() != NewChanOp {
 		t.Errorf("Expecting node kind to be %s but got %s\n", NewChanOp, n.Kind())
@@ -127,7 +129,7 @@ func TestNewChanNode(t *testing.T) {
 func TestEndNode(t *testing.T) {
 	s := CreateSession()
 	r := s.GetRole("main")
-	c := s.MakeChan("ch", r, nil)
+	c := s.MakeChan(gossa.EmptyValue{T: nil}, r)
 	n := MkEndNode(c)
 	if n.Kind() != EndOp {
 		t.Errorf("Expecting node kind to be %s but got %s\n", EndOp, n.Kind())
