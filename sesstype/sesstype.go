@@ -30,7 +30,7 @@ type channel struct {
 
 // Return a name of channel.
 func (ch channel) Name() string {
-	fullname := fmt.Sprintf("%s.%s", ch.creat.Name(), ch.value.Name())
+	fullname := fmt.Sprintf("%s.%s.%s", ch.creat.Name(), ch.value.Parent().String(), ch.value.Name())
 	if ch.extern {
 		return fullname + "*"
 	}
@@ -194,6 +194,7 @@ func (r *RecvNode) String() string {
 	if r.nondet {
 		nd = "nondet "
 	}
+
 	return fmt.Sprintf("Recv { chan: %s %s}-> %s", r.orig.Name(), nd, r.rcvr.Name())
 }
 
