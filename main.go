@@ -19,13 +19,15 @@ import (
 	"golang.org/x/tools/go/ssa/ssautil"
 	"golang.org/x/tools/go/types"
 
+	"github.com/nickng/dingo-hunter/gossa"
 	"github.com/nickng/dingo-hunter/sesstype"
 )
 
 var (
 	session *sesstype.Session // Keeps track of the all session
 
-	ssaflag = ssa.BuilderModeFlag(flag.CommandLine, "ssabuild", 0)
+	//ssaflag = ssa.BuilderModeFlag(flag.CommandLine, "ssabuild", ssa.BareInits|ssa.PrintFunctions)
+	ssaflag = ssa.BuilderModeFlag(flag.CommandLine, "ssabuild", ssa.BareInits)
 	goQueue = make([]*frame, 0)
 )
 
@@ -52,13 +54,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	session = sesstype.CreateSession() // init needs Session to determine
+	session = sesstype.CreateSession() // init needs Session
 	initFunc := mainPkg.Func("init")
 	mainFrm := newFrame(initFunc)
 	mainFrm.gortn.role = session.GetRole("main")
-	if initFunc != nil {
-		visitFunc(initFunc, mainFrm)
+	mainFrm.gortn.leaf = &mainFrm.gortn.root
+
+	for _, pkg := range prog.AllPackages() {
+		for _, memb := range pkg.Members {
+			switch val := memb.(type) {
+			case *ssa.Global:
+				mainFrm.env.globals[val] = gossa.EmptyValue{T: memb.Type()}
+			}
+		}
 	}
+	visitFunc(initFunc, mainFrm)
 
 	mainFunc := mainPkg.Func("main")
 	if mainFunc == nil {
@@ -116,7 +126,7 @@ func loadSSA() (*ssa.Program, error) {
 
 	// Don't load these packages.
 	for _, info := range prog.AllPackages {
-		if info.Pkg.Name() != "fmt" {
+		if info.Pkg.Name() != "fmt" && info.Pkg.Name() != "reflect" && info.Pkg.Name() != "strings" {
 			progSSA.Package(info.Pkg).Build()
 		}
 	}
@@ -138,40 +148,36 @@ func findMainPkg(prog *ssa.Program) *ssa.Package {
 // Create a new frame from toplevel function
 func newFrame(fn *ssa.Function) *frame {
 	return &frame{
-		fn:     fn,
-		locals: make(map[ssa.Value]ssa.Value),
-		fields: make(map[ssa.Value]struct {
-			idx int
-			str ssa.Value
-		}),
-		elems: make(map[ssa.Value]struct {
-			idx ssa.Value
-			arr ssa.Value
-		}),
+		fn:      fn,
+		locals:  make(map[ssa.Value]ssa.Value),
+		arrays:  make(map[ssa.Value]ArrayElems),
+		structs: make(map[ssa.Value]StructFields),
+		elems:   make(map[ssa.Value]ElemDecomp),
+		fields:  make(map[ssa.Value]FieldDecomp),
 		retvals: make([]ssa.Value, 0),
 		caller:  nil,
 		env: &environ{
 			session:  session,
-			calls:    make(map[*ssa.Call]bool),
-			chans:    make(map[ssa.Value]sesstype.Chan),
 			globals:  make(map[ssa.Value]ssa.Value),
-			structs:  make(map[ssa.Value][]ssa.Value),
-			arrays:   make(map[ssa.Value]map[ssa.Value]ssa.Value),
+			arrays:   make(map[ssa.Value]ArrayElems),
+			structs:  make(map[ssa.Value]StructFields),
 			extern:   make(map[ssa.Value]types.Type),
 			tuples:   make(map[ssa.Value][]ssa.Value),
 			closures: make(map[ssa.Value][]ssa.Value),
-			selNode:  make(map[ssa.Value]sesstype.Node),
+			selNode:  make(map[ssa.Value]*sesstype.Node),
 			selIdx:   make(map[ssa.Value]ssa.Value),
 			selTest: make(map[ssa.Value]struct {
 				idx int
 				tpl ssa.Value
 			}),
+			ifparent: sesstype.NewNodeStack(),
 		},
 		gortn: &goroutine{
 			role:    session.GetRole(fn.Name()),
-			root:    nil,
+			root:    sesstype.MkLabelNode(fn.Name()),
 			leaf:    nil,
 			visited: make(map[*ssa.BasicBlock]sesstype.Node),
+			chans:   make(map[ssa.Value]sesstype.Chan),
 		},
 	}
 }

@@ -15,42 +15,100 @@ import (
 	"github.com/nickng/dingo-hunter/sesstype"
 )
 
+type ArrayElems map[ssa.Value]ssa.Value // Array elements.
+type StructFields map[int]ssa.Value     // Struct fields.
+type ElemDecomp struct {
+	arr ssa.Value
+	idx ssa.Value
+}
+type FieldDecomp struct {
+	str ssa.Value
+	idx int
+}
+
 // Call frame.
 type frame struct {
-	fn     *ssa.Function           // Function ptr of callee
-	locals map[ssa.Value]ssa.Value // Maps of local vars to SSA Values
-	fields map[ssa.Value]struct {  // Records decomposition of SSA structs
-		idx int
-		str ssa.Value
-	}
-	elems map[ssa.Value]struct { // Records decomposition of SSA arrays
-		idx ssa.Value
-		arr ssa.Value
-	}
-	retvals []ssa.Value // Return values
-	caller  *frame      // ptr to parent's frame, nil if main/ext
-	env     *environ    // Environment
-	gortn   *goroutine  // Detail of current goroutine
+	fn      *ssa.Function              // Function ptr of callee.
+	locals  map[ssa.Value]ssa.Value    // Local variables to origin.
+	arrays  map[ssa.Value]ArrayElems   // Arrays.
+	structs map[ssa.Value]StructFields // Structs.
+	fields  map[ssa.Value]FieldDecomp  // Field decomposition of structs (always in scope).
+	elems   map[ssa.Value]ElemDecomp   // Elem decomposition of arrays (always in scope).
+	retvals []ssa.Value                // Return values.
+	defers  []*ssa.Defer               // Defers.
+	caller  *frame                     // ptr to parent's frame, nil if main/ext.
+	env     *environ                   // Environment.
+	gortn   *goroutine                 // Current goroutine.
 }
 
 // Environment.
 // Variables/information available globally for all goroutines.
 type environ struct {
-	session  *sesstype.Session                     // For lookup channels and roles.
-	calls    map[*ssa.Call]bool                    // For detecting recursive calls.
-	chans    map[ssa.Value]sesstype.Chan           // Checks currently defined channels.
-	globals  map[ssa.Value]ssa.Value               // Maps of global vars to SSA Values
-	structs  map[ssa.Value][]ssa.Value             // Maps of SSA values to structs.
-	arrays   map[ssa.Value]map[ssa.Value]ssa.Value // Maps of SSA values to arrays.
-	extern   map[ssa.Value]types.Type              // Values that originates externally, we are only sure of its type.
-	tuples   map[ssa.Value][]ssa.Value             // Maps return value to multi-value tuples.
-	closures map[ssa.Value][]ssa.Value             // Closure captures.
-	selNode  map[ssa.Value]sesstype.Node           // Parent nodes of select.
-	selIdx   map[ssa.Value]ssa.Value               // Mapping from select index to select SSA Value.
-	selTest  map[ssa.Value]struct {                // Records test for select-branch index.
+	session  *sesstype.Session            // For lookup channels and roles.
+	globals  map[ssa.Value]ssa.Value      // Globals.
+	arrays   map[ssa.Value]ArrayElems     // Arrays in heap.
+	structs  map[ssa.Value]StructFields   // Structs in heap.
+	extern   map[ssa.Value]types.Type     // Values that originates externally, we are only sure of its type.
+	tuples   map[ssa.Value][]ssa.Value    // Maps return value to multi-value tuples.
+	closures map[ssa.Value][]ssa.Value    // Closure captures.
+	selNode  map[ssa.Value]*sesstype.Node // Parent nodes of select.
+	selIdx   map[ssa.Value]ssa.Value      // Mapping from select index to select SSA Value.
+	selTest  map[ssa.Value]struct {       // Records test for select-branch index.
 		idx int       // The index of the branch.
 		tpl ssa.Value // The SelectState tuple which the branch originates from.
 	}
+	ifparent *sesstype.NodeStack
+}
+
+// Locate an array in either stack or heap.
+func (fr *frame) getArray(v ssa.Value) (array ArrayElems, isHeap bool, found bool) {
+	if arrHeap, ok := fr.env.arrays[v]; ok {
+		array = arrHeap
+		isHeap = true
+		found = true
+	} else if arrStack, ok := fr.arrays[v]; ok {
+		array = arrStack
+		isHeap = false
+		found = true
+	} else {
+		array = nil
+		isHeap = false
+		found = false
+	}
+	return
+}
+
+// Locate a struct in either stack or heap.
+func (fr *frame) getStruct(v ssa.Value) (struc StructFields, isHeap bool, found bool) {
+	if strHeap, ok := fr.env.structs[v]; ok {
+		struc = strHeap
+		isHeap = true
+		found = true
+	} else if strStack, ok := fr.structs[v]; ok {
+		struc = strStack
+		isHeap = false
+		found = true
+	} else {
+		isHeap = true
+		found = false
+	}
+	return
+}
+
+func (fr *frame) getFields(f ssa.Value) (fieldInfo FieldDecomp, found bool) {
+	if fieldInfo_, ok := fr.fields[f]; ok {
+		fieldInfo = fieldInfo_
+		found = true
+		return
+	} else if fr.caller != nil {
+		if fieldInfo_, ok := fr.caller.getFields(fr.get(f)); ok {
+			fieldInfo = fieldInfo_
+			found = true
+			return
+		}
+	}
+	found = false
+	return
 }
 
 // Goroutine analysis info.
@@ -58,62 +116,79 @@ type environ struct {
 type goroutine struct {
 	role    sesstype.Role // Role of current goroutine
 	root    sesstype.Node
-	leaf    sesstype.Node
+	leaf    *sesstype.Node
 	visited map[*ssa.BasicBlock]sesstype.Node
+	chans   map[ssa.Value]sesstype.Chan // Keeps track of defined channels.
+	parent  *goroutine
 }
 
-// Find origin of ssa.Value
+func (fr *frame) printCallStack() {
+	curFr := fr
+	for curFr != nil && curFr.fn != nil {
+		fmt.Fprintf(os.Stderr, "Called by: %s()\n", curFr.fn.String())
+		curFr = curFr.caller
+	}
+}
+
+// Find the origin of ssa.Value
 func (fr *frame) get(v ssa.Value) ssa.Value {
+	//defer func() { fmt.Fprintf(os.Stderr, "\tGET %s = %s (%s)\n", reg(v), v.String(), fr.fn.String()) }()
 	if v == nil {
-		panic("Cannot traceback nil ssa.Value!")
+		panic(fmt.Sprintf("get: cannot deal with nil ssa.Value at %s\n", loc(fr.fn.Pkg.Prog.Fset, v.Pos())))
 	}
-	if prev, ok := fr.locals[v]; ok {
-		if prev == nil || prev == v {
-			return v
-		}
-		return fr.get(prev)
-	} else if prev, ok := fr.env.globals[v]; ok {
-		if prev == nil {
-			return v
-		}
-		return fr.get(prev)
-	}
-	return fr.getCaller(v)
-}
 
-func (fr *frame) getCaller(v ssa.Value) ssa.Value {
-	if fr.caller != nil {
-		if prev, ok := fr.caller.locals[v]; ok {
-			if prev == nil {
-				return v
-			}
-			return fr.caller.get(prev)
-		}
+	if prev, ok := fr.env.globals[v]; ok {
+		return prev
 	}
+
+	if prev, ok := fr.locals[v]; ok {
+		if v == prev {
+			panic(fmt.Sprintf("get: invalid - local[%s] points to itself\n", reg(v)))
+		}
+		if fr.caller == nil {
+			return prev // This is the result
+		}
+		return fr.get(prev) // Keep searching parent
+	} else if fr.caller != nil {
+		return fr.caller.get(v)
+	}
+
 	return v
 }
 
 // Append a session type node to current goroutine.
 func (gortn *goroutine) AddNode(node sesstype.Node) {
 	if gortn.leaf == nil {
-		if gortn.root == nil {
-			gortn.root = node
-		}
-		gortn.leaf = node
-	} else {
-		gortn.leaf.Append(node)
+		panic("AddNode: leaf cannot be nil")
 	}
+
+	newLeaf := (*gortn.leaf).Append(node)
+	gortn.leaf = &newLeaf
+}
+
+func (fr *frame) findChan(ch ssa.Value) (sesstype.Chan, sesstype.Role) {
+	g := fr.gortn
+	for g != nil {
+		if c, ok := g.chans[ch]; ok {
+			return c, g.role
+		}
+		g = g.parent
+	}
+	return nil, fr.gortn.role
+}
+
+func call(c *ssa.Call, caller *frame) {
+	callcommon(c, c.Common(), caller)
 }
 
 // call Converts a caller-perspective frame into a callee frame.
-func call(c *ssa.Call, caller *frame) {
-	common := c.Common()
+func callcommon(c *ssa.Call, common *ssa.CallCommon, caller *frame) {
 	switch fn := common.Value.(type) {
 	case *ssa.Builtin:
 		if fn.Name() == "close" {
 			if len(common.Args) == 1 {
-				if ch, ok := caller.env.chans[caller.get(common.Args[0])]; ok {
-					fmt.Fprintf(os.Stderr, "   ++call builtin close("+green("%s")+" channel %s)\n", common.Args[0].Name(), ch.Name())
+				if ch, _ := caller.findChan(caller.get(common.Args[0])); ch != nil {
+					fmt.Fprintf(os.Stderr, "++ call builtin %s("+green("%s")+" channel %s)\n", orange(fn.Name()), common.Args[0].Name(), ch.Name())
 					visitClose(ch, caller)
 				} else {
 					panic("Builtin close() called with non-channel\n")
@@ -124,19 +199,17 @@ func call(c *ssa.Call, caller *frame) {
 		} else if fn.Name() == "copy" {
 			dst := common.Args[0]
 			src := common.Args[1]
-			fmt.Fprintf(os.Stderr, "   ++call builtin copy(%s <- %s)\n", dst.Name(), src.Name())
+			fmt.Fprintf(os.Stderr, "++ call builtin %s(%s <- %s)\n", orange("copy"), dst.Name(), src.Name())
 			caller.locals[dst] = src
 			return
 		} else {
 			// TODO(nickng) Handle builtin functions.
-			fmt.Fprintf(os.Stderr, "   # TODO (handle builtin) %s\n", fn.String())
-			fmt.Fprintf(os.Stderr, "   ++call builtin %s(", fn.Name())
-
+			fmt.Fprintf(os.Stderr, "++ call builtin %s(", fn.Name())
 			// Do parameter translation
 			for i, arg := range common.Args {
-				fmt.Fprintf(os.Stderr, "\n    #%d: %s", i, arg.Name())
+				fmt.Fprintf(os.Stderr, "#%d: %s", i, arg.Name())
 			}
-			fmt.Fprintf(os.Stderr, ")\n")
+			fmt.Fprintf(os.Stderr, ") # TODO (handle builtin)\n")
 		}
 
 	case *ssa.MakeClosure:
@@ -149,30 +222,33 @@ func call(c *ssa.Call, caller *frame) {
 		}
 
 		callee := &frame{
-			fn:     common.StaticCallee(),
-			locals: make(map[ssa.Value]ssa.Value),
-			fields: make(map[ssa.Value]struct {
-				idx int
-				str ssa.Value
-			}),
-			elems: make(map[ssa.Value]struct {
-				idx ssa.Value
-				arr ssa.Value
-			}),
+			fn:      common.StaticCallee(),
+			locals:  make(map[ssa.Value]ssa.Value),
+			arrays:  make(map[ssa.Value]ArrayElems),
+			structs: make(map[ssa.Value]StructFields),
+			elems:   make(map[ssa.Value]ElemDecomp),
+			fields:  make(map[ssa.Value]FieldDecomp),
+			defers:  make([]*ssa.Defer, 0),
 			retvals: make([]ssa.Value, 0),
 			caller:  caller,
 			env:     caller.env,   // Use the same env as caller (i.e. ptr)
 			gortn:   caller.gortn, // Use the same role as caller
 		}
 
-		fmt.Fprintf(os.Stderr, "   ++call %s(", common.StaticCallee().Name())
+		fmt.Fprintf(os.Stderr, "++ call %s(", orange(common.StaticCallee().String()))
 		translateParams(callee, common)
 		fmt.Fprintf(os.Stderr, ")\n")
 
-		if hasCode := visitFunc(callee.fn, callee); hasCode {
-			handleRetvals(c, caller, callee)
+		if !isRecursiveCall(callee) {
+			if hasCode := visitFunc(callee.fn, callee); hasCode {
+				handleRetvals(c, caller, callee)
+			} else {
+				handleExtRetvals(c, caller, callee)
+			}
+			fmt.Fprintf(os.Stderr, "-- return from %s\n", orange(common.StaticCallee().String()))
 		} else {
-			handleExtRetvals(c, caller, callee)
+			fmt.Fprintf(os.Stderr, "-- Recursive %s()\n", orange(common.StaticCallee().String()))
+			callee.printCallStack()
 		}
 
 	default:
@@ -183,31 +259,31 @@ func call(c *ssa.Call, caller *frame) {
 func callgo(g *ssa.Go, caller *frame) {
 	// XXX A unique name for the goroutine invocation using position in code
 	common := g.Common()
-	gorole := caller.env.session.GetRole(fmt.Sprintf("%s_%d", common.Value.Name(), int(g.Pos())))
+	goname := fmt.Sprintf("%s_%d", common.Value.Name(), int(g.Pos()))
+	gorole := caller.env.session.GetRole(goname)
 
 	callee := &frame{
-		fn:     common.StaticCallee(),
-		locals: make(map[ssa.Value]ssa.Value),
-		fields: make(map[ssa.Value]struct {
-			idx int
-			str ssa.Value
-		}),
-		elems: make(map[ssa.Value]struct {
-			idx ssa.Value
-			arr ssa.Value
-		}),
+		fn:      common.StaticCallee(),
+		locals:  make(map[ssa.Value]ssa.Value),
+		arrays:  make(map[ssa.Value]ArrayElems),
+		structs: make(map[ssa.Value]StructFields),
+		elems:   make(map[ssa.Value]ElemDecomp),
+		fields:  make(map[ssa.Value]FieldDecomp),
 		retvals: make([]ssa.Value, 0),
 		caller:  caller,
 		env:     caller.env,
 		gortn: &goroutine{
 			role:    gorole,
-			root:    nil,
+			root:    sesstype.MkLabelNode(goname),
 			leaf:    nil,
 			visited: make(map[*ssa.BasicBlock]sesstype.Node),
+			chans:   make(map[ssa.Value]sesstype.Chan),
+			parent:  caller.gortn,
 		},
 	}
+	callee.gortn.leaf = &callee.gortn.root
 
-	fmt.Fprintf(os.Stderr, "   ++ queue go %s(", common.StaticCallee().String())
+	fmt.Fprintf(os.Stderr, "@@ queue go %s(", common.StaticCallee().String())
 	translateParams(callee, common)
 	fmt.Fprintf(os.Stderr, ")\n")
 
@@ -220,14 +296,11 @@ func callgo(g *ssa.Go, caller *frame) {
 func handleRetvals(call *ssa.Call, caller, callee *frame) {
 	if len(callee.retvals) > 0 {
 		if len(callee.retvals) == 1 {
-			fmt.Fprintf(os.Stderr, "  -- Return from %s with a single value %s\n", callee.fn.String(), callee.retvals[0].Name())
+			// Single return value (callee.retvals[0])
 			caller.locals[call.Value()] = callee.retvals[0]
 		} else {
-			fmt.Fprintf(os.Stderr, "  -- Return from %s with %d-tuple\n", callee.fn.String(), len(callee.retvals))
+			// Multiple return values (callee.retvals tuple)
 			caller.env.tuples[call.Value()] = callee.retvals
-			for _, retval := range callee.retvals {
-				fmt.Fprintf(os.Stderr, "    - %s\n", retval.String())
-			}
 		}
 	}
 }
@@ -243,15 +316,14 @@ func handleExtRetvals(call *ssa.Call, caller, callee *frame) {
 	if resultsLen > 0 {
 		caller.env.extern[call.Value()] = callee.fn.Signature.Results()
 		if resultsLen == 1 {
-			fmt.Fprintf(os.Stderr, "  -- Return from %s (builtin/ext) with a single value\n", callee.fn.String())
-			if t, ok := callee.fn.Signature.Results().At(0).Type().(*types.Chan); ok {
-				ch := caller.env.session.MakeExtChan(call.Name(), caller.gortn.role, t.Elem())
-				caller.env.chans[call.Value()] = ch
-				fmt.Fprintf(os.Stderr, "  -- Return value from %s (builtin/ext) is a channel %s (ext)\n", callee.fn.String(), caller.env.chans[call.Value()].Name())
+			fmt.Fprintf(os.Stderr, "-- Return from %s (builtin/ext) with a single value\n", callee.fn.String())
+			if _, ok := callee.fn.Signature.Results().At(0).Type().(*types.Chan); ok {
+				ch := caller.env.session.MakeExtChan(call, caller.gortn.role)
+				caller.gortn.chans[caller.get(call.Value())] = ch
+				fmt.Fprintf(os.Stderr, "-- Return value from %s (builtin/ext) is a channel %s (ext)\n", callee.fn.String(), caller.gortn.chans[call.Value()].Name())
 			}
 		} else {
-			fmt.Fprintf(os.Stderr, "  -- Return from %s (builtin/ext) with %d-tuple\n", callee.fn.String(), resultsLen)
-			// Do not assign new channels here, only when accessed.
+			fmt.Fprintf(os.Stderr, "-- Return from %s (builtin/ext) with %d-tuple\n", callee.fn.String(), resultsLen)
 		}
 	}
 }
@@ -259,20 +331,62 @@ func handleExtRetvals(call *ssa.Call, caller, callee *frame) {
 func translateParams(callee *frame, common *ssa.CallCommon) {
 	// Do parameter translation
 	for i, param := range common.StaticCallee().Params {
-		callee.locals[param] = common.Args[i]
+		argParent := common.Args[i]
+		if param != argParent {
+			callee.locals[param] = argParent
+		}
 
-		if ch, ok := callee.env.chans[callee.get(common.Args[i])]; ok {
-			fmt.Fprintf(os.Stderr, "\n    #%d: "+green("%s")+" channel %s", i, param.Name(), ch.Name())
+		if i > 0 {
+			fmt.Fprintf(os.Stderr, ", ")
+		}
+
+		if ch, ok := callee.gortn.chans[callee.get(param)]; ok {
+			fmt.Fprintf(os.Stderr, "%s channel %s", green(param.Name()), ch.Name())
 		} else {
-			fmt.Fprintf(os.Stderr, "\n    #%d: %s = caller[%s]", i, param.Name(), common.Args[i].Name())
+			fmt.Fprintf(os.Stderr, "%s = caller[%s]", orange(param.Name()), reg(callee.caller.get(common.Args[i])))
+		}
+
+		// If argument is a field-access temp, copy them to this frame too.
+		if fieldInfo, ok := callee.caller.fields[argParent]; ok {
+			callee.fields[param] = fieldInfo
+		}
+
+		// if argument is a elem-access temp, copy them to this frame too.
+		if elemInfo, ok := callee.caller.elems[argParent]; ok {
+			callee.elems[param] = elemInfo
 		}
 	}
 
-	// Do closure capture translation
+	// Closure capture (copy from env.closures assigned in MakeClosure).
 	if captures, isClosure := callee.env.closures[common.Value]; isClosure {
 		for idx, fv := range callee.fn.FreeVars {
 			callee.locals[fv] = captures[idx]
-			fmt.Fprintf(os.Stderr, "\n    capture %s = %s", fv.Name(), captures[idx].Name())
+			fmt.Fprintf(os.Stderr, ", capture %s = %s", fv.Name(), reg(captures[idx]))
 		}
 	}
+}
+
+func isRecursiveCall(callee *frame) bool {
+	tracebackFns := make([]*ssa.Function, 0)
+	foundFr := callee
+	for fr := callee.caller; fr != nil; fr = fr.caller {
+		tracebackFns = append(tracebackFns, fr.fn)
+		if fr.fn == callee.fn {
+			foundFr = fr
+			break
+		}
+	}
+	// If same function is not found, not recursive
+	if foundFr == callee {
+		return false
+	}
+
+	// Otherwise try to trace back with foundFr and is recursive if all matches
+	for _, fn := range tracebackFns {
+		if foundFr == nil || foundFr.fn != fn {
+			return false
+		}
+		foundFr = foundFr.caller
+	}
+	return true
 }
