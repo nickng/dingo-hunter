@@ -2,8 +2,9 @@ package sesstype
 
 import (
 	"fmt"
-	"github.com/awalterschulze/gographviz"
 	"os"
+
+	"github.com/awalterschulze/gographviz"
 )
 
 var (
