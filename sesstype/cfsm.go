@@ -30,25 +30,40 @@ func encodeSymbols(name string) string {
 	for _, runeVal := range name {
 		if isAlphanum(runeVal) {
 			outstr += string(runeVal)
+		} else {
+			switch runeVal {
+			case '{':
+				outstr += "LBRACE"
+			case '}':
+				outstr += "RBRACE"
+			case '.':
+				outstr += "DOT"
+			case '(':
+				outstr += "LPAREN"
+			case ')':
+				outstr += "RPAREN"
+			case '/':
+				outstr += "SLASH"
+			}
 		}
-		// Ignore non alphanum
+		// Ignore other non alphanum
 	}
 	return outstr
 }
 
 // Create CFSM for channel.
 func genChanCFSM(name string, typ string) string {
-	q0 := "Chan" + encodeSymbols(genNewState(name))
-	qTerm := "ChanClose" + encodeSymbols(genNewState(name))
-	cfsm := ".output\n.state graph\n"
+	q0 := "CHAN" + encodeSymbols(genNewState(name))
+	qTerm := "CHANCLOSE" + encodeSymbols(genNewState(name))
+	cfsm := ".outputs\n.state graph\n"
 
 	for i := chanCFSMs; i < totalCFSMs; i++ {
 		// Received not Sent intermediate state.
 		state := encodeSymbols(genNewState(name))
-		cfsm += fmt.Sprintf("%s %d ? %s %s\n", q0, i, typ, state)
+		cfsm += fmt.Sprintf("%s %d ? %s %s\n", q0, i, encodeSymbols(typ), state)
 		for j := chanCFSMs; j < totalCFSMs; j++ {
 			if i != j {
-				cfsm += fmt.Sprintf("%s %d ! %s %s\n", state, j, typ, q0)
+				cfsm += fmt.Sprintf("%s %d ! %s %s\n", state, j, encodeSymbols(typ), q0)
 			}
 		}
 		// close(channel) is a special termination state.
@@ -76,7 +91,27 @@ func nodeToCFSM(root Node, role Role, q0 string, prefix string) string {
 			panic(fmt.Sprintf("Sending to unknown channel: %s", node.dest.Name()))
 		}
 
-		if len(prefix) > 0 {
+		if prefix != "" { // Write transition
+			state = encodeSymbols(genNewState(role.Name()))
+			// Update all labels waiting for a state to anchor on
+			if labels, isLabel := statePendingLabels[q0]; isLabel {
+				for _, label := range labels {
+					labelJumpState[label] = state
+				}
+			}
+			cfsm += fmt.Sprintf("%s %s %s\n", q0, encodeSymbols(prefix), state)
+		} else { // No prefix (first action)
+			state = q0
+		}
+		action = fmt.Sprintf("%d ! %s", to, "STYPE"+encodeSymbols(node.t))
+
+	case *RecvNode:
+		from, ok := cfsmByName[node.orig.Name()]
+		if !ok {
+			panic(fmt.Sprintf("Receiving from unknown channel: %s", node.orig.Name()))
+		}
+
+		if prefix != "" { // Write transition
 			state = encodeSymbols(genNewState(role.Name()))
 			// Update all labels waiting for a state to anchor on
 			if labels, isLabel := statePendingLabels[q0]; isLabel {
@@ -88,27 +123,7 @@ func nodeToCFSM(root Node, role Role, q0 string, prefix string) string {
 		} else { // No prefix (first action)
 			state = q0
 		}
-		action = fmt.Sprintf("%d ! %s", to, node.t)
-
-	case *RecvNode:
-		from, ok := cfsmByName[node.orig.Name()]
-		if !ok {
-			panic(fmt.Sprintf("Receiving from unknown channel: %s", node.orig.Name()))
-		}
-
-		if len(prefix) > 0 {
-			state = encodeSymbols(genNewState(role.Name()))
-			// Update all labels waiting for a state to anchor on
-			if labels, isLabel := statePendingLabels[q0]; isLabel {
-				for _, label := range labels {
-					labelJumpState[label] = state
-				}
-			}
-			cfsm += fmt.Sprintf("%s %s %s\n", q0, prefix, state)
-		} else { // This is the first action
-			state = q0
-		}
-		action = fmt.Sprintf("%d ? %s", from, node.t)
+		action = fmt.Sprintf("%d ? %s", from, "TYPE"+encodeSymbols(node.t))
 
 	case *EmptyBodyNode:
 		if len(root.Children()) > 0 { // Passthrough
@@ -135,7 +150,9 @@ func nodeToCFSM(root Node, role Role, q0 string, prefix string) string {
 		if st, ok := labelJumpState[node.name]; ok {
 			state = st
 			action = prefix
-			cfsm += fmt.Sprintf("%s %s %s\n", q0, prefix, st)
+			if prefix != "" {
+				cfsm += fmt.Sprintf("%s %s %s\n", q0, prefix, st)
+			}
 		}
 		return cfsm // GoTo has no children (return early to skip empty nodes)
 
@@ -171,7 +188,7 @@ func nodeToCFSM(root Node, role Role, q0 string, prefix string) string {
 
 func genCFSM(role Role, root Node) string {
 	q0 := encodeSymbols(genNewState(role.Name()))
-	cfsm := ".output\n.state graph\n"
+	cfsm := ".outputs\n.state graph\n"
 	cfsm += nodeToCFSM(root, role, q0, "")
 	cfsm += fmt.Sprintf(".marking %s\n.end\n\n", q0)
 	return cfsm
