@@ -294,10 +294,11 @@ func callgo(g *ssa.Go, caller *frame) {
 // handleRetvals looks up and stores return value from function calls.
 // Nothing will be done if there are no return values from the function.
 func handleRetvals(call *ssa.Call, caller, callee *frame) {
+	fmt.Println(callee.retvals)
 	if len(callee.retvals) > 0 {
 		if len(callee.retvals) == 1 {
 			// Single return value (callee.retvals[0])
-			caller.locals[call.Value()] = callee.retvals[0]
+			caller.locals[call.Value()] = callee.get(callee.retvals[0])
 		} else {
 			// Multiple return values (callee.retvals tuple)
 			caller.env.tuples[call.Value()] = callee.retvals

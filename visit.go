@@ -368,7 +368,7 @@ func visitJump(inst *ssa.Jump, fr *frame) {
 }
 
 func visitStore(inst *ssa.Store, fr *frame) {
-	source := inst.Val
+	source := fr.get(inst.Val)
 	dstPtr := inst.Addr
 
 	if _, ok := dstPtr.(*ssa.Global); ok {
@@ -383,7 +383,8 @@ func visitStore(inst *ssa.Store, fr *frame) {
 		if str, heap, ok := fr.getStruct(fieldInfo.str); ok {
 			str[fieldInfo.idx] = source // OVERWRITE existing value
 			if heap {
-				fmt.Fprintf(os.Stderr, "            ^ stored (struct@heap) %s as %s.[%d] of type %s\n", dstPtr.Name(), fieldInfo.str.Name(), fieldInfo.idx, source.Type().String())
+				fmt.Fprintf(os.Stderr, "            ^ %s\n", inst.String())
+				fmt.Fprintf(os.Stderr, "            ^ stored (struct@heap) %s as %s.[%d] of type %s = %s\n", dstPtr.Name(), fieldInfo.str.Name(), fieldInfo.idx, source.Type().String(), reg(source))
 			} else {
 				fmt.Fprintf(os.Stderr, "            ^ stored (struct@stack) %s as %s.[%d] of type %s\n", dstPtr.Name(), fieldInfo.str.Name(), fieldInfo.idx, source.Type().String())
 			}
