@@ -247,14 +247,14 @@ func visitSelect(s *ssa.Select, fr *frame) {
 	}
 	fr.env.selNode[s] = fr.gortn.leaf
 	for _, state := range s.States {
-		if c, ok := fr.gortn.chans[fr.get(state.Chan)]; ok {
+		if c, _ := fr.findChan(fr.get(state.Chan)); c != nil {
 			switch state.Dir {
 			case types.SendOnly:
 				fr.gortn.leaf = fr.env.selNode[s]
-				fr.gortn.AddNode(sesstype.MkSelectSendNode(fr.gortn.role, c))
+				fr.gortn.AddNode(sesstype.MkSelectSendNode(fr.gortn.role, c, state.Chan.Type()))
 			case types.RecvOnly:
 				fr.gortn.leaf = fr.env.selNode[s]
-				fr.gortn.AddNode(sesstype.MkSelectRecvNode(c, fr.gortn.role))
+				fr.gortn.AddNode(sesstype.MkSelectRecvNode(c, fr.gortn.role, state.Chan.Type()))
 			default:
 				panic("Cannot handle 'select' with SendRecv channels")
 			}
@@ -336,19 +336,21 @@ func visitMakeChan(mc *ssa.MakeChan, fr *frame) {
 
 func visitSend(send *ssa.Send, fr *frame) {
 	if c, _ := fr.findChan(fr.get(send.Chan)); c != nil {
-		fr.gortn.AddNode(sesstype.MkSendNode(fr.gortn.role, c))
+		fr.gortn.AddNode(sesstype.MkSendNode(fr.gortn.role, c, send.Chan.Type()))
 		fmt.Fprintf(os.Stderr, "  "+orange("%s")+"\n", (*fr.gortn.leaf).String())
 	} else {
 		fmt.Fprintf(os.Stderr, "Send%s: '%s' is not a channel", loc(fr.fn.Prog.Fset, send.Pos()), send.Chan.Name())
+		panic("Send failed")
 	}
 }
 
 func visitRecv(recv *ssa.UnOp, fr *frame) {
 	if c, _ := fr.findChan(fr.get(recv.X)); c != nil {
-		fr.gortn.AddNode(sesstype.MkRecvNode(c, fr.gortn.role))
+		fr.gortn.AddNode(sesstype.MkRecvNode(c, fr.gortn.role, recv.X.Type()))
 		fmt.Fprintf(os.Stderr, "  "+orange("%s")+"\n", (*fr.gortn.leaf).String())
 	} else {
 		fmt.Fprintf(os.Stderr, "Recv%s: '%s' is not a channel", loc(fr.fn.Prog.Fset, recv.Pos()), recv.X.Name())
+		panic("Recv failed")
 	}
 }
 
@@ -414,9 +416,10 @@ func visitStore(inst *ssa.Store, fr *frame) {
 
 func visitChangeType(inst *ssa.ChangeType, fr *frame) {
 	if _, ok := inst.Type().(*types.Chan); ok {
-		if ch, found := fr.gortn.chans[inst.X]; found {
+		if ch, _ := fr.findChan(fr.get(inst.X)); ch != nil {
 			fr.locals[inst] = inst.X
 			fmt.Fprintf(os.Stderr, "   & changetype from %s to %s (channel %s)\n", green(reg(inst.X)), reg(inst), ch.Name())
+			fmt.Fprintf(os.Stderr, "                      ^ origin\n")
 		} else {
 			panic("Channel " + reg(inst) + loc(fr.fn.Prog.Fset, inst.Pos()) + " not found!\n")
 		}
@@ -478,6 +481,7 @@ func visitFieldAddr(inst *ssa.FieldAddr, fr *frame) {
 			fmt.Fprintf(os.Stderr, "     ^ accessed for the first time: use %s as field definition\n", field.Name())
 		} else if str[index] != field { // Field defined elsewhere
 			fr.locals[field] = str[index]
+			fmt.Fprintf(os.Stderr, "     ^ defined as %s\n", reg(field))
 		}
 		fr.fields[field] = fd
 	} else if _, ok := deref(struc.Type()).Underlying().(*types.Struct); ok { // struct has not been allocated but is a struct (e.g. uninitialised)

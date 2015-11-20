@@ -103,7 +103,7 @@ func nodeToCFSM(root Node, role Role, q0 string, prefix string) string {
 		} else { // No prefix (first action)
 			state = q0
 		}
-		action = fmt.Sprintf("%d ! %s", to, "STYPE"+encodeSymbols(node.t))
+		action = fmt.Sprintf("%d ! %s", to, "STYPE"+encodeSymbols(node.t.String()))
 
 	case *RecvNode:
 		from, ok := cfsmByName[node.orig.Name()]
@@ -123,7 +123,7 @@ func nodeToCFSM(root Node, role Role, q0 string, prefix string) string {
 		} else { // No prefix (first action)
 			state = q0
 		}
-		action = fmt.Sprintf("%d ? %s", from, "TYPE"+encodeSymbols(node.t))
+		action = fmt.Sprintf("%d ? %s", from, "TYPE"+encodeSymbols(node.t.String()))
 
 	case *EmptyBodyNode:
 		if len(root.Children()) > 0 { // Passthrough

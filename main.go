@@ -1,6 +1,7 @@
-// This tool analyses go code and extract its session typing from channel usages.
+// dingo-hunter: A tool for analysing Go code to extract the communication
+// patterns for deadlock analysis.
 //
-// The tool currently only works for executables as the analysis uses the main
+// The tool currently only works for commands as the analysis uses the main
 // function as entry point.
 package main
 
@@ -25,8 +26,6 @@ import (
 
 var (
 	session *sesstype.Session // Keeps track of the all session
-
-	//ssaflag = ssa.BuilderModeFlag(flag.CommandLine, "ssabuild", ssa.BareInits|ssa.PrintFunctions)
 	ssaflag = ssa.BuilderModeFlag(flag.CommandLine, "ssabuild", ssa.BareInits)
 	goQueue = make([]*frame, 0)
 )
@@ -90,6 +89,7 @@ func main() {
 	fmt.Printf(" ----- Results ----- \n %s\n", session.String())
 
 	sesstype.GenDot(session)
+	sesstype.GenAllCFSMs(session)
 }
 
 // Load command line arguments as SSA program for analysis

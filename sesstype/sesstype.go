@@ -151,10 +151,10 @@ func (nc *NewChanNode) String() string {
 
 // SendNode represents a send.
 type SendNode struct {
-	sndr     Role   // Sender
-	dest     Chan   // Destination
-	nondet   bool   // Is this non-deterministic?
-	t        string // Datatype
+	sndr     Role       // Sender
+	dest     Chan       // Destination
+	nondet   bool       // Is this non-deterministic?
+	t        types.Type // Datatype
 	children []Node
 }
 
@@ -175,10 +175,10 @@ func (s *SendNode) String() string {
 
 // RecvNode represents a receive.
 type RecvNode struct {
-	orig     Chan   // Originates from
-	rcvr     Role   // Received by
-	nondet   bool   // Is this non-deterministic?
-	t        string // Datatype
+	orig     Chan       // Originates from
+	rcvr     Role       // Received by
+	nondet   bool       // Is this non-deterministic?
+	t        types.Type // Datatype
 	children []Node
 }
 
@@ -261,41 +261,45 @@ func MkNewChanNode(ch Chan) Node {
 }
 
 // MkSendNode makes a SendNode.
-func MkSendNode(sndr Role, dest Chan) Node {
+func MkSendNode(sndr Role, dest Chan, typ types.Type) Node {
 	return &SendNode{
 		sndr:     sndr,
 		dest:     dest,
 		nondet:   false,
+		t:        typ,
 		children: []Node{},
 	}
 }
 
 // MkSelectSendNode makes a SendNode in a select (non-deterministic).
-func MkSelectSendNode(sndr Role, dest Chan) Node {
+func MkSelectSendNode(sndr Role, dest Chan, typ types.Type) Node {
 	return &SendNode{
 		sndr:     sndr,
 		dest:     dest,
 		nondet:   true,
+		t:        typ,
 		children: []Node{},
 	}
 }
 
 // MkRecvNode makes a RecvNode.
-func MkRecvNode(orig Chan, rcvr Role) Node {
+func MkRecvNode(orig Chan, rcvr Role, typ types.Type) Node {
 	return &RecvNode{
 		orig:     orig,
 		rcvr:     rcvr,
 		nondet:   false,
+		t:        typ,
 		children: []Node{},
 	}
 }
 
 // MkSelectRecvNode makes a RecvNode in a select (non-deterministic).
-func MkSelectRecvNode(orig Chan, rcvr Role) Node {
+func MkSelectRecvNode(orig Chan, rcvr Role, typ types.Type) Node {
 	return &RecvNode{
 		orig:     orig,
 		rcvr:     rcvr,
 		nondet:   true,
+		t:        typ,
 		children: []Node{},
 	}
 }
