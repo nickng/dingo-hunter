@@ -99,11 +99,11 @@ func nodeToCFSM(root Node, role Role, q0 string, prefix string) string {
 					labelJumpState[label] = state
 				}
 			}
-			cfsm += fmt.Sprintf("%s %s %s\n", q0, encodeSymbols(prefix), state)
+			cfsm += fmt.Sprintf("%s %s %s\n", q0, prefix, state)
 		} else { // No prefix (first action)
 			state = q0
 		}
-		action = fmt.Sprintf("%d ! %s", to, "STYPE"+encodeSymbols(node.t.String()))
+		action = fmt.Sprintf("%d ! %s", to, encodeSymbols(node.dest.Type().String()))
 
 	case *RecvNode:
 		from, ok := cfsmByName[node.orig.Name()]
@@ -123,7 +123,7 @@ func nodeToCFSM(root Node, role Role, q0 string, prefix string) string {
 		} else { // No prefix (first action)
 			state = q0
 		}
-		action = fmt.Sprintf("%d ? %s", from, "TYPE"+encodeSymbols(node.t.String()))
+		action = fmt.Sprintf("%d ? %s", from, encodeSymbols(node.orig.Type().String()))
 
 	case *EmptyBodyNode:
 		if len(root.Children()) > 0 { // Passthrough
@@ -196,13 +196,13 @@ func genCFSM(role Role, root Node) string {
 
 // Initialise the CFSM counts.
 func initCFSMs(s *Session) {
-	for _, c := range s.chans {
+	for _, c := range s.Chans {
 		cfsmByName[c.Name()] = totalCFSMs
 		chanCFSMs++
 		totalCFSMs++
 	}
 
-	for r := range s.types {
+	for r := range s.Types {
 		cfsmByName[r.Name()] = totalCFSMs
 		totalCFSMs++
 	}
@@ -225,11 +225,11 @@ func GenAllCFSMs(s *Session) {
 	initCFSMs(s)
 
 	allCFSMs := ""
-	for _, c := range s.chans {
+	for _, c := range s.Chans {
 		allCFSMs += genChanCFSM(c.Name(), c.Type().String())
 	}
 
-	for r, root := range s.types {
+	for r, root := range s.Types {
 		allCFSMs += genCFSM(r, root)
 	}
 

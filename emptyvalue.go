@@ -1,4 +1,4 @@
-package gossa
+package main
 
 import (
 	"go/token"
@@ -10,7 +10,7 @@ var (
 	_ ssa.Value = (*EmptyValue)(nil) // Make sure it implements ssa.Value.
 )
 
-// Empty ssa.Value placeholder.
+// EmptyValue is a ssa.Value placeholder for values we don't care.
 type EmptyValue struct {
 	T types.Type
 }

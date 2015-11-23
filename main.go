@@ -20,13 +20,13 @@ import (
 	"golang.org/x/tools/go/ssa/ssautil"
 	"golang.org/x/tools/go/types"
 
-	"github.com/nickng/dingo-hunter/gossa"
 	"github.com/nickng/dingo-hunter/sesstype"
+	"github.com/nickng/dingo-hunter/utils"
 )
 
 var (
 	session *sesstype.Session // Keeps track of the all session
-	ssaflag = ssa.BuilderModeFlag(flag.CommandLine, "ssabuild", ssa.BareInits)
+	ssaflag = ssa.BuilderModeFlag(flag.CommandLine, "ssa", ssa.BareInits)
 	goQueue = make([]*frame, 0)
 )
 
@@ -54,42 +54,62 @@ func main() {
 	}
 
 	session = sesstype.CreateSession() // init needs Session
-	initFunc := mainPkg.Func("init")
-	mainFrm := newFrame(initFunc)
-	mainFrm.gortn.role = session.GetRole("main")
-	mainFrm.gortn.leaf = &mainFrm.gortn.root
+	init := mainPkg.Func("init")
+	main := mainPkg.Func("main")
 
+	fr := makeToplevelFrame()
 	for _, pkg := range prog.AllPackages() {
 		for _, memb := range pkg.Members {
 			switch val := memb.(type) {
 			case *ssa.Global:
-				mainFrm.env.globals[val] = gossa.EmptyValue{T: memb.Type()}
+				switch derefAll(val.Type()).(type) {
+				case *types.Array:
+					vd := utils.NewVarDef(val)
+					fr.env.globals[val] = vd
+					fr.env.arrays[vd] = make(Elems)
+
+				case *types.Struct:
+					vd := utils.NewVarDef(val)
+					fr.env.globals[val] = vd
+					fr.env.structs[vd] = make(Fields)
+
+				case *types.Chan:
+					var c *types.Chan
+					vd := utils.NewVarDef(EmptyValue{T: c})
+					fr.env.globals[val] = vd
+
+				default:
+					fr.env.globals[val] = utils.NewVarDef(val)
+				}
 			}
 		}
 	}
-	visitFunc(initFunc, mainFrm)
 
-	mainFunc := mainPkg.Func("main")
-	if mainFunc == nil {
+	fmt.Fprintf(os.Stderr, "++ call.toplevel %s()\n", orange("init"))
+	visitFunc(init, fr)
+	if main == nil {
 		fmt.Fprintf(os.Stderr, "Error: 'main()' function not found in 'main' package\n")
 		os.Exit(1)
 	}
+	fmt.Fprintf(os.Stderr, "++ call.toplevel %s()\n", orange("main"))
+	visitFunc(main, fr)
 
-	visitFunc(mainFunc, mainFrm)
-	session.SetType(mainFrm.gortn.role, mainFrm.gortn.root)
+	session.Types[fr.gortn.role] = fr.gortn.root
 
 	var goFrm *frame
 	for len(goQueue) > 0 {
 		goFrm, goQueue = goQueue[0], goQueue[1:]
 		fmt.Fprintf(os.Stderr, "\n%s\n\n", goFrm.fn.Name())
 		visitFunc(goFrm.fn, goFrm)
-		goFrm.env.session.SetType(goFrm.gortn.role, goFrm.gortn.root)
+		goFrm.env.session.Types[goFrm.gortn.role] = goFrm.gortn.root
 	}
 
 	fmt.Printf(" ----- Results ----- \n %s\n", session.String())
 
 	sesstype.GenDot(session)
 	sesstype.GenAllCFSMs(session)
+	sesstype.PrintNodeSummary(session)
+	sesstype.PrintCFSMSummary()
 }
 
 // Load command line arguments as SSA program for analysis
@@ -143,41 +163,4 @@ func findMainPkg(prog *ssa.Program) *ssa.Package {
 	}
 
 	return nil
-}
-
-// Create a new frame from toplevel function
-func newFrame(fn *ssa.Function) *frame {
-	return &frame{
-		fn:      fn,
-		locals:  make(map[ssa.Value]ssa.Value),
-		arrays:  make(map[ssa.Value]ArrayElems),
-		structs: make(map[ssa.Value]StructFields),
-		elems:   make(map[ssa.Value]ElemDecomp),
-		fields:  make(map[ssa.Value]FieldDecomp),
-		retvals: make([]ssa.Value, 0),
-		caller:  nil,
-		env: &environ{
-			session:  session,
-			globals:  make(map[ssa.Value]ssa.Value),
-			arrays:   make(map[ssa.Value]ArrayElems),
-			structs:  make(map[ssa.Value]StructFields),
-			extern:   make(map[ssa.Value]types.Type),
-			tuples:   make(map[ssa.Value][]ssa.Value),
-			closures: make(map[ssa.Value][]ssa.Value),
-			selNode:  make(map[ssa.Value]*sesstype.Node),
-			selIdx:   make(map[ssa.Value]ssa.Value),
-			selTest: make(map[ssa.Value]struct {
-				idx int
-				tpl ssa.Value
-			}),
-			ifparent: sesstype.NewNodeStack(),
-		},
-		gortn: &goroutine{
-			role:    session.GetRole(fn.Name()),
-			root:    sesstype.MkLabelNode(fn.Name()),
-			leaf:    nil,
-			visited: make(map[*ssa.BasicBlock]sesstype.Node),
-			chans:   make(map[ssa.Value]sesstype.Chan),
-		},
-	}
 }

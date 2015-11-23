@@ -10,11 +10,14 @@ import (
 	"golang.org/x/tools/go/types"
 )
 
-func loc(fset *token.FileSet, pos token.Pos) string {
+func loc(fr *frame, pos token.Pos) string {
+	if fr.fn == nil {
+		return "(unknown)"
+	}
 	if pos == token.NoPos {
 		return "(unknown)"
 	}
-	return fset.Position(pos).String()
+	return fr.fn.Prog.Fset.Position(pos).String()
 }
 
 func red(s string) string {
@@ -44,6 +47,13 @@ func reg(reg ssa.Value) string {
 }
 
 func deref(typ types.Type) types.Type {
+	if p, ok := typ.Underlying().(*types.Pointer); ok {
+		return p.Elem()
+	}
+	return typ
+}
+
+func derefAll(typ types.Type) types.Type {
 	t := typ
 	for {
 		if p, ok := t.Underlying().(*types.Pointer); ok {

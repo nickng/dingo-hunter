@@ -17,7 +17,7 @@ func GenDot(sess *Session) {
 	graph.SetDir(true)
 	graph.SetName("G")
 
-	for role, root := range sess.types {
+	for role, root := range sess.Types {
 		sg := gographviz.NewSubGraph("\"cluster_" + role.Name() + "\"")
 		if root != nil {
 			visitNode(root, graph, sg)
