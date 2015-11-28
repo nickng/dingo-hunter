@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"go/build"
 	"os"
+	"time"
 
 	"golang.org/x/tools/go/loader"
 	"golang.org/x/tools/go/ssa"
@@ -41,6 +42,8 @@ const usage = "Usage dingo-hunter <main.go> ...\n"
 func main() {
 	var prog *ssa.Program
 	var err error
+
+	startTime := time.Now()
 
 	prog, err = loadSSA()
 	if err != nil {
@@ -103,6 +106,10 @@ func main() {
 		visitFunc(goFrm.fn, goFrm)
 		goFrm.env.session.Types[goFrm.gortn.role] = goFrm.gortn.root
 	}
+
+	elapsedTime := time.Since(startTime)
+
+	fmt.Printf("Analysis time: %f\n", elapsedTime.Seconds())
 
 	fmt.Printf(" ----- Results ----- \n %s\n", session.String())
 
