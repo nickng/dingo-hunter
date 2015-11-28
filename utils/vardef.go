@@ -40,7 +40,7 @@ func (vd *VarDef) String() string {
 		return "VarDef:nil"
 	}
 	if vd.Var.Parent() != nil {
-		return fmt.Sprintf("%s.\033[4m%s\033[0m@%d", vd.Var.Parent().String(), vd.Var.Name(), vd.Ver)
+		return fmt.Sprintf("%s.%s@%d", vd.Var.Parent().String(), vd.Var.Name(), vd.Ver)
 	}
-	return fmt.Sprintf("???.\033[4m%s\033[0m@%d", vd.Var.Name(), vd.Ver)
+	return fmt.Sprintf("???.%s@%d", vd.Var.Name(), vd.Ver)
 }
