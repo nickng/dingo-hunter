@@ -25,7 +25,7 @@ type Chan struct {
 
 // Return a name of channel.
 func (ch Chan) Name() string {
-	fullname := fmt.Sprintf("Chan:%s|%s", ch.role.Name(), ch.def.String())
+	fullname := fmt.Sprintf("%s", ch.def.String())
 	if ch.extern {
 		return fullname + "*"
 	}

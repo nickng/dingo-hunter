@@ -22,7 +22,7 @@ func GenDot(sess *Session) {
 		if root != nil {
 			visitNode(root, graph, sg)
 		}
-		graph.AddSubGraph(graph.Name, sg.Name, map[string]string{"label": "\"" + role.Name() + "\""})
+		graph.AddSubGraph(graph.Name, sg.Name, nil)
 	}
 
 	f, err := os.OpenFile("output.dot", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
@@ -56,7 +56,7 @@ func CreateNode(node Node) *gographviz.Node {
 		return &gographviz.Node{
 			Name: fmt.Sprintf("%s%d", node.Kind(), count),
 			Attrs: map[string]string{
-				"label": fmt.Sprintf("New channel %s", node.ch.Name()),
+				"label": fmt.Sprintf("Channel %s Type:%s", node.ch.Name(), node.ch.Type()),
 				"shape": "rect",
 				"color": "red",
 			},
@@ -90,7 +90,7 @@ func CreateNode(node Node) *gographviz.Node {
 		return &gographviz.Node{
 			Name: fmt.Sprintf("%s%d", node.Kind(), count),
 			Attrs: map[string]string{
-				"label": fmt.Sprintf("Receive %s%s", node.orig.Name(), desc),
+				"label": fmt.Sprintf("Recv %s%s", node.orig.Name(), desc),
 				"shape": "rect",
 				"style": style,
 			},
@@ -118,9 +118,6 @@ func CreateNode(node Node) *gographviz.Node {
 func visitNode(node Node, graph *gographviz.Escape, subgraph *gographviz.SubGraph) *gographviz.Node {
 	gNode := CreateNode(node)
 	if gNode != nil {
-		if subgraph.Name == "cluster_main" && len(graph.Nodes.Nodes) == 0 {
-			gNode.Attrs.Add("style", "bold")
-		}
 		graph.AddNode(subgraph.Name, gNode.Name, gNode.Attrs)
 
 		for _, child := range node.Children() {
