@@ -121,6 +121,9 @@ func visitInst(inst ssa.Instruction, fr *frame) {
 	case *ssa.RunDefers:
 		visitRunDefers(inst, fr)
 
+	case *ssa.Phi:
+		visitPhi(inst, fr)
+
 	default:
 		// Everything else not handled yet
 		if v, ok := inst.(ssa.Value); ok {
@@ -772,5 +775,23 @@ func visitDefer(inst *ssa.Defer, fr *frame) {
 func visitRunDefers(inst *ssa.RunDefers, fr *frame) {
 	for i := len(fr.defers) - 1; i >= 0; i-- {
 		fr.callCommon(fr.defers[i].Value(), fr.defers[i].Common())
+	}
+}
+
+func visitPhi(inst *ssa.Phi, fr *frame) {
+	// In the case of channels, find the last defined channel and replace it.
+	if _, ok := inst.Type().(*types.Chan); ok {
+		//preds := inst.Block().Preds // PredBlocks: order is significant.
+		edges := inst.Edges
+
+		for i := len(edges) - 1; i >= 0; i-- {
+			edge := edges[i]
+			if ch, defined := fr.locals[edge]; defined {
+				fr.locals[inst] = ch
+				fmt.Fprintf(os.Stderr, "    ϕ %s = %s (idx=%d)\n", inst.Name(), edge.Name(), i)
+				return
+			}
+		}
+
 	}
 }
