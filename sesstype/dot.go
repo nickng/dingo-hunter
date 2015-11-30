@@ -20,7 +20,7 @@ func GenDot(sess *Session) {
 	for role, root := range sess.Types {
 		sg := gographviz.NewSubGraph("\"cluster_" + role.Name() + "\"")
 		if root != nil {
-			visitNode(root, graph, sg)
+			DotVisitNode(root, graph, sg, nil)
 		}
 		graph.AddSubGraph(graph.Name, sg.Name, nil)
 	}
@@ -37,7 +37,7 @@ func GenDot(sess *Session) {
 	}
 }
 
-func CreateNode(node Node) *gographviz.Node {
+func DotCreateNode(node Node) *gographviz.Node {
 	switch node := node.(type) {
 	case *LabelNode:
 		defer func() { count++ }()
@@ -97,7 +97,7 @@ func CreateNode(node Node) *gographviz.Node {
 		}
 
 	case *GotoNode:
-		return nil
+		return nil // No new node to create
 
 	default:
 		defer func() { count++ }()
@@ -112,21 +112,32 @@ func CreateNode(node Node) *gographviz.Node {
 	}
 }
 
-func visitNode(node Node, graph *gographviz.Escape, subgraph *gographviz.SubGraph) *gographviz.Node {
-	gNode := CreateNode(node)
-	if gNode != nil {
-		graph.AddNode(subgraph.Name, gNode.Name, gNode.Attrs)
+// visitNode Creates a dot Node and from it create a subgraph of children.
+// Returns head of the subgraph.
+func DotVisitNode(node Node, graph *gographviz.Escape, subgraph *gographviz.SubGraph, parent *gographviz.Node) *gographviz.Node {
+	dotNode := DotCreateNode(node)
 
+	if dotNode == nil { // GotoNode
+		gtn := node.(*GotoNode)
+		graph.AddEdge(parent.Name, labelNodes[gtn.name], true, nil)
 		for _, child := range node.Children() {
-			cNode := visitNode(child, graph, subgraph)
-			if cNode != nil {
-				graph.AddEdge(gNode.Name, cNode.Name, true, nil)
-			} else {
-				// Goto Node
-				graph.AddEdge(gNode.Name, labelNodes[child.(*GotoNode).name], true, nil)
-			}
+			DotVisitNode(child, graph, subgraph, parent)
 		}
+
+		return parent // GotoNode's children are children of parent. So return parent.
 	}
 
-	return gNode
+	graph.AddNode(subgraph.Name, dotNode.Name, dotNode.Attrs)
+	if parent != nil { // Parent is not toplevel
+		graph.AddEdge(parent.Name, dotNode.Name, true, nil)
+	}
+	for _, child := range node.Children() {
+		DotVisitNode(child, graph, subgraph, dotNode)
+	}
+
+	if dotNode == nil {
+		panic("Cannot return nil dotNode")
+	}
+
+	return dotNode
 }
