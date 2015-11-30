@@ -445,7 +445,7 @@ func visitStore(inst *ssa.Store, fr *frame) {
 		case Struct:
 			fr.env.globals[dstPtr] = vd
 			fr.updateDefs(vdOld, vd)
-			fmt.Fprintf(os.Stderr, "   # store (Global) *%s = %s of type %s\n", reg(dstPtr), reg(source), source.Type().String())
+			fmt.Fprintf(os.Stderr, "   # store (global) *%s = %s of type %s\n", reg(dstPtr), reg(source), source.Type().String())
 
 		default:
 			fmt.Fprintf(os.Stderr, "   # store (global) *%s = %s of type %s\n", red(reg(dstPtr)), reg(source), source.Type().String())
