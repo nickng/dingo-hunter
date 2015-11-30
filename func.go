@@ -242,14 +242,23 @@ func (callee *frame) translate(common *ssa.CallCommon) {
 		}
 
 		fmt.Fprintf(os.Stderr, "%s:caller[%s] = %s", orange(param.Name()), reg(common.Args[i]), callee.locals[param].String())
+		myVD := callee.locals[param] // VD of parameter (which are in callee.locals)
 
 		// if argument is a channel
-		if ch, ok := callee.env.chans[callee.locals[param]]; ok {
-			fmt.Fprintf(os.Stderr, "channel %s", (*ch).Name())
-		} else if _, ok := callee.env.structs[callee.locals[param]]; ok {
-			fmt.Fprintf(os.Stderr, "struct")
-		} else if _, ok := callee.env.arrays[callee.locals[param]]; ok {
-			fmt.Fprintf(os.Stderr, "array")
+		if ch, ok := callee.env.chans[myVD]; ok {
+			fmt.Fprintf(os.Stderr, " channel %s", (*ch).Name())
+		} else if _, ok := callee.env.structs[myVD]; ok {
+			fmt.Fprintf(os.Stderr, " struct")
+		} else if _, ok := callee.env.arrays[myVD]; ok {
+			fmt.Fprintf(os.Stderr, " array")
+		} else if fields, ok := callee.caller.structs[myVD]; ok {
+			// If param is local struct in caller, make local copy
+			fmt.Fprintf(os.Stderr, " lstruct")
+			callee.structs[myVD] = fields
+		} else if elems, ok := callee.caller.arrays[myVD]; ok {
+			// If param is local array in caller, make local copy
+			fmt.Fprintf(os.Stderr, " larray")
+			callee.arrays[myVD] = elems
 		}
 	}
 
