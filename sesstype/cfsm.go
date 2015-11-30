@@ -74,147 +74,91 @@ func genChanCFSM(name string, typ string, begin int, end int) string {
 	return fmt.Sprintf(".outputs\n.state graph\n%s.marking %s\n.end\n\n", cfsm, q0)
 }
 
-// nodeToCFSM creates a transition from state q0 which took prefix to the
-// subtree rooted at root.
-func nodeToCFSM(root Node, role Role, q0 string, transition string) string {
-	if q0 == "" {
-		panic("q0 cannot be empty")
-	}
-
-	cfsm := ""
-
+// nodeToCFSM creates CFSM states from sesstype.Node. q0 is already written.
+func nodeToCFSM(root Node, role Role, q0 string, initial bool) string {
 	switch node := root.(type) {
 	case *SendNode:
-		var qSend, send string
-		to, ok := cfsmByName[node.dest.Name()]
+		toCFSM, ok := cfsmByName[node.dest.Name()]
 		if !ok {
 			panic(fmt.Sprintf("Sending to unknown channel: %s", node.dest.Name()))
 		}
 
-		if transition != "" {
-			qSend = encodeSymbols(genNewState(role.Name()))
-			cfsm += fmt.Sprintf("%s %s %s\n", q0, transition, qSend)
-		} else { // First transition
-			qSend = q0 // next parent is q0
+		sendType := encodeSymbols(node.dest.Type().String())
+		qSend := encodeSymbols(genNewState(role.Name()))
+		cfsm := fmt.Sprintf("%s %d ! %s ", q0, toCFSM, sendType)
+		if !initial {
+			cfsm = fmt.Sprintf("%s\n%s", q0, cfsm)
 		}
-		send = fmt.Sprintf("%d ! %s", to, encodeSymbols(node.dest.Type().String()))
-
-		if len(root.Children()) == 0 {
-			return fmt.Sprintf("%s %s %s\n", qSend, send, encodeSymbols(genNewState(role.Name())))
+		childCfsm := ""
+		for _, child := range node.Children() {
+			childCfsm += nodeToCFSM(child, role, qSend, false)
 		}
-
-		for _, child := range root.Children() {
-			cfsm += nodeToCFSM(child, role, qSend, send)
+		if childCfsm == "" {
+			return fmt.Sprintf("%s %s\n", cfsm, qSend)
 		}
-		return cfsm
+		return fmt.Sprintf("%s %s", cfsm, childCfsm)
 
 	case *RecvNode:
-		var qRecv, recv string
-		from, ok := cfsmByName[node.orig.Name()]
+		fromCFSM, ok := cfsmByName[node.orig.Name()]
 		if !ok {
 			panic(fmt.Sprintf("Receiving from unknown channel: %s", node.orig.Name()))
 		}
 
-		if transition != "" {
-			qRecv = encodeSymbols(genNewState(role.Name()))
-			cfsm += fmt.Sprintf("%s %s %s\n", q0, transition, qRecv)
-		} else { // First transition
-			qRecv = q0 // next parent is q0
+		recvType := encodeSymbols(node.orig.Type().String())
+		qRecv := encodeSymbols(genNewState(role.Name()))
+		cfsm := fmt.Sprintf("%s %d ? %s ", q0, fromCFSM, recvType)
+		if !initial {
+			cfsm = fmt.Sprintf("%s\n%s", q0, cfsm)
 		}
-		recv = fmt.Sprintf("%d ? %s", from, encodeSymbols(node.orig.Type().String()))
-
-		if len(root.Children()) == 0 {
-			return fmt.Sprintf("%s %s %s\n", qRecv, recv, encodeSymbols(genNewState(role.Name())))
+		childCfsm := ""
+		for _, child := range node.Children() {
+			childCfsm += nodeToCFSM(child, role, qRecv, false)
 		}
-
-		for _, child := range root.Children() {
-			cfsm += nodeToCFSM(child, role, qRecv, recv)
+		if childCfsm == "" {
+			return fmt.Sprintf("%s %s\n", cfsm, qRecv)
 		}
-		return cfsm
+		return fmt.Sprintf("%s %s", cfsm, childCfsm)
 
 	case *EndNode:
-		var qEnd, end string
-		ch, ok := cfsmByName[node.ch.Name()]
+		endCFSM, ok := cfsmByName[node.ch.Name()]
 		if !ok {
 			panic(fmt.Sprintf("Closing unknown channel: %s", node.ch.Name()))
 		}
 
-		if transition != "" {
-			qEnd = encodeSymbols(genNewState(role.Name()))
-			cfsm += fmt.Sprintf("%s %s %s\n", q0, transition, qEnd)
-		} else { // First transition
-			qEnd = q0
+		qEnd := encodeSymbols(genNewState(role.Name()))
+		cfsm := fmt.Sprintf("%s %d ! STOP %s", q0, endCFSM, qEnd)
+		if !initial {
+			cfsm = fmt.Sprintf("END %s\n%s", q0, cfsm)
 		}
-		end = fmt.Sprintf("%d ! STOP", ch)
-
-		if len(root.Children()) == 0 {
-			return fmt.Sprintf("%s %s %s\n", qEnd, end, encodeSymbols(genNewState(role.Name())))
+		childCfsm := ""
+		for _, child := range node.Children() {
+			childCfsm += nodeToCFSM(child, role, qEnd, false)
 		}
-
-		for _, child := range root.Children() {
-			cfsm += nodeToCFSM(child, role, qEnd, end)
+		if childCfsm == "" {
+			return fmt.Sprintf("%s %s\n", cfsm, qEnd)
 		}
-		return cfsm
+		return fmt.Sprintf("%s %s", cfsm, childCfsm)
 
-	case *NewChanNode:
-		if len(root.Children()) == 0 {
-			if transition != "" {
-				return fmt.Sprintf("%s %s %s\n", q0, transition, encodeSymbols(genNewState(role.Name())))
-			}
-		}
-
-		for _, child := range root.Children() {
-			cfsm += nodeToCFSM(child, role, q0, transition)
+	case *NewChanNode, *EmptyBodyNode:
+		cfsm := ""
+		for _, child := range node.Children() {
+			cfsm += nodeToCFSM(child, role, q0, initial)
 		}
 		return cfsm
 
 	case *LabelNode:
-		labelJumpState[node.name] = encodeSymbols(genNewState(role.Name()))
-
-		if len(root.Children()) == 0 {
-			if transition != "" {
-				return fmt.Sprintf("%s %s %s\n", q0, transition, labelJumpState[node.name])
-			}
-			return ""
-		}
-
-		for _, child := range root.Children() {
-			cfsm += nodeToCFSM(child, role, q0, transition)
+		labelJumpState[node.name] = q0
+		cfsm := ""
+		for _, child := range node.Children() {
+			cfsm += nodeToCFSM(child, role, q0, initial)
 		}
 		return cfsm
 
 	case *GotoNode:
-		qGoto, ok := labelJumpState[node.name]
-		if !ok {
-			//panic(fmt.Sprintf("Jump to unknown state: %s", node.name))
-			return ""
-		}
-
-		if transition != "" {
-			cfsm += fmt.Sprintf("%s %s %s\n", q0, transition, qGoto)
-			for _, child := range root.Children() {
-				cfsm += nodeToCFSM(child, role, qGoto, transition)
-			}
-			return cfsm
-		}
-
-		for _, child := range root.Children() {
-			cfsm += nodeToCFSM(child, role, q0, transition)
-		}
-
-		return cfsm
-
-	case *EmptyBodyNode:
-		qNext := q0
-		if len(root.Children()) == 0 {
-			if transition != "" {
-				qNext = encodeSymbols(genNewState(role.Name()))
-				cfsm += fmt.Sprintf("%s %s %s\n", q0, transition, qNext)
-			}
-		}
-		// Passthrough
-		for _, child := range root.Children() {
-			cfsm += nodeToCFSM(child, role, qNext, transition)
+		qJumpto := labelJumpState[node.name]
+		cfsm := ""
+		for _, child := range node.Children() {
+			cfsm += nodeToCFSM(child, role, qJumpto, initial)
 		}
 		return cfsm
 
@@ -225,7 +169,7 @@ func nodeToCFSM(root Node, role Role, q0 string, transition string) string {
 
 func genCFSM(role Role, root Node) string {
 	q0 := encodeSymbols(genNewState(role.Name()))
-	cfsmBody := nodeToCFSM(root, role, q0, "")
+	cfsmBody := nodeToCFSM(root, role, q0, true)
 	if cfsmBody == "" {
 		return ""
 	}
