@@ -97,9 +97,6 @@ func CreateNode(node Node) *gographviz.Node {
 		}
 
 	case *GotoNode:
-		if len(node.Children()) > 0 {
-			return CreateNode(node.Child(0))
-		}
 		return nil
 
 	default:

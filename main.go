@@ -97,7 +97,7 @@ func main() {
 	fmt.Fprintf(os.Stderr, "++ call.toplevel %s()\n", orange("main"))
 	visitFunc(main, fr)
 
-	session.Types[fr.gortn.role] = fr.gortn.root
+	fr.env.session.Types[fr.gortn.role] = fr.gortn.root
 
 	var goFrm *frame
 	for len(goQueue) > 0 {
@@ -111,7 +111,7 @@ func main() {
 
 	fmt.Printf("Analysis time: %f\n", elapsedTime.Seconds())
 
-	fmt.Printf(" ----- Results ----- \n %s\n", session.String())
+	fmt.Printf(" ----- Results ----- \n%s\n", session.String())
 
 	sesstype.GenDot(session)
 	sesstype.GenAllCFSMs(session)
@@ -153,7 +153,7 @@ func loadSSA() (*ssa.Program, error) {
 
 	// Don't load these packages.
 	for _, info := range prog.AllPackages {
-		if info.Pkg.Name() != "fmt" && info.Pkg.Name() != "reflect" && info.Pkg.Name() != "strings" {
+		if info.Pkg.Name() != "fmt" && info.Pkg.Name() != "reflect" && info.Pkg.Name() != "strings" && info.Pkg.Name() != "runtime" && info.Pkg.Name() != "sync" {
 			progSSA.Package(info.Pkg).Build()
 		}
 	}

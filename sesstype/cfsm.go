@@ -6,12 +6,11 @@ import (
 )
 
 var (
-	cfsmStateCount     = make(map[string]int)      // Contains next state number for each CFSM.
-	cfsmByName         = make(map[string]int)      // Converts role names to CFSM state number.
-	labelJumpState     = make(map[string]string)   // Convert label names to state names to jump to.
-	statePendingLabels = make(map[string][]string) // List of labels waiting for the next state write.
-	totalCFSMs         = 0                         // Number of CFSMs.
-	chanCFSMs          = 0                         // Number of CFSMs for channels.
+	cfsmStateCount = make(map[string]int)    // Contains next state number for each CFSM.
+	cfsmByName     = make(map[string]int)    // Converts role names to CFSM state number.
+	labelJumpState = make(map[string]string) // Convert label names to state names to jump to.
+	totalCFSMs     = 0                       // Number of CFSMs.
+	chanCFSMs      = 0                       // Number of CFSMs for channels.
 )
 
 func genNewState(roleName string) string {
@@ -52,146 +51,185 @@ func encodeSymbols(name string) string {
 }
 
 // Create CFSM for channel.
-func genChanCFSM(name string, typ string) string {
-	q0 := "CHAN" + encodeSymbols(genNewState(name))
-	qTerm := "CHANCLOSE" + encodeSymbols(genNewState(name))
-	cfsm := ".outputs\n.state graph\n"
-
-	for i := chanCFSMs; i < totalCFSMs; i++ {
-		// Received not Sent intermediate state.
-		state := encodeSymbols(genNewState(name))
-		cfsm += fmt.Sprintf("%s %d ? %s %s\n", q0, i, encodeSymbols(typ), state)
-		for j := chanCFSMs; j < totalCFSMs; j++ {
+func genChanCFSM(name string, typ string, begin int, end int) string {
+	q0 := fmt.Sprintf("Chan%s", encodeSymbols(genNewState(name)))
+	qTerm := fmt.Sprintf("Close%s", encodeSymbols(genNewState(name)))
+	cfsm := ""
+	for i := begin; i < end; i++ {
+		q1 := encodeSymbols(genNewState(name))
+		cfsm += fmt.Sprintf("%s %d ? %s %s\n", q0, i, encodeSymbols(typ), q1)
+		for j := begin; j < end; j++ {
 			if i != j {
-				cfsm += fmt.Sprintf("%s %d ! %s %s\n", state, j, encodeSymbols(typ), q0)
+				cfsm += fmt.Sprintf("%s %d ! %s %s\n", q1, j, encodeSymbols(typ), q0)
 			}
 		}
-		// close(channel) is a special termination state.
 		cfsm += fmt.Sprintf("%s %d ? STOP %s\n", q0, i, qTerm)
+		for j := begin; j < end; j++ {
+			if i != j {
+				cfsm += fmt.Sprintf("%s %d ! STOP %s\n", qTerm, j, qTerm)
+			}
+		}
 	}
 
-	cfsm += fmt.Sprintf(".marking %s\n.end\n\n", q0)
-	return cfsm
+	return fmt.Sprintf(".outputs\n.state graph\n%s.marking %s\n.end\n\n", cfsm, q0)
 }
 
 // nodeToCFSM creates a transition from state q0 which took prefix to the
 // subtree rooted at root.
-func nodeToCFSM(root Node, role Role, q0 string, prefix string) string {
+func nodeToCFSM(root Node, role Role, q0 string, transition string) string {
 	if q0 == "" {
 		panic("q0 cannot be empty")
 	}
 
-	var state, action string
 	cfsm := ""
 
 	switch node := root.(type) {
 	case *SendNode:
+		var qSend, send string
 		to, ok := cfsmByName[node.dest.Name()]
 		if !ok {
 			panic(fmt.Sprintf("Sending to unknown channel: %s", node.dest.Name()))
 		}
 
-		if prefix != "" { // Write transition
-			state = encodeSymbols(genNewState(role.Name()))
-			// Update all labels waiting for a state to anchor on
-			if labels, isLabel := statePendingLabels[q0]; isLabel {
-				for _, label := range labels {
-					labelJumpState[label] = state
-				}
-			}
-			cfsm += fmt.Sprintf("%s %s %s\n", q0, prefix, state)
-		} else { // No prefix (first action)
-			state = q0
+		if transition != "" {
+			qSend = encodeSymbols(genNewState(role.Name()))
+			cfsm += fmt.Sprintf("%s %s %s\n", q0, transition, qSend)
+		} else { // First transition
+			qSend = q0 // next parent is q0
 		}
-		action = fmt.Sprintf("%d ! %s", to, encodeSymbols(node.dest.Type().String()))
+		send = fmt.Sprintf("%d ! %s", to, encodeSymbols(node.dest.Type().String()))
+
+		if len(root.Children()) == 0 {
+			return fmt.Sprintf("%s %s %s\n", qSend, send, encodeSymbols(genNewState(role.Name())))
+		}
+
+		for _, child := range root.Children() {
+			cfsm += nodeToCFSM(child, role, qSend, send)
+		}
+		return cfsm
 
 	case *RecvNode:
+		var qRecv, recv string
 		from, ok := cfsmByName[node.orig.Name()]
 		if !ok {
 			panic(fmt.Sprintf("Receiving from unknown channel: %s", node.orig.Name()))
 		}
 
-		if prefix != "" { // Write transition
-			state = encodeSymbols(genNewState(role.Name()))
-			// Update all labels waiting for a state to anchor on
-			if labels, isLabel := statePendingLabels[q0]; isLabel {
-				for _, label := range labels {
-					labelJumpState[label] = state
-				}
-			}
-			cfsm += fmt.Sprintf("%s %s %s\n", q0, prefix, state)
-		} else { // No prefix (first action)
-			state = q0
+		if transition != "" {
+			qRecv = encodeSymbols(genNewState(role.Name()))
+			cfsm += fmt.Sprintf("%s %s %s\n", q0, transition, qRecv)
+		} else { // First transition
+			qRecv = q0 // next parent is q0
 		}
-		action = fmt.Sprintf("%d ? %s", from, encodeSymbols(node.orig.Type().String()))
+		recv = fmt.Sprintf("%d ? %s", from, encodeSymbols(node.orig.Type().String()))
 
-	case *EmptyBodyNode:
-		if len(root.Children()) > 0 { // Passthrough
-			state = q0
-			action = prefix
-		} else { // Empty branch
-			if prefix != "" {
-				state = encodeSymbols(genNewState(role.Name()))
-				cfsm += fmt.Sprintf("%s %s %s\n", q0, prefix, state)
+		if len(root.Children()) == 0 {
+			return fmt.Sprintf("%s %s %s\n", qRecv, recv, encodeSymbols(genNewState(role.Name())))
+		}
+
+		for _, child := range root.Children() {
+			cfsm += nodeToCFSM(child, role, qRecv, recv)
+		}
+		return cfsm
+
+	case *EndNode:
+		var qEnd, end string
+		ch, ok := cfsmByName[node.ch.Name()]
+		if !ok {
+			panic(fmt.Sprintf("Closing unknown channel: %s", node.ch.Name()))
+		}
+
+		if transition != "" {
+			qEnd = encodeSymbols(genNewState(role.Name()))
+			cfsm += fmt.Sprintf("%s %s %s\n", q0, transition, qEnd)
+		} else { // First transition
+			qEnd = q0
+		}
+		end = fmt.Sprintf("%d ! STOP", ch)
+
+		if len(root.Children()) == 0 {
+			return fmt.Sprintf("%s %s %s\n", qEnd, end, encodeSymbols(genNewState(role.Name())))
+		}
+
+		for _, child := range root.Children() {
+			cfsm += nodeToCFSM(child, role, qEnd, end)
+		}
+		return cfsm
+
+	case *NewChanNode:
+		if len(root.Children()) == 0 {
+			if transition != "" {
+				return fmt.Sprintf("%s %s %s\n", q0, transition, encodeSymbols(genNewState(role.Name())))
+			}
+		}
+
+		for _, child := range root.Children() {
+			cfsm += nodeToCFSM(child, role, q0, transition)
+		}
+		return cfsm
+
+	case *LabelNode:
+		labelJumpState[node.name] = encodeSymbols(genNewState(role.Name()))
+
+		if len(root.Children()) == 0 {
+			if transition != "" {
+				return fmt.Sprintf("%s %s %s\n", q0, transition, labelJumpState[node.name])
+			}
+			return ""
+		}
+
+		for _, child := range root.Children() {
+			cfsm += nodeToCFSM(child, role, q0, transition)
+		}
+		return cfsm
+
+	case *GotoNode:
+		qGoto, ok := labelJumpState[node.name]
+		if !ok {
+			//panic(fmt.Sprintf("Jump to unknown state: %s", node.name))
+			return ""
+		}
+
+		if transition != "" {
+			cfsm += fmt.Sprintf("%s %s %s\n", q0, transition, qGoto)
+			for _, child := range root.Children() {
+				cfsm += nodeToCFSM(child, role, qGoto, transition)
 			}
 			return cfsm
 		}
 
-	case *NewChanNode: // Just skip
-		state = q0
-		action = prefix
+		for _, child := range root.Children() {
+			cfsm += nodeToCFSM(child, role, q0, transition)
+		}
 
-	case *LabelNode:
-		statePendingLabels[q0] = append(statePendingLabels[q0], node.name)
-		state = q0
-		action = prefix
+		return cfsm
 
-	case *GotoNode:
-		if st, ok := labelJumpState[node.name]; ok {
-			state = st
-			action = prefix
-			if prefix != "" {
-				cfsm += fmt.Sprintf("%s %s %s\n", q0, prefix, st)
+	case *EmptyBodyNode:
+		qNext := q0
+		if len(root.Children()) == 0 {
+			if transition != "" {
+				qNext = encodeSymbols(genNewState(role.Name()))
+				cfsm += fmt.Sprintf("%s %s %s\n", q0, transition, qNext)
 			}
 		}
-		return cfsm // GoTo has no children (return early to skip empty nodes)
-
-	case *EndNode:
-		// Close a channel.
-		state = encodeSymbols(genNewState(role.Name()))
-		action = fmt.Sprintf("%s ! STOP", cfsmByName[node.ch.Name()])
-		cfsm += fmt.Sprintf("%s %s %s\n", q0, prefix, state)
+		// Passthrough
+		for _, child := range root.Children() {
+			cfsm += nodeToCFSM(child, role, qNext, transition)
+		}
+		return cfsm
 
 	default:
 		panic(fmt.Sprintf("Unhandled node type: %T", node))
 	}
-
-	if len(root.Children()) == 0 {
-		stateLast := encodeSymbols(genNewState(role.Name()))
-		if action != "" { // Only if there are actions
-			if labels, isLabel := statePendingLabels[state]; isLabel {
-				for _, label := range labels {
-					labelJumpState[label] = stateLast
-				}
-			}
-			cfsm += fmt.Sprintf("%s %s %s\n", state, action, stateLast)
-		}
-		// Otherwise there is no communication
-	} else {
-		for _, child := range root.Children() {
-			cfsm += nodeToCFSM(child, role, state, action)
-		}
-	}
-
-	return cfsm
 }
 
 func genCFSM(role Role, root Node) string {
 	q0 := encodeSymbols(genNewState(role.Name()))
-	cfsm := ".outputs\n.state graph\n"
-	cfsm += nodeToCFSM(root, role, q0, "")
-	cfsm += fmt.Sprintf(".marking %s\n.end\n\n", q0)
-	return cfsm
+	cfsmBody := nodeToCFSM(root, role, q0, "")
+	if cfsmBody == "" {
+		return ""
+	}
+	return fmt.Sprintf(".outputs\n.state graph\n%s.marking %s\n.end\n\n", cfsmBody, q0)
 }
 
 // Initialise the CFSM counts.
@@ -225,13 +263,27 @@ func GenAllCFSMs(s *Session) {
 	initCFSMs(s)
 
 	allCFSMs := ""
-	for _, c := range s.Chans {
-		allCFSMs += genChanCFSM(c.Name(), c.Type().String())
-	}
+	goroutineCFSMs := ""
+	chanCFSMs := ""
+	nonEmptyCFSMs := 0
 
 	for r, root := range s.Types {
-		allCFSMs += genCFSM(r, root)
+		cfsm := genCFSM(r, root)
+		fmt.Fprintf(os.Stderr, "Generate %s CFSM\n", r.Name())
+		if cfsm == "" {
+			fmt.Fprintf(os.Stderr, "  ^ Empty\n")
+		}
+		if cfsm != "" {
+			nonEmptyCFSMs++
+			goroutineCFSMs += cfsm
+		}
 	}
+
+	for _, c := range s.Chans {
+		chanCFSMs += genChanCFSM(c.Name(), c.Type().String(), len(s.Chans), len(s.Chans)+nonEmptyCFSMs)
+	}
+
+	allCFSMs = chanCFSMs + goroutineCFSMs
 
 	f, err := os.OpenFile("output_cfsms", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	defer f.Close()

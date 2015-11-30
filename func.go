@@ -44,6 +44,7 @@ type frame struct {
 	arrays  map[*utils.VarDef]Elems     // Array elements (Alloc local)
 	structs map[*utils.VarDef]Fields    // Struct fields (Alloc local)
 	tuples  map[ssa.Value]Tuples        // Multiple return values as tuple
+	phi     map[ssa.Value][]ssa.Value   // Phis
 	retvals Tuples                      //
 	defers  []*ssa.Defer                // Deferred calls
 	caller  *frame                      // Ptr to caller's frame, nil if main/ext
@@ -83,6 +84,7 @@ func makeToplevelFrame() *frame {
 		arrays:  make(map[*utils.VarDef]Elems),
 		structs: make(map[*utils.VarDef]Fields),
 		tuples:  make(map[ssa.Value]Tuples),
+		phi:     make(map[ssa.Value][]ssa.Value),
 		retvals: make(Tuples, 0),
 		defers:  make([]*ssa.Defer, 0),
 		caller:  nil,
@@ -164,6 +166,7 @@ func (caller *frame) callCommon(call *ssa.Call, common *ssa.CallCommon) {
 			arrays:  make(map[*utils.VarDef]Elems),
 			structs: make(map[*utils.VarDef]Fields),
 			tuples:  make(map[ssa.Value]Tuples),
+			phi:     make(map[ssa.Value][]ssa.Value),
 			retvals: make(Tuples, common.Signature().Results().Len()),
 			defers:  make([]*ssa.Defer, 0),
 			caller:  caller,
@@ -203,6 +206,7 @@ func (caller *frame) callGo(g *ssa.Go) {
 		arrays:  make(map[*utils.VarDef]Elems),
 		structs: make(map[*utils.VarDef]Fields),
 		tuples:  make(map[ssa.Value]Tuples),
+		phi:     make(map[ssa.Value][]ssa.Value),
 		retvals: make(Tuples, common.Signature().Results().Len()),
 		defers:  make([]*ssa.Defer, 0),
 		caller:  caller,
@@ -290,6 +294,12 @@ func (callee *frame) get(v ssa.Value) (*utils.VarDef, VarKind) {
 			return vd, LocalStruct
 		}
 		return vd, Untracked
+	} else if vs, ok := callee.phi[v]; ok {
+		for i := len(vs) - 1; i >= 0; i-- {
+			if chVd, defined := callee.locals[vs[i]]; defined {
+				return chVd, Chan
+			}
+		}
 	}
 	return nil, Nothing
 }

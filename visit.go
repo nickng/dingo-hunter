@@ -137,6 +137,7 @@ func visitInst(inst ssa.Instruction, fr *frame) {
 func visitExtract(e *ssa.Extract, fr *frame) {
 	if tpl, ok := fr.tuples[e.Tuple]; ok {
 		fmt.Fprintf(os.Stderr, "  extract %s[#%d] == %s)\n", e.Tuple.Name(), e.Index, tpl[e.Index].String())
+		fr.locals[e] = tpl[e.Index]
 	} else {
 		// Check if we are extracting select index
 		if _, ok := fr.env.selNode[e.Tuple]; ok && e.Index == 0 {
@@ -280,15 +281,17 @@ func visitSelect(s *ssa.Select, fr *frame) {
 		switch vd, kind := fr.get(state.Chan); kind {
 		case Chan:
 			ch := fr.env.chans[vd]
-			fmt.Fprintf(os.Stderr, "   select "+orange("%s")+"\n", (*fr.gortn.leaf).String())
+			fmt.Fprintf(os.Stderr, "   select "+orange("%s")+"\n", vd.String())
 			switch state.Dir {
 			case types.SendOnly:
 				fr.gortn.leaf = fr.env.selNode[s]
 				fr.gortn.AddNode(sesstype.MkSelectSendNode(fr.gortn.role, *ch, state.Chan.Type()))
+				fmt.Fprintf(os.Stderr, "  %s\n", orange((*fr.gortn.leaf).String()))
 
 			case types.RecvOnly:
 				fr.gortn.leaf = fr.env.selNode[s]
 				fr.gortn.AddNode(sesstype.MkSelectRecvNode(*ch, fr.gortn.role, state.Chan.Type()))
+				fmt.Fprintf(os.Stderr, "  %s\n", orange((*fr.gortn.leaf).String()))
 
 			default:
 				panic("Select: Cannot handle with SendRecv channels")
@@ -415,6 +418,7 @@ func visitRecv(recv *ssa.UnOp, fr *frame) {
 
 // visitClose for the close() builtin primitive.
 func visitClose(ch sesstype.Chan, fr *frame) {
+	fmt.Println((*fr.gortn.leaf).String())
 	fr.gortn.AddNode(sesstype.MkEndNode(ch))
 }
 
@@ -782,16 +786,7 @@ func visitPhi(inst *ssa.Phi, fr *frame) {
 	// In the case of channels, find the last defined channel and replace it.
 	if _, ok := inst.Type().(*types.Chan); ok {
 		//preds := inst.Block().Preds // PredBlocks: order is significant.
-		edges := inst.Edges
-
-		for i := len(edges) - 1; i >= 0; i-- {
-			edge := edges[i]
-			if ch, defined := fr.locals[edge]; defined {
-				fr.locals[inst] = ch
-				fmt.Fprintf(os.Stderr, "    ϕ %s = %s (idx=%d)\n", inst.Name(), edge.Name(), i)
-				return
-			}
-		}
-
+		fr.locals[inst], _ = fr.get(inst.Edges[0])
+		fr.phi[inst] = inst.Edges
 	}
 }
