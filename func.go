@@ -61,9 +61,12 @@ type environ struct {
 	chans    map[*utils.VarDef]*sesstype.Chan // Channels
 	extern   map[ssa.Value]types.Type         // Values that originates externally, we are only sure of its type
 	closures map[ssa.Value]Captures           // Closure captures
-	selNode  map[ssa.Value]*sesstype.Node     // Parent nodes of select
-	selIdx   map[ssa.Value]ssa.Value          // Mapping from select index to select SSA Value
-	selTest  map[ssa.Value]struct {           // Records test for select-branch index
+	selNode  map[ssa.Value]struct {           // Parent nodes of select
+		parent   *sesstype.Node
+		blocking bool
+	}
+	selIdx  map[ssa.Value]ssa.Value // Mapping from select index to select SSA Value
+	selTest map[ssa.Value]struct {  // Records test for select-branch index
 		idx int       // The index of the branch
 		tpl ssa.Value // The SelectState tuple which the branch originates from
 	}
@@ -96,8 +99,11 @@ func makeToplevelFrame() *frame {
 			chans:    make(map[*utils.VarDef]*sesstype.Chan),
 			extern:   make(map[ssa.Value]types.Type),
 			closures: make(map[ssa.Value]Captures),
-			selNode:  make(map[ssa.Value]*sesstype.Node),
-			selIdx:   make(map[ssa.Value]ssa.Value),
+			selNode: make(map[ssa.Value]struct {
+				parent   *sesstype.Node
+				blocking bool
+			}),
+			selIdx: make(map[ssa.Value]ssa.Value),
 			selTest: make(map[ssa.Value]struct {
 				idx int
 				tpl ssa.Value

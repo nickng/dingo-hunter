@@ -275,7 +275,13 @@ func visitSelect(s *ssa.Select, fr *frame) {
 		panic("Select: Session head Node cannot be nil")
 	}
 
-	fr.env.selNode[s] = fr.gortn.leaf
+	fr.env.selNode[s] = struct {
+		parent   *sesstype.Node
+		blocking bool
+	}{
+		fr.gortn.leaf,
+		s.Blocking,
+	}
 	for _, state := range s.States {
 		locn := loc(fr, state.Chan.Pos())
 		switch vd, kind := fr.get(state.Chan); kind {
@@ -284,12 +290,12 @@ func visitSelect(s *ssa.Select, fr *frame) {
 			fmt.Fprintf(os.Stderr, "   select "+orange("%s")+"\n", vd.String())
 			switch state.Dir {
 			case types.SendOnly:
-				fr.gortn.leaf = fr.env.selNode[s]
+				fr.gortn.leaf = fr.env.selNode[s].parent
 				fr.gortn.AddNode(sesstype.MkSelectSendNode(fr.gortn.role, *ch, state.Chan.Type()))
 				fmt.Fprintf(os.Stderr, "  %s\n", orange((*fr.gortn.leaf).String()))
 
 			case types.RecvOnly:
-				fr.gortn.leaf = fr.env.selNode[s]
+				fr.gortn.leaf = fr.env.selNode[s].parent
 				fr.gortn.AddNode(sesstype.MkSelectRecvNode(*ch, fr.gortn.role, state.Chan.Type()))
 				fmt.Fprintf(os.Stderr, "  %s\n", orange((*fr.gortn.leaf).String()))
 
@@ -305,6 +311,10 @@ func visitSelect(s *ssa.Select, fr *frame) {
 			fr.printCallStack()
 			panic(fmt.Sprintf("Select: Channel %s at %s is of wrong kind", reg(state.Chan), locn))
 		}
+	}
+	if !s.Blocking { // Default state exists
+		fr.gortn.leaf = fr.env.selNode[s].parent
+		fr.gortn.AddNode(&sesstype.EmptyBodyNode{})
 	}
 }
 
@@ -337,11 +347,14 @@ func visitIf(inst *ssa.If, fr *frame) {
 		fmt.Fprintf(os.Stderr, "  @ Switch to select branch #%d\n", selTest.idx)
 		if selParent, ok := fr.env.selNode[selTest.tpl]; ok {
 			fr.gortn.leaf = ifparent
-			fmt.Fprintf(os.Stderr, "parent %s\n", *selParent)
-			*fr.gortn.leaf = (*selParent).Child(selTest.idx)
+			fmt.Fprintf(os.Stderr, "parentThen %s\n", *selParent.parent)
+			*fr.gortn.leaf = (*selParent.parent).Child(selTest.idx)
 			visitBlock(inst.Block().Succs[0], fr)
 
-			*fr.gortn.leaf = (*selParent).Child(selTest.idx)
+			fmt.Fprintf(os.Stderr, "parentElse %s\n", *selParent.parent)
+			if !selParent.blocking && len((*selParent.parent).Children()) > selTest.idx+1 {
+				*fr.gortn.leaf = (*selParent.parent).Child(selTest.idx + 1)
+			}
 			visitBlock(inst.Block().Succs[1], fr)
 		} else {
 			panic("Select without corresponding sesstype.Node")
