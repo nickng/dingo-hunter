@@ -88,6 +88,9 @@ func visitInst(inst ssa.Instruction, fr *frame) {
 	case *ssa.ChangeType:
 		visitChangeType(inst, fr)
 
+	case *ssa.ChangeInterface:
+		visitChangeInterface(inst, fr)
+
 	case *ssa.If:
 		visitIf(inst, fr)
 
@@ -124,6 +127,12 @@ func visitInst(inst ssa.Instruction, fr *frame) {
 	case *ssa.Phi:
 		visitPhi(inst, fr)
 
+	case *ssa.TypeAssert:
+		visitTypeAssert(inst, fr)
+
+	case *ssa.MakeInterface:
+		visitMakeInterface(inst, fr)
+
 	default:
 		// Everything else not handled yet
 		if v, ok := inst.(ssa.Value); ok {
@@ -136,12 +145,12 @@ func visitInst(inst ssa.Instruction, fr *frame) {
 
 func visitExtract(e *ssa.Extract, fr *frame) {
 	if tpl, ok := fr.tuples[e.Tuple]; ok {
-		fmt.Fprintf(os.Stderr, "  extract %s[#%d] == %s)\n", e.Tuple.Name(), e.Index, tpl[e.Index].String())
+		fmt.Fprintf(os.Stderr, "   %s = extract %s[#%d] == %s\n", reg(e), e.Tuple.Name(), e.Index, tpl[e.Index].String())
 		fr.locals[e] = tpl[e.Index]
 	} else {
 		// Check if we are extracting select index
 		if _, ok := fr.env.selNode[e.Tuple]; ok && e.Index == 0 {
-			fmt.Fprintf(os.Stderr, "  select %s index = %s)\n", e.Tuple.Name(), e.Name())
+			fmt.Fprintf(os.Stderr, "   | select %s index = %s\n", e.Tuple.Name(), e.Name())
 			fr.env.selIdx[e] = e.Tuple
 			return
 		}
@@ -149,7 +158,7 @@ func visitExtract(e *ssa.Extract, fr *frame) {
 		if extType, isExtern := fr.env.extern[e.Tuple]; isExtern {
 			if extTpl, isTuple := extType.(*types.Tuple); isTuple {
 				if extTpl.Len() < e.Index {
-					panic("Extract: Cannot extract from tuple " + e.Tuple.Name() + "\n")
+					panic(fmt.Sprintf("Extract: Cannot extract from tuple %s\n", e.Tuple.Name()))
 				}
 				// if extracted value is a chan create a new channel for it
 				if _, ok := extTpl.At(e.Index).Type().(*types.Chan); ok {
@@ -157,9 +166,9 @@ func visitExtract(e *ssa.Extract, fr *frame) {
 				}
 			}
 			if e.Index < len(tpl) {
-				fmt.Fprintf(os.Stderr, "  extract %s[#%d] == %s)\n", e.Tuple.Name(), e.Index, tpl[e.Index].String())
+				fmt.Fprintf(os.Stderr, "  extract %s[#%d] == %s\n", e.Tuple.Name(), e.Index, tpl[e.Index].String())
 			} else {
-				fmt.Fprintf(os.Stderr, "  extract %s[#%d] len=%d)\n", e.Tuple.Name(), e.Index, len(tpl))
+				fmt.Fprintf(os.Stderr, "  extract %s[#%d/%d]\n", e.Tuple.Name(), e.Index, len(tpl))
 			}
 		} else {
 			fmt.Fprintf(os.Stderr, "   # %s = %s of type %s\n", e.Name(), red(e.String()), e.Type().String())
@@ -251,9 +260,13 @@ func visitDeref(inst *ssa.UnOp, fr *frame) {
 	}
 
 	switch vd, kind := fr.get(ptr); kind {
-	case Array, LocalArray, Struct, LocalStruct:
+	case Array, LocalArray:
 		fr.locals[val] = vd
-		fmt.Fprintf(os.Stderr, "   %s = *%s (array/struct)\n", cyan(reg(val)), ptr.Name())
+		fmt.Fprintf(os.Stderr, "   %s = *%s (array)\n", cyan(reg(val)), ptr.Name())
+
+	case Struct, LocalStruct:
+		fr.locals[val] = vd
+		fmt.Fprintf(os.Stderr, "   %s = *%s (struct)\n", cyan(reg(val)), ptr.Name())
 
 	case Chan:
 		fr.locals[val] = vd
@@ -266,7 +279,7 @@ func visitDeref(inst *ssa.UnOp, fr *frame) {
 		}
 
 	default:
-		fmt.Fprintf(os.Stderr, "   # %s = *%s (not found)\n", red(inst.String()), red(inst.X.String()))
+		fmt.Fprintf(os.Stderr, "   # %s = *%s/%s (not found, type=%s)\n", red(inst.String()), red(inst.X.String()), reg(inst.X), inst.Type().String())
 	}
 }
 
@@ -292,12 +305,12 @@ func visitSelect(s *ssa.Select, fr *frame) {
 			case types.SendOnly:
 				fr.gortn.leaf = fr.env.selNode[s].parent
 				fr.gortn.AddNode(sesstype.MkSelectSendNode(fr.gortn.role, *ch, state.Chan.Type()))
-				fmt.Fprintf(os.Stderr, "  %s\n", orange((*fr.gortn.leaf).String()))
+				fmt.Fprintf(os.Stderr, "    %s\n", orange((*fr.gortn.leaf).String()))
 
 			case types.RecvOnly:
 				fr.gortn.leaf = fr.env.selNode[s].parent
 				fr.gortn.AddNode(sesstype.MkSelectRecvNode(*ch, fr.gortn.role, state.Chan.Type()))
-				fmt.Fprintf(os.Stderr, "  %s\n", orange((*fr.gortn.leaf).String()))
+				fmt.Fprintf(os.Stderr, "    %s\n", orange((*fr.gortn.leaf).String()))
 
 			default:
 				panic("Select: Cannot handle with SendRecv channels")
@@ -347,11 +360,9 @@ func visitIf(inst *ssa.If, fr *frame) {
 		fmt.Fprintf(os.Stderr, "  @ Switch to select branch #%d\n", selTest.idx)
 		if selParent, ok := fr.env.selNode[selTest.tpl]; ok {
 			fr.gortn.leaf = ifparent
-			fmt.Fprintf(os.Stderr, "parentThen %s\n", *selParent.parent)
 			*fr.gortn.leaf = (*selParent.parent).Child(selTest.idx)
 			visitBlock(inst.Block().Succs[0], fr)
 
-			fmt.Fprintf(os.Stderr, "parentElse %s\n", *selParent.parent)
 			if !selParent.blocking && len((*selParent.parent).Children()) > selTest.idx+1 {
 				*fr.gortn.leaf = (*selParent.parent).Child(selTest.idx + 1)
 			}
@@ -431,7 +442,6 @@ func visitRecv(recv *ssa.UnOp, fr *frame) {
 
 // visitClose for the close() builtin primitive.
 func visitClose(ch sesstype.Chan, fr *frame) {
-	fmt.Println((*fr.gortn.leaf).String())
 	fr.gortn.AddNode(sesstype.MkEndNode(ch))
 }
 
@@ -473,38 +483,38 @@ func visitStore(inst *ssa.Store, fr *frame) {
 			// Post: fr.locals[dstPtr] points to vd
 			fr.locals[dstPtr] = vd   // was vdOld
 			fr.updateDefs(vdOld, vd) // Update all references to vdOld to vd
-			fmt.Fprintf(os.Stderr, "   # store array *%s = %s of type %s\n", reg(dstPtr), reg(source), source.Type().String())
+			fmt.Fprintf(os.Stderr, "   # store array *%s = %s of type %s\n", cyan(reg(dstPtr)), reg(source), source.Type().String())
 
 		case LocalArray:
 			fr.locals[dstPtr] = vd
 			fr.updateDefs(vdOld, vd)
-			fmt.Fprintf(os.Stderr, "   store larray *%s = %s of type %s\n", reg(dstPtr), reg(source), source.Type().String())
+			fmt.Fprintf(os.Stderr, "   store larray *%s = %s of type %s\n", cyan(reg(dstPtr)), reg(source), source.Type().String())
 
 		case Chan:
 			fr.locals[dstPtr] = vd
 			fr.updateDefs(vdOld, vd)
-			fmt.Fprintf(os.Stderr, "   store chan *%s = %s of type %s\n", reg(dstPtr), reg(source), source.Type().String())
+			fmt.Fprintf(os.Stderr, "   store chan *%s = %s of type %s\n", cyan(reg(dstPtr)), reg(source), source.Type().String())
 
 		case Struct:
 			fr.locals[dstPtr] = vd
 			fr.updateDefs(vdOld, vd)
-			fmt.Fprintf(os.Stderr, "   store struct *%s = %s of type %s\n", reg(dstPtr), reg(source), source.Type().String())
+			fmt.Fprintf(os.Stderr, "   store struct *%s = %s of type %s\n", cyan(reg(dstPtr)), reg(source), source.Type().String())
 
 		case LocalStruct:
 			fr.locals[dstPtr] = vd
 			fr.updateDefs(vdOld, vd)
-			fmt.Fprintf(os.Stderr, "   store lstruct *%s = %s of type %s\n", reg(dstPtr), reg(source), source.Type().String())
+			fmt.Fprintf(os.Stderr, "   store lstruct *%s = %s of type %s\n", cyan(reg(dstPtr)), reg(source), source.Type().String())
 
 		case Untracked:
 			fr.locals[dstPtr] = vd
-			fmt.Fprintf(os.Stderr, "   store update *%s = %s of type %s\n", reg(dstPtr), reg(source), source.Type().String())
+			fmt.Fprintf(os.Stderr, "   store update *%s = %s of type %s\n", cyan(reg(dstPtr)), reg(source), source.Type().String())
 
 		case Nothing:
 			fmt.Fprintf(os.Stderr, "   # store *%s = %s of type %s\n", red(reg(dstPtr)), reg(source), source.Type().String())
 
 		default:
 			fr.locals[dstPtr] = vd
-			fmt.Fprintf(os.Stderr, "   store *%s = %s of type %s\n", reg(dstPtr), reg(source), source.Type().String())
+			fmt.Fprintf(os.Stderr, "   store *%s = %s of type %s\n", cyan(reg(dstPtr)), reg(source), source.Type().String())
 		}
 
 	}
@@ -528,6 +538,11 @@ func visitChangeType(inst *ssa.ChangeType, fr *frame) {
 	}
 }
 
+func visitChangeInterface(inst *ssa.ChangeInterface, fr *frame) {
+	fr.locals[inst] = fr.locals[inst.X]
+	fmt.Fprintf(os.Stderr, "   # changeinterface %s = %s\n", reg(inst), inst.String())
+}
+
 func visitBinOp(inst *ssa.BinOp, fr *frame) {
 	switch inst.Op {
 	case token.EQL:
@@ -544,6 +559,21 @@ func visitBinOp(inst *ssa.BinOp, fr *frame) {
 		}
 	default:
 		fmt.Fprintf(os.Stderr, "   # %s = "+red("%s")+"\n", inst.Name(), inst.String())
+	}
+}
+
+func visitMakeInterface(inst *ssa.MakeInterface, fr *frame) {
+	switch vd, kind := fr.get(inst.X); kind {
+	case Struct, LocalStruct:
+		fmt.Fprintf(os.Stderr, "   %s <-(struct/iface)- %s %s = %s\n", cyan(reg(inst)), reg(inst.X), inst.String(), vd.String())
+		fr.locals[inst] = vd
+
+	case Array, LocalArray:
+		fmt.Fprintf(os.Stderr, "   %s <-(array/iface)- %s %s = %s\n", cyan(reg(inst)), reg(inst.X), inst.String(), vd.String())
+		fr.locals[inst] = vd
+
+	default:
+		fmt.Fprintf(os.Stderr, "   # %s <- %s\n", red(reg(inst)), inst.String())
 	}
 }
 
@@ -802,4 +832,39 @@ func visitPhi(inst *ssa.Phi, fr *frame) {
 		fr.locals[inst], _ = fr.get(inst.Edges[0])
 		fr.phi[inst] = inst.Edges
 	}
+}
+
+func visitTypeAssert(inst *ssa.TypeAssert, fr *frame) {
+	if iface, ok := inst.AssertedType.(*types.Interface); ok {
+		if meth, _ := types.MissingMethod(inst.X.Type(), iface, true); meth == nil { // No missing methods
+			switch vd, kind := fr.get(inst.X); kind {
+			case Struct, LocalStruct, Array, LocalArray, Chan:
+				fr.tuples[inst] = make(Tuples, 2)
+				fr.tuples[inst][0] = vd
+				fmt.Fprintf(os.Stderr, "   %s = %s.(type assert %s) iface\n", reg(inst), reg(inst.X), inst.AssertedType.String())
+				fmt.Fprintf(os.Stderr, "    ^ defined as %s\n", vd.String())
+
+			default:
+				fmt.Fprintf(os.Stderr, "   %s = %s.(type assert %s)\n", red(reg(inst)), reg(inst.X), inst.AssertedType.String())
+				fmt.Fprintf(os.Stderr, "    ^ untracked/unknown\n")
+			}
+			return
+		}
+	} else { // Concrete type
+		if types.Identical(inst.AssertedType.Underlying(), inst.X.Type().Underlying()) {
+			switch vd, kind := fr.get(inst.X); kind {
+			case Struct, LocalStruct, Array, LocalArray, Chan:
+				fr.tuples[inst] = make(Tuples, 2)
+				fr.tuples[inst][0] = vd
+				fmt.Fprintf(os.Stderr, "   %s = %s.(type assert %s) concrete\n", reg(inst), reg(inst.X), inst.AssertedType.String())
+				fmt.Fprintf(os.Stderr, "    ^ defined as %s\n", vd.String())
+
+			default:
+				fmt.Fprintf(os.Stderr, "   %s = %s.(type assert %s)\n", red(reg(inst)), reg(inst.X), inst.AssertedType.String())
+				fmt.Fprintf(os.Stderr, "    ^ untracked/unknown\n")
+			}
+			return
+		}
+	}
+	fmt.Fprintf(os.Stderr, "   # %s = %s.(%s) impossible type assertion\n", red(reg(inst)), reg(inst.X), inst.AssertedType.String())
 }

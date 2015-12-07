@@ -197,8 +197,73 @@ func (caller *frame) callCommon(call *ssa.Call, common *ssa.CallCommon) {
 		}
 
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown call type %v\n", common)
+		if !common.IsInvoke() {
+			fmt.Fprintf(os.Stderr, "Unknown call type %v\n", common)
+			return
+		}
+
+		switch vd, kind := caller.get(common.Value); kind {
+		case Struct, LocalStruct:
+			fmt.Fprintf(os.Stderr, "++ invoke %s.%s, type=%s\n", reg(common.Value), common.Method.String(), vd.Var.Type().String())
+			// If dealing with interfaces, check that the method is invokable
+			if iface, ok := common.Value.Type().Underlying().(*types.Interface); ok {
+				if meth, _ := types.MissingMethod(vd.Var.Type(), iface, true); meth != nil {
+					fmt.Fprintf(os.Stderr, "     ^ interface not fully implemented\n")
+				} else {
+					fn := findMethod(common.Value.Parent().Prog, common.Method, vd.Var.Type())
+					if fn != nil {
+						fmt.Fprintf(os.Stderr, "     ^ found function %s\n", fn.String())
+
+						callee := &frame{
+							fn:      fn,
+							locals:  make(map[ssa.Value]*utils.VarDef),
+							arrays:  make(map[*utils.VarDef]Elems),
+							structs: make(map[*utils.VarDef]Fields),
+							tuples:  make(map[ssa.Value]Tuples),
+							phi:     make(map[ssa.Value][]ssa.Value),
+							retvals: make(Tuples, common.Signature().Results().Len()),
+							defers:  make([]*ssa.Defer, 0),
+							caller:  caller,
+							env:     caller.env,   // Use the same env as caller
+							gortn:   caller.gortn, // Use the same role as caller
+						}
+
+						common.Args = append([]ssa.Value{common.Value}, common.Args...)
+						fmt.Fprintf(os.Stderr, "++ call %s(", orange(fn.String()))
+						callee.translate(common)
+						fmt.Fprintf(os.Stderr, ")\n")
+
+						if callee.isRecursive() {
+							fmt.Fprintf(os.Stderr, "-- Recursive %s()\n", orange(fn.String()))
+							callee.printCallStack()
+						} else {
+							if hasCode := visitFunc(callee.fn, callee); hasCode {
+								caller.handleRetvals(call.Value(), callee)
+							} else {
+								caller.handleExtRetvals(call.Value(), callee)
+							}
+							fmt.Fprintf(os.Stderr, "-- return from %s (%d retvals)\n", orange(fn.String()), len(callee.retvals))
+						}
+
+					} else {
+						panic(fmt.Sprintf("Cannot call function: %s.%s is abstract (program not well-formed)", common.Value, common.Method.String()))
+					}
+				}
+			} else {
+				fmt.Fprintf(os.Stderr, "     ^ method %s.%s does not exist\n", reg(common.Value), common.Method.String())
+			}
+
+		default:
+			fmt.Fprintf(os.Stderr, "++ invoke %s.%s\n", reg(common.Value), common.Method.String())
+		}
 	}
+}
+
+func findMethod(prog *ssa.Program, meth *types.Func, typ types.Type) *ssa.Function {
+	if meth != nil {
+		fmt.Fprintf(os.Stderr, "     ^ finding method for type: %s pkg: %s name: %s\n", typ.String(), meth.Pkg().Name(), meth.Name())
+	}
+	return prog.LookupMethod(typ, meth.Pkg(), meth.Name())
 }
 
 func (caller *frame) callGo(g *ssa.Go) {
@@ -235,7 +300,7 @@ func (caller *frame) callGo(g *ssa.Go) {
 }
 
 func (callee *frame) translate(common *ssa.CallCommon) {
-	for i, param := range common.StaticCallee().Params {
+	for i, param := range callee.fn.Params {
 		argParent := common.Args[i]
 		if param != argParent {
 			if vd, ok := callee.caller.locals[argParent]; ok {
