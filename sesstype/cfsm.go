@@ -16,7 +16,8 @@ var (
 func genNewState(roleName string) string {
 	stateIdx := cfsmStateCount[roleName]
 	cfsmStateCount[roleName]++
-	return fmt.Sprintf("%sZZ%d", roleName, stateIdx)
+	//return fmt.Sprintf("q%d%d", cfsmByName[roleName], stateIdx)
+	return fmt.Sprintf("%s%d", roleName, stateIdx)
 }
 
 func isAlphanum(r rune) bool {
@@ -25,35 +26,38 @@ func isAlphanum(r rune) bool {
 
 // Encode non-alphanum symbols to empty.
 func encodeSymbols(name string) string {
-	outstr := ""
-	for _, runeVal := range name {
-		if isAlphanum(runeVal) {
-			outstr += string(runeVal)
-		} else {
-			switch runeVal {
-			case '{':
-				outstr += "LBRACE"
-			case '}':
-				outstr += "RBRACE"
-			case '.':
-				outstr += "DOT"
-			case '(':
-				outstr += "LPAREN"
-			case ')':
-				outstr += "RPAREN"
-			case '/':
-				outstr += "SLASH"
+	return name
+	/*
+		outstr := ""
+		for _, runeVal := range name {
+			if isAlphanum(runeVal) {
+				outstr += string(runeVal)
+			} else {
+				switch runeVal {
+				case '{':
+					outstr += "LBRACE"
+				case '}':
+					outstr += "RBRACE"
+				case '.':
+					outstr += "DOT"
+				case '(':
+					outstr += "LPAREN"
+				case ')':
+					outstr += "RPAREN"
+				case '/':
+					outstr += "SLASH"
+				}
 			}
+			// Ignore other non alphanum
 		}
-		// Ignore other non alphanum
-	}
-	return outstr
+		return outstr
+	*/
 }
 
 // Create CFSM for channel.
 func genChanCFSM(name string, typ string, begin int, end int) string {
-	q0 := fmt.Sprintf("Chan%s", encodeSymbols(genNewState(name)))
-	qTerm := fmt.Sprintf("Close%s", encodeSymbols(genNewState(name)))
+	q0 := fmt.Sprintf("%s", encodeSymbols(genNewState(name)))
+	qTerm := fmt.Sprintf("%s", encodeSymbols(genNewState(name)))
 	cfsm := ""
 	for i := begin; i < end; i++ {
 		q1 := encodeSymbols(genNewState(name))
@@ -89,14 +93,17 @@ func nodeToCFSM(root Node, role Role, q0 string, initial bool) string {
 		if !initial {
 			cfsm = fmt.Sprintf("%s\n%s", q0, cfsm)
 		}
-		childCfsm := ""
+		childrenCfsm := ""
+		childInit := false
 		for _, child := range node.Children() {
-			childCfsm += nodeToCFSM(child, role, qSend, false)
+			childCfsm := nodeToCFSM(child, role, qSend, childInit)
+			childInit = (childCfsm != "")
+			childrenCfsm += childCfsm
 		}
-		if childCfsm == "" {
-			return fmt.Sprintf("%s %s\n", cfsm, qSend)
+		if childrenCfsm == "" {
+			return fmt.Sprintf("%s%s\n", cfsm, qSend)
 		}
-		return fmt.Sprintf("%s %s", cfsm, childCfsm)
+		return fmt.Sprintf("%s %s", cfsm, childrenCfsm)
 
 	case *RecvNode:
 		fromCFSM, ok := cfsmByName[node.orig.Name()]
@@ -110,14 +117,16 @@ func nodeToCFSM(root Node, role Role, q0 string, initial bool) string {
 		if !initial {
 			cfsm = fmt.Sprintf("%s\n%s", q0, cfsm)
 		}
-		childCfsm := ""
+		childrenCfsm, childInit := "", false
 		for _, child := range node.Children() {
-			childCfsm += nodeToCFSM(child, role, qRecv, false)
+			childCfsm := nodeToCFSM(child, role, qRecv, childInit)
+			childInit = (childCfsm != "")
+			childrenCfsm += childCfsm
 		}
-		if childCfsm == "" {
-			return fmt.Sprintf("%s %s\n", cfsm, qRecv)
+		if childrenCfsm == "" {
+			return fmt.Sprintf("%s%s\n", cfsm, qRecv)
 		}
-		return fmt.Sprintf("%s %s", cfsm, childCfsm)
+		return fmt.Sprintf("%s %s", cfsm, childrenCfsm)
 
 	case *EndNode:
 		endCFSM, ok := cfsmByName[node.ch.Name()]
@@ -126,39 +135,48 @@ func nodeToCFSM(root Node, role Role, q0 string, initial bool) string {
 		}
 
 		qEnd := encodeSymbols(genNewState(role.Name()))
-		cfsm := fmt.Sprintf("%s %d ! STOP %s", q0, endCFSM, qEnd)
+		cfsm := fmt.Sprintf("%s %d ! STOP ", q0, endCFSM)
 		if !initial {
-			cfsm = fmt.Sprintf("END %s\n%s", q0, cfsm)
+			cfsm = fmt.Sprintf("%s\n%s", q0, cfsm)
 		}
-		childCfsm := ""
+		childrenCfsm, childInit := "", false
 		for _, child := range node.Children() {
-			childCfsm += nodeToCFSM(child, role, qEnd, false)
+			childCfsm := nodeToCFSM(child, role, qEnd, childInit)
+			childInit = (childCfsm != "")
+			childrenCfsm += childCfsm
 		}
-		if childCfsm == "" {
-			return fmt.Sprintf("%s %s\n", cfsm, qEnd)
+		if childrenCfsm == "" {
+			return fmt.Sprintf("%s%s\n", cfsm, qEnd)
 		}
-		return fmt.Sprintf("%s %s", cfsm, childCfsm)
+		return fmt.Sprintf("%s %s", cfsm, childrenCfsm)
 
 	case *NewChanNode, *EmptyBodyNode:
-		cfsm := ""
+		cfsm, childInit := "", initial
 		for _, child := range node.Children() {
-			cfsm += nodeToCFSM(child, role, q0, initial)
+			childCfsm := nodeToCFSM(child, role, q0, childInit)
+			childInit = (childCfsm != "" || initial)
+			cfsm += childCfsm
 		}
 		return cfsm
 
 	case *LabelNode:
 		labelJumpState[node.name] = q0
-		cfsm := ""
+		cfsm, childInit := "", initial
 		for _, child := range node.Children() {
-			cfsm += nodeToCFSM(child, role, q0, initial)
+			childCfsm := nodeToCFSM(child, role, q0, childInit)
+			childInit = (childCfsm != "" || initial)
+			cfsm += childCfsm
 		}
 		return cfsm
 
 	case *GotoNode:
 		qJumpto := labelJumpState[node.name]
-		cfsm := ""
+		cfsm, childInit := "", initial
 		for _, child := range node.Children() {
-			cfsm += nodeToCFSM(child, role, qJumpto, initial)
+			// qJumpto written, so initial again
+			childCfsm := nodeToCFSM(child, role, qJumpto, childInit)
+			childInit = (childCfsm != "" || initial)
+			cfsm += childCfsm
 		}
 		return cfsm
 
