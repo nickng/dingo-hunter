@@ -26,9 +26,10 @@ import (
 )
 
 var (
-	session *sesstype.Session // Keeps track of the all session
-	ssaflag = ssa.BuilderModeFlag(flag.CommandLine, "ssa", ssa.BareInits)
-	goQueue = make([]*frame, 0)
+	session   *sesstype.Session // Keeps track of the all session
+	ssaflag   = ssa.BuilderModeFlag(flag.CommandLine, "ssa", ssa.BareInits)
+	debugMode = flag.Bool("debug", false, "Debug mode")
+	goQueue   = make([]*frame, 0)
 )
 
 const usage = "Usage dingo-hunter <main.go> ...\n"
@@ -112,6 +113,10 @@ func main() {
 	fmt.Printf("Analysis time: %f\n", elapsedTime.Seconds())
 
 	fmt.Printf(" ----- Results ----- \n%s\n", session.String())
+
+	if *debugMode {
+		sesstype.CFSMDebug = true
+	}
 
 	sesstype.GenDot(session)
 	sesstype.GenAllCFSMs(session)

@@ -11,13 +11,16 @@ var (
 	labelJumpState = make(map[string]string) // Convert label names to state names to jump to.
 	totalCFSMs     = 0                       // Number of CFSMs.
 	chanCFSMs      = 0                       // Number of CFSMs for channels.
+	CFSMDebug      = false                   // Debug.
 )
 
 func genNewState(roleName string) string {
 	stateIdx := cfsmStateCount[roleName]
 	cfsmStateCount[roleName]++
-	//return fmt.Sprintf("q%d%d", cfsmByName[roleName], stateIdx)
-	return fmt.Sprintf("%s%d", roleName, stateIdx)
+	if CFSMDebug {
+		return fmt.Sprintf("%s__%d", roleName, stateIdx)
+	}
+	return fmt.Sprintf("q%d%d", cfsmByName[roleName], stateIdx)
 }
 
 func isAlphanum(r rune) bool {
@@ -26,32 +29,32 @@ func isAlphanum(r rune) bool {
 
 // Encode non-alphanum symbols to empty.
 func encodeSymbols(name string) string {
-	return name
-	/*
-		outstr := ""
-		for _, runeVal := range name {
-			if isAlphanum(runeVal) {
-				outstr += string(runeVal)
-			} else {
-				switch runeVal {
-				case '{':
-					outstr += "LBRACE"
-				case '}':
-					outstr += "RBRACE"
-				case '.':
-					outstr += "DOT"
-				case '(':
-					outstr += "LPAREN"
-				case ')':
-					outstr += "RPAREN"
-				case '/':
-					outstr += "SLASH"
-				}
+	if CFSMDebug {
+		return name
+	}
+	outstr := ""
+	for _, runeVal := range name {
+		if isAlphanum(runeVal) {
+			outstr += string(runeVal)
+		} else {
+			switch runeVal {
+			case '{':
+				outstr += "LBRACE"
+			case '}':
+				outstr += "RBRACE"
+			case '.':
+				outstr += "DOT"
+			case '(':
+				outstr += "LPAREN"
+			case ')':
+				outstr += "RPAREN"
+			case '/':
+				outstr += "SLASH"
 			}
-			// Ignore other non alphanum
 		}
-		return outstr
-	*/
+		// Ignore other non alphanum
+	}
+	return outstr
 }
 
 // Create CFSM for channel.
