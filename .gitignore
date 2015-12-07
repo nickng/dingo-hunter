@@ -22,3 +22,7 @@ _testmain.go
 *.exe
 *.test
 *.prof
+
+output.dot
+output.pdf
+output_cfsms
