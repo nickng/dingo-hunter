@@ -1,10 +1,10 @@
-package sesstype
+package generator
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/awalterschulze/gographviz"
+	"github.com/nickng/dingo-hunter/sesstype"
 )
 
 var (
@@ -12,38 +12,29 @@ var (
 	labelNodes map[string]string = make(map[string]string)
 )
 
-func GenDot(sess *Session) {
+func getDot(s *sesstype.Session) string {
 	graph := gographviz.NewEscape()
 	graph.SetDir(true)
 	graph.SetName("G")
 
-	for role, root := range sess.Types {
+	for role, root := range s.Types {
 		sg := gographviz.NewSubGraph("\"cluster_" + role.Name() + "\"")
 		if root != nil {
-			DotVisitNode(root, graph, sg, nil)
+			visitNode(root, graph, sg, nil)
 		}
 		graph.AddSubGraph(graph.Name, sg.Name, nil)
 	}
 
-	f, err := os.OpenFile("output.dot", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
-	defer f.Close()
-	if err != nil {
-		panic(err)
-	}
-
-	_, err = f.WriteString(graph.String())
-	if err != nil {
-		panic(err)
-	}
+	return graph.String()
 }
 
-func DotCreateNode(node Node) *gographviz.Node {
+func nodeToDotNode(node sesstype.Node) *gographviz.Node {
 	switch node := node.(type) {
-	case *LabelNode:
+	case *sesstype.LabelNode:
 		defer func() { count++ }()
-		labelNodes[node.name] = fmt.Sprintf("label%d", count)
+		labelNodes[node.Name()] = fmt.Sprintf("label%d", count)
 		dotNode := gographviz.Node{
-			Name: labelNodes[node.name],
+			Name: labelNodes[node.Name()],
 			Attrs: map[string]string{
 				"label": fmt.Sprintf("\"%s\"", node.String()),
 				"shape": "plaintext,",
@@ -51,52 +42,52 @@ func DotCreateNode(node Node) *gographviz.Node {
 		}
 		return &dotNode
 
-	case *NewChanNode:
+	case *sesstype.NewChanNode:
 		defer func() { count++ }()
 		return &gographviz.Node{
 			Name: fmt.Sprintf("%s%d", node.Kind(), count),
 			Attrs: map[string]string{
-				"label": fmt.Sprintf("Channel %s Type:%s", node.ch.Name(), node.ch.Type()),
+				"label": fmt.Sprintf("Channel %s Type:%s", node.Chan().Name(), node.Chan().Type()),
 				"shape": "rect",
 				"color": "red",
 			},
 		}
 
-	case *SendNode:
+	case *sesstype.SendNode:
 		defer func() { count++ }()
 		style := "solid"
 		desc := ""
-		if node.nondet {
+		if node.IsNondet() {
 			style = "dashed"
 			desc = " nondet"
 		}
 		return &gographviz.Node{
 			Name: fmt.Sprintf("%s%d", node.Kind(), count),
 			Attrs: map[string]string{
-				"label": fmt.Sprintf("Send %s%s", node.dest.Name(), desc),
+				"label": fmt.Sprintf("Send %s%s", node.To().Name(), desc),
 				"shape": "rect",
 				"style": style,
 			},
 		}
 
-	case *RecvNode:
+	case *sesstype.RecvNode:
 		defer func() { count++ }()
 		style := "solid"
 		desc := ""
-		if node.nondet {
+		if node.IsNondet() {
 			style = "dashed"
 			desc = " nondet"
 		}
 		return &gographviz.Node{
 			Name: fmt.Sprintf("%s%d", node.Kind(), count),
 			Attrs: map[string]string{
-				"label": fmt.Sprintf("Recv %s%s", node.orig.Name(), desc),
+				"label": fmt.Sprintf("Recv %s%s", node.From().Name(), desc),
 				"shape": "rect",
 				"style": style,
 			},
 		}
 
-	case *GotoNode:
+	case *sesstype.GotoNode:
 		return nil // No new node to create
 
 	default:
@@ -114,16 +105,15 @@ func DotCreateNode(node Node) *gographviz.Node {
 
 // visitNode Creates a dot Node and from it create a subgraph of children.
 // Returns head of the subgraph.
-func DotVisitNode(node Node, graph *gographviz.Escape, subgraph *gographviz.SubGraph, parent *gographviz.Node) *gographviz.Node {
-	dotNode := DotCreateNode(node)
+func visitNode(node sesstype.Node, graph *gographviz.Escape, subgraph *gographviz.SubGraph, parent *gographviz.Node) *gographviz.Node {
+	dotNode := nodeToDotNode(node)
 
 	if dotNode == nil { // GotoNode
-		gtn := node.(*GotoNode)
-		graph.AddEdge(parent.Name, labelNodes[gtn.name], true, nil)
+		gtn := node.(*sesstype.GotoNode)
+		graph.AddEdge(parent.Name, labelNodes[gtn.Name()], true, nil)
 		for _, child := range node.Children() {
-			DotVisitNode(child, graph, subgraph, parent)
+			visitNode(child, graph, subgraph, parent)
 		}
-
 		return parent // GotoNode's children are children of parent. So return parent.
 	}
 
@@ -132,7 +122,7 @@ func DotVisitNode(node Node, graph *gographviz.Escape, subgraph *gographviz.SubG
 		graph.AddEdge(parent.Name, dotNode.Name, true, nil)
 	}
 	for _, child := range node.Children() {
-		DotVisitNode(child, graph, subgraph, dotNode)
+		visitNode(child, graph, subgraph, dotNode)
 	}
 
 	if dotNode == nil {

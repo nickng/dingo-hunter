@@ -150,7 +150,7 @@ func visitExtract(e *ssa.Extract, fr *frame) {
 	} else {
 		// Check if we are extracting select index
 		if _, ok := fr.env.selNode[e.Tuple]; ok && e.Index == 0 {
-			fmt.Fprintf(os.Stderr, "   | select %s index = %s\n", e.Tuple.Name(), e.Name())
+			fmt.Fprintf(os.Stderr, "   | %s = select %s index\n", e.Name(), e.Tuple.Name())
 			fr.env.selIdx[e] = e.Tuple
 			return
 		}
@@ -174,12 +174,12 @@ func visitExtract(e *ssa.Extract, fr *frame) {
 			fmt.Fprintf(os.Stderr, "   # %s = %s of type %s\n", e.Name(), red(e.String()), e.Type().String())
 			switch derefAll(e.Type()).Underlying().(type) {
 			case *types.Array:
-				vd := utils.NewVarDef(e)
+				vd := utils.NewDef(e)
 				fr.locals[e] = vd
 				fr.arrays[vd] = make(Elems)
 				fmt.Fprintf(os.Stderr, "     ^ local array (used as definition)\n")
 			case *types.Struct:
-				vd := utils.NewVarDef(e)
+				vd := utils.NewDef(e)
 				fr.locals[e] = vd
 				fr.structs[vd] = make(Fields)
 				fmt.Fprintf(os.Stderr, "     ^ local struct (used as definition)\n")
@@ -189,7 +189,7 @@ func visitExtract(e *ssa.Extract, fr *frame) {
 }
 
 func visitMakeClosure(inst *ssa.MakeClosure, fr *frame) {
-	fr.env.closures[inst] = make([]*utils.VarDef, 0)
+	fr.env.closures[inst] = make([]*utils.Definition, 0)
 	for _, binding := range inst.Bindings {
 		fr.env.closures[inst] = append(fr.env.closures[inst], fr.locals[binding])
 	}
@@ -207,7 +207,7 @@ func visitAlloc(inst *ssa.Alloc, fr *frame) {
 
 	switch t := allocType.Underlying().(type) {
 	case *types.Array:
-		vd := utils.NewVarDef(val)
+		vd := utils.NewDef(val)
 		fr.locals[val] = vd
 		if inst.Heap {
 			fr.env.arrays[vd] = make(Elems)
@@ -222,7 +222,7 @@ func visitAlloc(inst *ssa.Alloc, fr *frame) {
 		fmt.Fprintf(os.Stderr, "   %s = Alloc (chan) of type %s at %s\n", cyan(reg(inst)), inst.Type().String(), locn)
 
 	case *types.Struct:
-		vd := utils.NewVarDef(val)
+		vd := utils.NewDef(val)
 		fr.locals[val] = vd
 		if inst.Heap {
 			fr.env.structs[vd] = make(Fields, t.NumFields())
@@ -300,7 +300,7 @@ func visitSelect(s *ssa.Select, fr *frame) {
 		switch vd, kind := fr.get(state.Chan); kind {
 		case Chan:
 			ch := fr.env.chans[vd]
-			fmt.Fprintf(os.Stderr, "   select "+orange("%s")+"\n", vd.String())
+			fmt.Fprintf(os.Stderr, "   select "+orange("%s")+" (%d states)\n", vd.String(), len(s.States))
 			switch state.Dir {
 			case types.SendOnly:
 				fr.gortn.leaf = fr.env.selNode[s].parent
@@ -328,11 +328,12 @@ func visitSelect(s *ssa.Select, fr *frame) {
 	if !s.Blocking { // Default state exists
 		fr.gortn.leaf = fr.env.selNode[s].parent
 		fr.gortn.AddNode(&sesstype.EmptyBodyNode{})
+		fmt.Fprintf(os.Stderr, "    Default: %s\n", orange((*fr.gortn.leaf).String()))
 	}
 }
 
-func visitReturn(ret *ssa.Return, fr *frame) []*utils.VarDef {
-	var vds []*utils.VarDef
+func visitReturn(ret *ssa.Return, fr *frame) []*utils.Definition {
+	var vds []*utils.Definition
 	for _, result := range ret.Results {
 		vds = append(vds, fr.locals[result])
 	}
@@ -392,7 +393,7 @@ func visitMakeChan(inst *ssa.MakeChan, caller *frame) {
 	locn := loc(caller, inst.Pos())
 	role := caller.gortn.role
 
-	vd := utils.NewVarDef(inst) // Unique identifier for inst
+	vd := utils.NewDef(inst) // Unique identifier for inst
 	ch := caller.env.session.MakeChan(vd, role)
 
 	caller.env.chans[vd] = &ch
@@ -409,7 +410,7 @@ func visitSend(send *ssa.Send, fr *frame) {
 		fr.gortn.AddNode(sesstype.MkSendNode(fr.gortn.role, *ch, send.Chan.Type()))
 		fmt.Fprintf(os.Stderr, "  %s\n", orange((*fr.gortn.leaf).String()))
 	} else if kind == Nothing {
-		fr.locals[send.Chan] = utils.NewVarDef(send.Chan)
+		fr.locals[send.Chan] = utils.NewDef(send.Chan)
 		ch := fr.env.session.MakeExtChan(fr.locals[send.Chan], fr.gortn.role)
 		fr.env.chans[fr.locals[send.Chan]] = &ch
 		fr.gortn.AddNode(sesstype.MkSendNode(fr.gortn.role, ch, send.Chan.Type()))
@@ -428,7 +429,7 @@ func visitRecv(recv *ssa.UnOp, fr *frame) {
 		fr.gortn.AddNode(sesstype.MkRecvNode(*ch, fr.gortn.role, recv.X.Type()))
 		fmt.Fprintf(os.Stderr, "  %s\n", orange((*fr.gortn.leaf).String()))
 	} else if kind == Nothing {
-		fr.locals[recv.X] = utils.NewVarDef(recv.X)
+		fr.locals[recv.X] = utils.NewDef(recv.X)
 		ch := fr.env.session.MakeExtChan(fr.locals[recv.X], fr.gortn.role)
 		fr.env.chans[fr.locals[recv.X]] = &ch
 		fr.gortn.AddNode(sesstype.MkRecvNode(ch, fr.gortn.role, recv.X.Type()))
@@ -578,11 +579,11 @@ func visitMakeInterface(inst *ssa.MakeInterface, fr *frame) {
 }
 
 func visitSlice(inst *ssa.Slice, fr *frame) {
-	fr.env.arrays[utils.NewVarDef(inst)] = make(Elems)
+	fr.env.arrays[utils.NewDef(inst)] = make(Elems)
 }
 
 func visitMakeSlice(inst *ssa.MakeSlice, fr *frame) {
-	fr.env.arrays[utils.NewVarDef(inst)] = make(Elems)
+	fr.env.arrays[utils.NewDef(inst)] = make(Elems)
 }
 
 func visitFieldAddr(inst *ssa.FieldAddr, fr *frame) {
@@ -595,7 +596,7 @@ func visitFieldAddr(inst *ssa.FieldAddr, fr *frame) {
 		case Struct:
 			fmt.Fprintf(os.Stderr, "   %s = %s(=%s)->[%d] of type %s\n", cyan(reg(field)), struc.Name(), vd.String(), index, field.Type().String())
 			if fr.env.structs[vd][index] == nil { // First use
-				vdField := utils.NewVarDef(field)
+				vdField := utils.NewDef(field)
 				fr.env.structs[vd][index] = vdField
 				fmt.Fprintf(os.Stderr, "     ^ accessed for the first time: use %s as field definition\n", field.Name())
 				// If field is struct
@@ -611,7 +612,7 @@ func visitFieldAddr(inst *ssa.FieldAddr, fr *frame) {
 		case LocalStruct:
 			fmt.Fprintf(os.Stderr, "   %s = %s(=%s)->[%d] (local) of type %s\n", cyan(reg(field)), struc.Name(), vd.String(), index, field.Type().String())
 			if fr.structs[vd][index] == nil { // First use
-				vdField := utils.NewVarDef(field)
+				vdField := utils.NewDef(field)
 				fr.structs[vd][index] = vdField
 				fmt.Fprintf(os.Stderr, "     ^ accessed for the first time: use %s as field definition\n", field.Name())
 				// If field is struct
@@ -628,10 +629,10 @@ func visitFieldAddr(inst *ssa.FieldAddr, fr *frame) {
 			// Nothing: Very likely external struct.
 			// Untracked: likely branches of return values (e.g. returning nil)
 			fmt.Fprintf(os.Stderr, "   %s = %s(=%s)->[%d] (external) of type %s\n", cyan(reg(field)), inst.X.Name(), vd.String(), index, field.Type().String())
-			vd := utils.NewVarDef(struc) // New external struct
+			vd := utils.NewDef(struc) // New external struct
 			fr.locals[struc] = vd
 			fr.env.structs[vd] = make(Fields, stype.NumFields())
-			vdField := utils.NewVarDef(field) // New external field
+			vdField := utils.NewDef(field) // New external field
 			fr.env.structs[vd][index] = vdField
 			fr.locals[field] = vdField
 			fmt.Fprintf(os.Stderr, "     ^ accessed for the first time: use %s as field definition of type %s\n", field.Name(), inst.Type().(*types.Pointer).Elem().Underlying().String())
@@ -659,7 +660,7 @@ func visitField(inst *ssa.Field, fr *frame) {
 		case Struct:
 			fmt.Fprintf(os.Stderr, "   %s = %s(=%s).[%d] of type %s\n", cyan(reg(field)), struc.Name(), vd.String(), index, field.Type().String())
 			if fr.env.structs[vd][index] == nil { // First use
-				vdField := utils.NewVarDef(field)
+				vdField := utils.NewDef(field)
 				fr.env.structs[vd][index] = vdField
 				fmt.Fprintf(os.Stderr, "     ^ accessed for the first time: use %s as field definition\n", field.Name())
 				// If field is struct
@@ -675,7 +676,7 @@ func visitField(inst *ssa.Field, fr *frame) {
 		case LocalStruct:
 			fmt.Fprintf(os.Stderr, "   %s = %s(=%s).[%d] (local) of type %s\n", cyan(reg(field)), struc.Name(), vd.String(), index, field.Type().String())
 			if fr.structs[vd][index] == nil { // First use
-				vdField := utils.NewVarDef(field)
+				vdField := utils.NewDef(field)
 				fr.structs[vd][index] = vdField
 				fmt.Fprintf(os.Stderr, "     ^ accessed for the first time: use %s as field definition\n", field.Name())
 				// If field is struct
@@ -692,10 +693,10 @@ func visitField(inst *ssa.Field, fr *frame) {
 			// Nothing: Very likely external struct.
 			// Untracked: likely branches of return values (e.g. returning nil)
 			fmt.Fprintf(os.Stderr, "   %s = %s(=%s).[%d] (external) of type %s\n", cyan(reg(field)), inst.X.Name(), vd.String(), index, field.Type().String())
-			vd := utils.NewVarDef(struc) // New external struct
+			vd := utils.NewDef(struc) // New external struct
 			fr.locals[struc] = vd
 			fr.env.structs[vd] = make(Fields, stype.NumFields())
-			vdField := utils.NewVarDef(field) // New external field
+			vdField := utils.NewDef(field) // New external field
 			fr.env.structs[vd][index] = vdField
 			fr.locals[field] = vdField
 			fmt.Fprintf(os.Stderr, "     ^ accessed for the first time: use %s as field definition of type %s\n", field.Name(), inst.Type().Underlying().String())
@@ -725,7 +726,7 @@ func visitIndexAddr(inst *ssa.IndexAddr, fr *frame) {
 		case Array:
 			fmt.Fprintf(os.Stderr, "   %s = &%s(=%s)[%d] of type %s\n", cyan(reg(elem)), array.Name(), vd.String(), index, elem.Type().String())
 			if fr.env.arrays[vd][index] == nil { // First use
-				vdelem := utils.NewVarDef(elem)
+				vdelem := utils.NewDef(elem)
 				fr.env.arrays[vd][index] = vdelem
 				fmt.Fprintf(os.Stderr, "     ^ accessed for the first time: use %s as elem definition\n", elem.Name())
 			} else if fr.env.arrays[vd][index].Var != elem { // Previously defined
@@ -736,7 +737,7 @@ func visitIndexAddr(inst *ssa.IndexAddr, fr *frame) {
 		case LocalArray:
 			fmt.Fprintf(os.Stderr, "   %s = &%s(=%s)[%d] (local) of type %s\n", cyan(reg(elem)), array.Name(), vd.String(), index, elem.Type().String())
 			if fr.arrays[vd][index] == nil { // First use
-				vdElem := utils.NewVarDef(elem)
+				vdElem := utils.NewDef(elem)
 				fr.arrays[vd][index] = vdElem
 				fmt.Fprintf(os.Stderr, "     ^ accessed for the first time: use %s as elem definition\n", elem.Name())
 			} else if fr.arrays[vd][index].Var != elem { // Previously defined
@@ -748,10 +749,10 @@ func visitIndexAddr(inst *ssa.IndexAddr, fr *frame) {
 			// Nothing: Very likely external struct.
 			// Untracked: likely branches of return values (e.g. returning nil)
 			fmt.Fprintf(os.Stderr, "   %s = &%s(=%s)[%d] (external) of type %s\n", cyan(reg(elem)), inst.X.Name(), vd.String(), index, elem.Type().String())
-			vd := utils.NewVarDef(array) // New external array
+			vd := utils.NewDef(array) // New external array
 			fr.locals[array] = vd
 			fr.env.arrays[vd] = make(Elems)
-			vdElem := utils.NewVarDef(elem) // New external elem
+			vdElem := utils.NewDef(elem) // New external elem
 			fr.env.arrays[vd][index] = vdElem
 			fr.locals[elem] = vdElem
 			fmt.Fprintf(os.Stderr, "     ^ accessed for the first time: use %s as elem definition of type %s\n", elem.Name(), inst.Type().(*types.Pointer).Elem().Underlying().String())
@@ -776,7 +777,7 @@ func visitIndex(inst *ssa.Index, fr *frame) {
 		case Array:
 			fmt.Fprintf(os.Stderr, "   %s = %s(=%s)[%d] of type %s\n", cyan(reg(elem)), array.Name(), vd.String(), index, elem.Type().String())
 			if fr.env.arrays[vd][index] == nil { // First use
-				vdelem := utils.NewVarDef(elem)
+				vdelem := utils.NewDef(elem)
 				fr.env.arrays[vd][index] = vdelem
 				fmt.Fprintf(os.Stderr, "     ^ accessed for the first time: use %s as elem definition\n", elem.Name())
 			} else if fr.env.arrays[vd][index].Var != elem { // Previously defined
@@ -787,7 +788,7 @@ func visitIndex(inst *ssa.Index, fr *frame) {
 		case LocalArray:
 			fmt.Fprintf(os.Stderr, "   %s = %s(=%s)[%d] (local) of type %s\n", cyan(reg(elem)), array.Name(), vd.String(), index, elem.Type().String())
 			if fr.arrays[vd][index] == nil { // First use
-				vdElem := utils.NewVarDef(elem)
+				vdElem := utils.NewDef(elem)
 				fr.arrays[vd][index] = vdElem
 				fmt.Fprintf(os.Stderr, "     ^ accessed for the first time: use %s as elem definition\n", elem.Name())
 			} else if fr.arrays[vd][index].Var != elem { // Previously defined
@@ -799,10 +800,10 @@ func visitIndex(inst *ssa.Index, fr *frame) {
 			// Nothing: Very likely external struct.
 			// Untracked: likely branches of return values (e.g. returning nil)
 			fmt.Fprintf(os.Stderr, "   %s = %s(=%s)[%d] (external) of type %s\n", cyan(reg(elem)), inst.X.Name(), vd.String(), index, elem.Type().String())
-			vd := utils.NewVarDef(array) // New external array
+			vd := utils.NewDef(array) // New external array
 			fr.locals[array] = vd
 			fr.env.arrays[vd] = make(Elems)
-			vdElem := utils.NewVarDef(elem) // New external elem
+			vdElem := utils.NewDef(elem) // New external elem
 			fr.env.arrays[vd][index] = vdElem
 			fr.locals[elem] = vdElem
 			fmt.Fprintf(os.Stderr, "     ^ accessed for the first time: use %s as elem definition of type %s\n", elem.Name(), inst.Type().(*types.Pointer).Elem().Underlying().String())

@@ -30,7 +30,7 @@ func (s *NodeStack) Top() Node {
 
 // Size returns number of sesstype.Node on the stack.
 func (s *NodeStack) Size() int {
-	return count
+	return s.count
 }
 
 // String returns a String representing the stack.

@@ -26,42 +26,42 @@ const (
 )
 
 // Captures are lists of VarDefs for closure captures
-type Captures []*utils.VarDef
+type Captures []*utils.Definition
 
 // Tuples are lists of VarDefs from multiple return values
-type Tuples []*utils.VarDef
+type Tuples []*utils.Definition
 
 // Elems are maps from array indices (variable) to VarDefs
-type Elems map[ssa.Value]*utils.VarDef
+type Elems map[ssa.Value]*utils.Definition
 
 // Fields are maps from struct fields (integer) to VarDefs
-type Fields map[int]*utils.VarDef
+type Fields map[int]*utils.Definition
 
 // Frame holds variables in current function scope
 type frame struct {
-	fn      *ssa.Function               // Function ptr of callee
-	locals  map[ssa.Value]*utils.VarDef // Holds definitions of local registers
-	arrays  map[*utils.VarDef]Elems     // Array elements (Alloc local)
-	structs map[*utils.VarDef]Fields    // Struct fields (Alloc local)
-	tuples  map[ssa.Value]Tuples        // Multiple return values as tuple
-	phi     map[ssa.Value][]ssa.Value   // Phis
-	retvals Tuples                      //
-	defers  []*ssa.Defer                // Deferred calls
-	caller  *frame                      // Ptr to caller's frame, nil if main/ext
-	env     *environ                    // Environment
-	gortn   *goroutine                  // Current goroutine
+	fn      *ssa.Function                   // Function ptr of callee
+	locals  map[ssa.Value]*utils.Definition // Holds definitions of local registers
+	arrays  map[*utils.Definition]Elems     // Array elements (Alloc local)
+	structs map[*utils.Definition]Fields    // Struct fields (Alloc local)
+	tuples  map[ssa.Value]Tuples            // Multiple return values as tuple
+	phi     map[ssa.Value][]ssa.Value       // Phis
+	retvals Tuples                          //
+	defers  []*ssa.Defer                    // Deferred calls
+	caller  *frame                          // Ptr to caller's frame, nil if main/ext
+	env     *environ                        // Environment
+	gortn   *goroutine                      // Current goroutine
 }
 
 // Environment: Variables/info available globally for all goroutines
 type environ struct {
 	session  *sesstype.Session
-	globals  map[ssa.Value]*utils.VarDef      // Globals
-	arrays   map[*utils.VarDef]Elems          // Array elements
-	structs  map[*utils.VarDef]Fields         // Struct fields
-	chans    map[*utils.VarDef]*sesstype.Chan // Channels
-	extern   map[ssa.Value]types.Type         // Values that originates externally, we are only sure of its type
-	closures map[ssa.Value]Captures           // Closure captures
-	selNode  map[ssa.Value]struct {           // Parent nodes of select
+	globals  map[ssa.Value]*utils.Definition      // Globals
+	arrays   map[*utils.Definition]Elems          // Array elements
+	structs  map[*utils.Definition]Fields         // Struct fields
+	chans    map[*utils.Definition]*sesstype.Chan // Channels
+	extern   map[ssa.Value]types.Type             // Values that originates externally, we are only sure of its type
+	closures map[ssa.Value]Captures               // Closure captures
+	selNode  map[ssa.Value]struct {               // Parent nodes of select
 		parent   *sesstype.Node
 		blocking bool
 	}
@@ -73,7 +73,7 @@ type environ struct {
 	ifparent *sesstype.NodeStack
 }
 
-func (env *environ) GetSessionChan(vd *utils.VarDef) *sesstype.Chan {
+func (env *environ) GetSessionChan(vd *utils.Definition) *sesstype.Chan {
 	if ch, ok := env.session.Chans[vd]; ok {
 		return &ch
 	}
@@ -83,9 +83,9 @@ func (env *environ) GetSessionChan(vd *utils.VarDef) *sesstype.Chan {
 func makeToplevelFrame() *frame {
 	callee := &frame{
 		fn:      nil,
-		locals:  make(map[ssa.Value]*utils.VarDef),
-		arrays:  make(map[*utils.VarDef]Elems),
-		structs: make(map[*utils.VarDef]Fields),
+		locals:  make(map[ssa.Value]*utils.Definition),
+		arrays:  make(map[*utils.Definition]Elems),
+		structs: make(map[*utils.Definition]Fields),
 		tuples:  make(map[ssa.Value]Tuples),
 		phi:     make(map[ssa.Value][]ssa.Value),
 		retvals: make(Tuples, 0),
@@ -93,10 +93,10 @@ func makeToplevelFrame() *frame {
 		caller:  nil,
 		env: &environ{
 			session:  session,
-			globals:  make(map[ssa.Value]*utils.VarDef),
-			arrays:   make(map[*utils.VarDef]Elems),
-			structs:  make(map[*utils.VarDef]Fields),
-			chans:    make(map[*utils.VarDef]*sesstype.Chan),
+			globals:  make(map[ssa.Value]*utils.Definition),
+			arrays:   make(map[*utils.Definition]Elems),
+			structs:  make(map[*utils.Definition]Fields),
+			chans:    make(map[*utils.Definition]*sesstype.Chan),
 			extern:   make(map[ssa.Value]types.Type),
 			closures: make(map[ssa.Value]Captures),
 			selNode: make(map[ssa.Value]struct {
@@ -168,9 +168,9 @@ func (caller *frame) callCommon(call *ssa.Call, common *ssa.CallCommon) {
 
 		callee := &frame{
 			fn:      common.StaticCallee(),
-			locals:  make(map[ssa.Value]*utils.VarDef),
-			arrays:  make(map[*utils.VarDef]Elems),
-			structs: make(map[*utils.VarDef]Fields),
+			locals:  make(map[ssa.Value]*utils.Definition),
+			arrays:  make(map[*utils.Definition]Elems),
+			structs: make(map[*utils.Definition]Fields),
 			tuples:  make(map[ssa.Value]Tuples),
 			phi:     make(map[ssa.Value][]ssa.Value),
 			retvals: make(Tuples, common.Signature().Results().Len()),
@@ -216,9 +216,9 @@ func (caller *frame) callCommon(call *ssa.Call, common *ssa.CallCommon) {
 
 						callee := &frame{
 							fn:      fn,
-							locals:  make(map[ssa.Value]*utils.VarDef),
-							arrays:  make(map[*utils.VarDef]Elems),
-							structs: make(map[*utils.VarDef]Fields),
+							locals:  make(map[ssa.Value]*utils.Definition),
+							arrays:  make(map[*utils.Definition]Elems),
+							structs: make(map[*utils.Definition]Fields),
 							tuples:  make(map[ssa.Value]Tuples),
 							phi:     make(map[ssa.Value][]ssa.Value),
 							retvals: make(Tuples, common.Signature().Results().Len()),
@@ -273,9 +273,9 @@ func (caller *frame) callGo(g *ssa.Go) {
 
 	callee := &frame{
 		fn:      common.StaticCallee(),
-		locals:  make(map[ssa.Value]*utils.VarDef),
-		arrays:  make(map[*utils.VarDef]Elems),
-		structs: make(map[*utils.VarDef]Fields),
+		locals:  make(map[ssa.Value]*utils.Definition),
+		arrays:  make(map[*utils.Definition]Elems),
+		structs: make(map[*utils.Definition]Fields),
 		tuples:  make(map[ssa.Value]Tuples),
 		phi:     make(map[ssa.Value][]ssa.Value),
 		retvals: make(Tuples, common.Signature().Results().Len()),
@@ -356,7 +356,7 @@ func (caller *frame) handleRetvals(returned ssa.Value, callee *frame) {
 	}
 }
 
-func (callee *frame) get(v ssa.Value) (*utils.VarDef, VarKind) {
+func (callee *frame) get(v ssa.Value) (*utils.Definition, VarKind) {
 	if vd, ok := callee.locals[v]; ok {
 		if _, ok := callee.env.arrays[vd]; ok {
 			return vd, Array
@@ -397,7 +397,7 @@ func (caller *frame) handleExtRetvals(returned ssa.Value, callee *frame) {
 		if resultsLen == 1 {
 			fmt.Fprintf(os.Stderr, "-- Return from %s (builtin/ext) with a single value\n", callee.fn.String())
 			if _, ok := callee.fn.Signature.Results().At(0).Type().(*types.Chan); ok {
-				vardef := utils.NewVarDef(returned)
+				vardef := utils.NewDef(returned)
 				ch := caller.env.session.MakeExtChan(vardef, caller.gortn.role)
 				caller.env.chans[vardef] = &ch
 				fmt.Fprintf(os.Stderr, "-- Return value from %s (builtin/ext) is a channel %s (ext)\n", callee.fn.String(), (*caller.env.chans[vardef]).Name())
@@ -441,7 +441,7 @@ func (callee *frame) printCallStack() {
 	}
 }
 
-func (callee *frame) updateDefs(vdOld, vdNew *utils.VarDef) {
+func (callee *frame) updateDefs(vdOld, vdNew *utils.Definition) {
 	for def, array := range callee.arrays {
 		for k, v := range array {
 			if v == vdOld {

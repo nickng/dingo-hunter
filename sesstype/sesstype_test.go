@@ -3,15 +3,15 @@ package sesstype
 import (
 	"testing"
 
-	"github.com/nickng/dingo-hunter/gossa"
+	"github.com/nickng/dingo-hunter/utils"
 )
 
 // Tests SendNode creation.
 func TestSendNode(t *testing.T) {
 	s := CreateSession()
 	r := s.GetRole("main")
-	c := s.MakeChan(gossa.EmptyValue{T: nil}, r)
-	n := MkSendNode(r, c)
+	c := s.MakeChan(utils.NewDef(utils.EmptyValue{T: nil}), r)
+	n := MkSendNode(r, c, nil)
 	if n.Kind() != SendOp {
 		t.Errorf("Expecting node kind to be %s but got %s\n", SendOp, n.Kind())
 	}
@@ -22,7 +22,7 @@ func TestSendNode(t *testing.T) {
 		t.Errorf("Expecting node to have 0 children but got %d\n", len(n.Children()))
 	}
 
-	n2 := MkSelectSendNode(r, c)
+	n2 := MkSelectSendNode(r, c, nil)
 	if n2.Kind() != SendOp {
 		t.Errorf("Expecting node kind to be %s but got %s\n", SendOp, n2.Kind())
 	}
@@ -46,8 +46,8 @@ func TestSendNode(t *testing.T) {
 func TestRecvNode(t *testing.T) {
 	s := CreateSession()
 	r := s.GetRole("main")
-	c := s.MakeChan(gossa.EmptyValue{T: nil}, r)
-	n := MkRecvNode(c, r)
+	c := s.MakeChan(utils.NewDef(utils.EmptyValue{T: nil}), r)
+	n := MkRecvNode(c, r, nil)
 	if n.Kind() != RecvOp {
 		t.Errorf("Expecting node kind to be %s but got %s\n", RecvOp, n.Kind())
 	}
@@ -58,7 +58,7 @@ func TestRecvNode(t *testing.T) {
 		t.Errorf("Expecting node to have 0 children but got %d\n", len(n.Children()))
 	}
 
-	n2 := MkSelectRecvNode(c, r)
+	n2 := MkSelectRecvNode(c, r, nil)
 	if n2.Kind() != RecvOp {
 		t.Errorf("Expecting node kind to be %s but got %s\n", RecvOp, n2.Kind())
 	}
@@ -108,7 +108,7 @@ func TestLabelGotoNode(t *testing.T) {
 func TestNewChanNode(t *testing.T) {
 	s := CreateSession()
 	r := s.GetRole("main")
-	c := s.MakeChan(gossa.EmptyValue{T: nil}, r)
+	c := s.MakeChan(utils.NewDef(utils.EmptyValue{T: nil}), r)
 	n := MkNewChanNode(c)
 	if n.Kind() != NewChanOp {
 		t.Errorf("Expecting node kind to be %s but got %s\n", NewChanOp, n.Kind())
@@ -129,7 +129,7 @@ func TestNewChanNode(t *testing.T) {
 func TestEndNode(t *testing.T) {
 	s := CreateSession()
 	r := s.GetRole("main")
-	c := s.MakeChan(gossa.EmptyValue{T: nil}, r)
+	c := s.MakeChan(utils.NewDef(utils.EmptyValue{T: nil}), r)
 	n := MkEndNode(c)
 	if n.Kind() != EndOp {
 		t.Errorf("Expecting node kind to be %s but got %s\n", EndOp, n.Kind())

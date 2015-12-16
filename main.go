@@ -22,14 +22,14 @@ import (
 	"golang.org/x/tools/go/types"
 
 	"github.com/nickng/dingo-hunter/sesstype"
+	"github.com/nickng/dingo-hunter/sesstype/generator"
 	"github.com/nickng/dingo-hunter/utils"
 )
 
 var (
-	session   *sesstype.Session // Keeps track of the all session
-	ssaflag   = ssa.BuilderModeFlag(flag.CommandLine, "ssa", ssa.BareInits)
-	debugMode = flag.Bool("debug", false, "Debug mode")
-	goQueue   = make([]*frame, 0)
+	session *sesstype.Session // Keeps track of the all session
+	ssaflag = ssa.BuilderModeFlag(flag.CommandLine, "ssa", ssa.BareInits)
+	goQueue = make([]*frame, 0)
 )
 
 const usage = "Usage dingo-hunter <main.go> ...\n"
@@ -68,22 +68,22 @@ func main() {
 			case *ssa.Global:
 				switch derefAll(val.Type()).(type) {
 				case *types.Array:
-					vd := utils.NewVarDef(val)
+					vd := utils.NewDef(val)
 					fr.env.globals[val] = vd
 					fr.env.arrays[vd] = make(Elems)
 
 				case *types.Struct:
-					vd := utils.NewVarDef(val)
+					vd := utils.NewDef(val)
 					fr.env.globals[val] = vd
 					fr.env.structs[vd] = make(Fields)
 
 				case *types.Chan:
 					var c *types.Chan
-					vd := utils.NewVarDef(EmptyValue{T: c})
+					vd := utils.NewDef(utils.EmptyValue{T: c})
 					fr.env.globals[val] = vd
 
 				default:
-					fr.env.globals[val] = utils.NewVarDef(val)
+					fr.env.globals[val] = utils.NewDef(val)
 				}
 			}
 		}
@@ -114,14 +114,29 @@ func main() {
 
 	fmt.Printf(" ----- Results ----- \n%s\n", session.String())
 
-	if *debugMode {
-		sesstype.CFSMDebug = true
+	sesstype.PrintNodeSummary(session)
+
+	dotFile, err := os.OpenFile("output.dot", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		panic(err)
+	}
+	defer dotFile.Close()
+
+	if _, err = generator.GenDot(session, dotFile); err != nil {
+		panic(err)
 	}
 
-	sesstype.GenDot(session)
-	sesstype.GenAllCFSMs(session)
-	sesstype.PrintNodeSummary(session)
-	sesstype.PrintCFSMSummary()
+	cfsmFile, err := os.OpenFile("output_cfsms", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		panic(err)
+	}
+	defer cfsmFile.Close()
+
+	if _, err = generator.GenCFSMs(session, cfsmFile); err != nil {
+		panic(err)
+	}
+
+	generator.PrintCFSMSummary()
 }
 
 // Load command line arguments as SSA program for analysis

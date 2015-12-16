@@ -17,7 +17,6 @@ func SessionCountNodes(session *Session) map[string]int {
 	for r, t := range session.Types {
 		m[r.Name()] = CountNodes(t)
 	}
-
 	return m
 }
 

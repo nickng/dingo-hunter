@@ -18,7 +18,7 @@ type op int
 
 // Chan is a typed channel in a session.
 type Chan struct {
-	def    *utils.VarDef
+	def    *utils.Definition
 	role   Role
 	extern bool
 }
@@ -39,12 +39,8 @@ func (ch Chan) Type() types.Type {
 	}
 	panic("Not channel " + ch.def.Var.String())
 }
-func (ch Chan) Role() Role {
-	return ch.role
-}
-func (ch Chan) Definition() ssa.Value {
-	return ch.def.Var
-}
+func (ch Chan) Role() Role       { return ch.role }
+func (ch Chan) Value() ssa.Value { return ch.def.Var }
 
 // Role in a session (main or goroutine).
 type Role interface {
@@ -78,16 +74,16 @@ type Node interface {
 // Session is a container of session graph nodes, also holds information about
 // channels and roles in the current session.
 type Session struct {
-	Types map[Role]Node          // Root Node for each Role
-	Chans map[*utils.VarDef]Chan // Actual channels are stored here
-	Roles map[string]Role        // Actual roles are stored here
+	Types map[Role]Node              // Root Node for each Role
+	Chans map[*utils.Definition]Chan // Actual channels are stored here
+	Roles map[string]Role            // Actual roles are stored here
 }
 
 // CreateSession initialises a new empty Session.
 func CreateSession() *Session {
 	return &Session{
 		Types: make(map[Role]Node),
-		Chans: make(map[*utils.VarDef]Chan),
+		Chans: make(map[*utils.Definition]Chan),
 		Roles: make(map[string]Role),
 	}
 }
@@ -101,7 +97,7 @@ func (s *Session) GetRole(name string) Role { // Get or create role
 }
 
 // MakeChan creates and stores a new session channel created.
-func (s *Session) MakeChan(v *utils.VarDef, r Role) Chan {
+func (s *Session) MakeChan(v *utils.Definition, r Role) Chan {
 	s.Chans[v] = Chan{
 		def:    v,
 		role:   r,
@@ -111,7 +107,7 @@ func (s *Session) MakeChan(v *utils.VarDef, r Role) Chan {
 }
 
 // MakeExtChan creates and stores a new channel and mark as externally created.
-func (s *Session) MakeExtChan(v *utils.VarDef, r Role) Chan {
+func (s *Session) MakeExtChan(v *utils.Definition, r Role) Chan {
 	s.Chans[v] = Chan{
 		def:    v,
 		role:   r,
@@ -126,13 +122,14 @@ type NewChanNode struct {
 	children []Node
 }
 
-func (nc *NewChanNode) Kind() op         { return NewChanOp }
-func (nc *NewChanNode) Children() []Node { return nc.children }
-func (nc *NewChanNode) Append(node Node) Node {
-	nc.children = append(nc.children, node)
-	return node
+func (nc *NewChanNode) Kind() op   { return NewChanOp }
+func (nc *NewChanNode) Chan() Chan { return nc.ch }
+func (nc *NewChanNode) Append(n Node) Node {
+	nc.children = append(nc.children, n)
+	return n
 }
-func (nc *NewChanNode) Child(index int) Node { return nc.children[index] }
+func (nc *NewChanNode) Child(i int) Node { return nc.children[i] }
+func (nc *NewChanNode) Children() []Node { return nc.children }
 func (nc *NewChanNode) String() string {
 	return fmt.Sprintf("NewChan %s of type %s", nc.ch.Name(), nc.ch.Type().String())
 }
@@ -146,13 +143,16 @@ type SendNode struct {
 	children []Node
 }
 
-func (s *SendNode) Kind() op         { return SendOp }
-func (s *SendNode) Children() []Node { return s.children }
-func (s *SendNode) Append(node Node) Node {
-	s.children = append(s.children, node)
-	return node
+func (s *SendNode) Kind() op       { return SendOp }
+func (s *SendNode) Sender() Role   { return s.sndr }
+func (s *SendNode) To() Chan       { return s.dest }
+func (s *SendNode) IsNondet() bool { return s.nondet }
+func (s *SendNode) Append(n Node) Node {
+	s.children = append(s.children, n)
+	return n
 }
-func (s *SendNode) Child(index int) Node { return s.children[index] }
+func (s *SendNode) Child(i int) Node { return s.children[i] }
+func (s *SendNode) Children() []Node { return s.children }
 func (s *SendNode) String() string {
 	var nd string
 	if s.nondet {
@@ -170,19 +170,21 @@ type RecvNode struct {
 	children []Node
 }
 
-func (r *RecvNode) Kind() op         { return RecvOp }
-func (r *RecvNode) Children() []Node { return r.children }
+func (r *RecvNode) Kind() op       { return RecvOp }
+func (r *RecvNode) Receiver() Role { return r.rcvr }
+func (r *RecvNode) From() Chan     { return r.orig }
+func (r *RecvNode) IsNondet() bool { return r.nondet }
 func (r *RecvNode) Append(node Node) Node {
 	r.children = append(r.children, node)
 	return node
 }
 func (r *RecvNode) Child(index int) Node { return r.children[index] }
+func (r *RecvNode) Children() []Node     { return r.children }
 func (r *RecvNode) String() string {
 	var nd string
 	if r.nondet {
 		nd = "nondet "
 	}
-
 	return fmt.Sprintf("Recv { chan: %s %s}-> %s", r.orig.Name(), nd, r.rcvr.Name())
 }
 
@@ -192,14 +194,15 @@ type LabelNode struct {
 	children []Node
 }
 
-func (l *LabelNode) Kind() op         { return NoOp }
-func (l *LabelNode) Children() []Node { return l.children }
-func (l *LabelNode) Append(node Node) Node {
-	l.children = append(l.children, node)
-	return node
+func (l *LabelNode) Kind() op     { return NoOp }
+func (l *LabelNode) Name() string { return l.name }
+func (l *LabelNode) Append(n Node) Node {
+	l.children = append(l.children, n)
+	return n
 }
-func (l *LabelNode) Child(index int) Node { return l.children[index] }
-func (l *LabelNode) String() string       { return fmt.Sprintf("%s", l.name) }
+func (l *LabelNode) Child(i int) Node { return l.children[i] }
+func (l *LabelNode) Children() []Node { return l.children }
+func (l *LabelNode) String() string   { return fmt.Sprintf("%s", l.name) }
 
 // GotoNode represents a jump (edge to existing LabelNode)
 type GotoNode struct {
@@ -207,41 +210,43 @@ type GotoNode struct {
 	children []Node
 }
 
-func (g *GotoNode) Kind() op         { return NoOp }
-func (g *GotoNode) Children() []Node { return g.children }
-func (g *GotoNode) Append(node Node) Node {
-	g.children = append(g.children, node)
-	return node
+func (g *GotoNode) Kind() op     { return NoOp }
+func (g *GotoNode) Name() string { return g.name }
+func (g *GotoNode) Append(n Node) Node {
+	g.children = append(g.children, n)
+	return n
 }
-func (g *GotoNode) Child(index int) Node { return g.children[index] }
-func (g *GotoNode) String() string       { return fmt.Sprintf("Goto %s", g.name) }
+func (g *GotoNode) Child(i int) Node { return g.children[i] }
+func (g *GotoNode) Children() []Node { return g.children }
+func (g *GotoNode) String() string   { return fmt.Sprintf("Goto %s", g.name) }
 
 type EndNode struct {
 	ch       Chan
 	children []Node
 }
 
-func (e *EndNode) Kind() op         { return EndOp }
-func (e *EndNode) Children() []Node { return e.children }
-func (e *EndNode) Append(node Node) Node {
-	e.children = append(e.children, node)
-	return node
+func (e *EndNode) Kind() op   { return EndOp }
+func (e *EndNode) Chan() Chan { return e.ch }
+func (e *EndNode) Append(n Node) Node {
+	e.children = append(e.children, n)
+	return n
 }
-func (e *EndNode) Child(index int) Node { return e.children[index] }
-func (e *EndNode) String() string       { return fmt.Sprintf("End %s", e.ch.Name()) }
+func (e *EndNode) Child(i int) Node { return e.children[i] }
+func (e *EndNode) Children() []Node { return e.children }
+func (e *EndNode) String() string   { return fmt.Sprintf("End %s", e.ch.Name()) }
 
 type EmptyBodyNode struct {
 	children []Node
 }
 
-func (e *EmptyBodyNode) Kind() op         { return NoOp }
-func (e *EmptyBodyNode) Children() []Node { return e.children }
+func (e *EmptyBodyNode) Kind() op { return NoOp }
 func (e *EmptyBodyNode) Append(node Node) Node {
 	e.children = append(e.children, node)
 	return node
 }
-func (e *EmptyBodyNode) Child(index int) Node { return e.children[index] }
-func (e *EmptyBodyNode) String() string       { return "(Empty)" }
+func (e *EmptyBodyNode) Child(i int) Node { return e.children[i] }
+func (e *EmptyBodyNode) Children() []Node { return e.children }
+func (e *EmptyBodyNode) String() string   { return "(Empty)" }
 
 // MkNewChanNode makes a NewChanNode.
 func MkNewChanNode(ch Chan) Node {
