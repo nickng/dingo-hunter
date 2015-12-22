@@ -1,0 +1,3 @@
+[submodule "third_party/gmc-synthesis"]
+	path = third_party/gmc-synthesis
+	url = git@bitbucket.org:nickng/gmc-synthesis.git
