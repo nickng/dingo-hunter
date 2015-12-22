@@ -45,7 +45,7 @@ type frame struct {
 	structs map[*utils.Definition]Fields    // Struct fields (Alloc local)
 	tuples  map[ssa.Value]Tuples            // Multiple return values as tuple
 	phi     map[ssa.Value][]ssa.Value       // Phis
-	retvals Tuples                          //
+	retvals Tuples                          // Return values to pass back to parent
 	defers  []*ssa.Defer                    // Deferred calls
 	caller  *frame                          // Ptr to caller's frame, nil if main/ext
 	env     *environ                        // Environment
