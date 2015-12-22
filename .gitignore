@@ -23,6 +23,6 @@ _testmain.go
 *.test
 *.prof
 
-output.dot
-output.pdf
-output_cfsms
+*.dot
+*.pdf
+*_cfsms

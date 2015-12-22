@@ -29,6 +29,7 @@ import (
 var (
 	session *sesstype.Session // Keeps track of the all session
 	ssaflag = ssa.BuilderModeFlag(flag.CommandLine, "ssa", ssa.BareInits)
+	prefix  = flag.String("p", "output", "Output files prefix")
 	goQueue = make([]*frame, 0)
 )
 
@@ -116,7 +117,7 @@ func main() {
 
 	sesstype.PrintNodeSummary(session)
 
-	dotFile, err := os.OpenFile("output.dot", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	dotFile, err := os.OpenFile(fmt.Sprintf("%s.dot", *prefix), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		panic(err)
 	}
@@ -126,7 +127,7 @@ func main() {
 		panic(err)
 	}
 
-	cfsmFile, err := os.OpenFile("output_cfsms", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	cfsmFile, err := os.OpenFile(fmt.Sprintf("%s_cfsms", *prefix), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		panic(err)
 	}
