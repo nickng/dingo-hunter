@@ -30,6 +30,7 @@ var (
 	session *sesstype.Session // Keeps track of the all session
 	ssaflag = ssa.BuilderModeFlag(flag.CommandLine, "ssa", ssa.BareInits)
 	prefix  = flag.String("p", "output", "Output files prefix")
+	outdir  = flag.String("o", "third_party/gmc-synthesis/inputs", "Output directory for CFSMs")
 	goQueue = make([]*frame, 0)
 )
 
@@ -127,7 +128,8 @@ func main() {
 		panic(err)
 	}
 
-	cfsmFile, err := os.OpenFile(fmt.Sprintf("%s_cfsms", *prefix), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	cfsmPath := fmt.Sprintf("%s/%s_cfsms", *outdir, *prefix)
+	cfsmFile, err := os.OpenFile(cfsmPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		panic(err)
 	}
@@ -137,6 +139,7 @@ func main() {
 		panic(err)
 	}
 
+	fmt.Fprintf(os.Stderr, "CFSMs written to %s\n", cfsmPath)
 	generator.PrintCFSMSummary()
 }
 

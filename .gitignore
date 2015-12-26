@@ -26,3 +26,5 @@ _testmain.go
 *.dot
 *.pdf
 *_cfsms
+
+dingo-hunter
