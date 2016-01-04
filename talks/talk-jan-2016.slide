@@ -1,0 +1,118 @@
+Static Deadlock Detection for Go
+
+Nicholas Ng / nicholascwng
+Imperial College London
+
+http://mrg.doc.ic.ac.uk
+
+nickng@imperial.ac.uk
+
+@nicholascwng
+
+* Go Programming Language
+
+- Open source
+- Statically typed
+- Compiled, systems programming language
+- Built-in channel-based concurrency
+
+* Concurrency in Go
+
+- Communicating Sequential Process (CSP) style channel-based concurrency
+- Composition of sequential code
+.image csp.png
+.caption CSP example ("Communicating Sequential Processes", Hoare 2004)
+
+* Concurrency in Go: Goroutines and Channels
+
+- Goroutines: lightweight threads
+- Channels: 'link', message-passing between goroutines
+.play concurrency.go
+
+* Deadlocks in Go
+
+- CSP are prone to these
+- Communication deadlocks: blocked communication (for 1 or more goroutines)
+
+    fatal error: all goroutines are asleep - deadlock!
+
+.play concurrency.go /^func main/,/^}/
+
+* Go language runtime and tools
+
+- Go has a _runtime_ deadlock detector
+- Go has a _runtime_ race detector
+- Guidelines/concurrency patterns exists to prevent deadlocks
+.link http://github.com/golang/go/blob/d2c81ad84776edfb4c790666f1d80554b4393d46/src/runtime/proc.go#L3243 Go source code go/runtime/proc.go:3243
+.code proc.go
+
+* Yes, but...
+
+- *Runtime* detector (if not in execution path, no error)
+- Non-global deadlocks ignored by runtime detector
+
+    fatal error: *all* goroutines are asleep - deadlock!
+
+.play deadlock.go /^func main/,/^}/
+
+- Developer experience, best practices (think `malloc` & `free` in C and `valgrind`)
+
+* Static analysis of Go source code
+
+.image workflow.png
+- Research: π-calculus (process calculi like CSP) and Session Types
+- Try to find _potential_ deadlocks
+*1.* Convert to SSA Intermediate Representation (golang.org/x/tools/go/ssa)
+*2.* Extract communication (send/recv/select/close) as local types, ignore computation
+*3.* Model as Communicating FSM (state machine)
+
+* SSA IR
+
+SSA = Single Static Assignment
+In short: variables are assigned once (updates = new version of variable)
+
+    func main():
+    0:                                                                entry P:0 S:0
+        t0 = make chan int 0:int                                       chan int
+        t1 = make chan int 0:int                                       chan int
+        t2 = changetype chan<- int <- chan int (t0)                  chan<- int
+        go Send(t2)
+        t3 = changetype <-chan int <- chan int (t0)                  <-chan int
+        t4 = changetype chan<- int <- chan int (t1)                  chan<- int
+        go Recv(t3, t4)
+        t5 = changetype <-chan int <- chan int (t0)                  <-chan int
+        t6 = changetype chan<- int <- chan int (t1)                  chan<- int
+        go Recv(t5, t6)
+        go Work()
+        t7 = <-t1                                                           int
+        t8 = <-t1                                                           int
+        return
+
+* Static Analysis
+
+- Track channel when they are created make(chan T)
+- Any send/receive on channel recorded as events (similar to Go oracle ChannelPeer)
+- But instead we build a graph of (all possible) events - we call it local types
+.image extracted.png
+
+* Communicating Finite State Machine
+
+Aim: Global (Session) Graph Synthesis
+
+- i.e. all send ⇆ all recv
+- Satisfy relaxed (synchronous) Generalised Multiparty Compatibility conditions (Lange and Yoshida, POPL'15)
+
+.image cfsm.png
+.caption Left: Communicating Finite State Machines; Right: Global graph - deadlocked vs. fixed (consistent)
+
+* Demo
+
+* // TODOs
+
+Tons of stuff missing but works on most simple programs
+
+- e.g. `sync` package, (Particularly `sync.WaitGroup`, i.e. barrier synchronisation)
+- e.g. buffered channels
+
+.link https://github.com/nickng/dingo-hunter
+.image dingo-hunter.jpg
