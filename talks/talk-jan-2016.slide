@@ -51,8 +51,6 @@ nickng@imperial.ac.uk
 - *Runtime* detector (if not in execution path, no error)
 - Non-global deadlocks ignored by runtime detector
 
-    fatal error: *all* goroutines are asleep - deadlock!
-
 .play deadlock.go /^func main/,/^}/
 
 - Developer experience, best practices (think `malloc` & `free` in C and `valgrind`)
