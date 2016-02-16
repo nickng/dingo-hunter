@@ -45,6 +45,7 @@ type frame struct {
 	structs map[*utils.Definition]Fields    // Struct fields (Alloc local)
 	tuples  map[ssa.Value]Tuples            // Multiple return values as tuple
 	phi     map[ssa.Value][]ssa.Value       // Phis
+	recvok  map[ssa.Value]*sesstype.Chan    // Channel used in recvok
 	retvals Tuples                          // Return values to pass back to parent
 	defers  []*ssa.Defer                    // Deferred calls
 	caller  *frame                          // Ptr to caller's frame, nil if main/ext
@@ -70,6 +71,7 @@ type environ struct {
 		idx int       // The index of the branch
 		tpl ssa.Value // The SelectState tuple which the branch originates from
 	}
+	recvTest map[ssa.Value]*sesstype.Chan // Receive test
 	ifparent *sesstype.NodeStack
 }
 
@@ -88,6 +90,7 @@ func makeToplevelFrame() *frame {
 		structs: make(map[*utils.Definition]Fields),
 		tuples:  make(map[ssa.Value]Tuples),
 		phi:     make(map[ssa.Value][]ssa.Value),
+		recvok:  make(map[ssa.Value]*sesstype.Chan),
 		retvals: make(Tuples, 0),
 		defers:  make([]*ssa.Defer, 0),
 		caller:  nil,
@@ -108,11 +111,12 @@ func makeToplevelFrame() *frame {
 				idx int
 				tpl ssa.Value
 			}),
+			recvTest: make(map[ssa.Value]*sesstype.Chan),
 			ifparent: sesstype.NewNodeStack(),
 		},
 		gortn: &goroutine{
 			role:    session.GetRole("main"),
-			root:    sesstype.MkLabelNode("main"),
+			root:    sesstype.NewLabelNode("main"),
 			leaf:    nil,
 			visited: make(map[*ssa.BasicBlock]sesstype.Node),
 		},
@@ -173,6 +177,7 @@ func (caller *frame) callCommon(call *ssa.Call, common *ssa.CallCommon) {
 			structs: make(map[*utils.Definition]Fields),
 			tuples:  make(map[ssa.Value]Tuples),
 			phi:     make(map[ssa.Value][]ssa.Value),
+			recvok:  make(map[ssa.Value]*sesstype.Chan),
 			retvals: make(Tuples, common.Signature().Results().Len()),
 			defers:  make([]*ssa.Defer, 0),
 			caller:  caller,
@@ -221,6 +226,7 @@ func (caller *frame) callCommon(call *ssa.Call, common *ssa.CallCommon) {
 							structs: make(map[*utils.Definition]Fields),
 							tuples:  make(map[ssa.Value]Tuples),
 							phi:     make(map[ssa.Value][]ssa.Value),
+							recvok:  make(map[ssa.Value]*sesstype.Chan),
 							retvals: make(Tuples, common.Signature().Results().Len()),
 							defers:  make([]*ssa.Defer, 0),
 							caller:  caller,
@@ -278,13 +284,14 @@ func (caller *frame) callGo(g *ssa.Go) {
 		structs: make(map[*utils.Definition]Fields),
 		tuples:  make(map[ssa.Value]Tuples),
 		phi:     make(map[ssa.Value][]ssa.Value),
+		recvok:  make(map[ssa.Value]*sesstype.Chan),
 		retvals: make(Tuples, common.Signature().Results().Len()),
 		defers:  make([]*ssa.Defer, 0),
 		caller:  caller,
 		env:     caller.env, // Use the same env as caller
 		gortn: &goroutine{
 			role:    gorole,
-			root:    sesstype.MkLabelNode(goname),
+			root:    sesstype.NewLabelNode(goname),
 			leaf:    nil,
 			visited: make(map[*ssa.BasicBlock]sesstype.Node),
 		},

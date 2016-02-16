@@ -70,8 +70,8 @@ func genChanCFSM(role sesstype.Role, typ string, begin int, end int) string {
 		cfsm += fmt.Sprintf("%s %d ? STOP %s\n", q0, i, qTerm)
 		for j := begin; j < end; j++ {
 			if i != j {
-				//cfsm += fmt.Sprintf("%s %d ! STOP %s\n", qTerm, j, qTerm)
-				cfsm += fmt.Sprintf("%s %d ! %s %s\n", qTerm, j, encodeSymbols(typ), qTerm)
+				cfsm += fmt.Sprintf("%s %d ! STOP %s\n", qTerm, j, qTerm)
+				//cfsm += fmt.Sprintf("%s %d ! %s %s\n", qTerm, j, encodeSymbols(typ), qTerm)
 			}
 		}
 	}
@@ -115,7 +115,12 @@ func nodeToCFSM(root sesstype.Node, role sesstype.Role, q0 string, initial bool)
 			panic(fmt.Sprintf("Receiving from unknown channel: %s", node.From().Name()))
 		}
 
-		recvType := encodeSymbols(node.From().Type().String())
+		recvType := ""
+		if node.Stop() {
+			recvType = "STOP"
+		} else {
+			recvType = encodeSymbols(node.From().Type().String())
+		}
 		qRecv := encodeSymbols(genNewState(role))
 		cfsm := fmt.Sprintf("%s %d ? %s ", q0, fromCFSM, recvType)
 		if !initial {

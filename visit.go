@@ -17,11 +17,11 @@ func visitBlock(blk *ssa.BasicBlock, fr *frame) {
 		blkLabel := fmt.Sprintf("%s#%d", blk.Parent().String(), blk.Index)
 
 		if _, found := fr.gortn.visited[blk]; found {
-			fr.gortn.AddNode(sesstype.MkGotoNode(blkLabel))
+			fr.gortn.AddNode(sesstype.NewGotoNode(blkLabel))
 			return
 		}
 		// Make a label for other edges that enter this block
-		label := sesstype.MkLabelNode(blkLabel)
+		label := sesstype.NewLabelNode(blkLabel)
 		fr.gortn.AddNode(label)
 		fr.gortn.visited[blk] = label // XXX visited is initialised by append if lblNode is head of tree
 	}
@@ -144,6 +144,12 @@ func visitInst(inst ssa.Instruction, fr *frame) {
 }
 
 func visitExtract(e *ssa.Extract, fr *frame) {
+	if recvCh, ok := fr.recvok[e.Tuple]; ok && e.Index == 1 { // 1 = ok (bool)
+		fmt.Fprintf(os.Stderr, "  EXTRACT for %s\n", recvCh.Name())
+		//fr.locals[e] = e
+		fr.env.recvTest[e] = recvCh
+		return
+	}
 	if tpl, ok := fr.tuples[e.Tuple]; ok {
 		fmt.Fprintf(os.Stderr, "   %s = extract %s[#%d] == %s\n", reg(e), e.Tuple.Name(), e.Index, tpl[e.Index].String())
 		fr.locals[e] = tpl[e.Index]
@@ -304,12 +310,12 @@ func visitSelect(s *ssa.Select, fr *frame) {
 			switch state.Dir {
 			case types.SendOnly:
 				fr.gortn.leaf = fr.env.selNode[s].parent
-				fr.gortn.AddNode(sesstype.MkSelectSendNode(fr.gortn.role, *ch, state.Chan.Type()))
+				fr.gortn.AddNode(sesstype.NewSelectSendNode(fr.gortn.role, *ch, state.Chan.Type()))
 				fmt.Fprintf(os.Stderr, "    %s\n", orange((*fr.gortn.leaf).String()))
 
 			case types.RecvOnly:
 				fr.gortn.leaf = fr.env.selNode[s].parent
-				fr.gortn.AddNode(sesstype.MkSelectRecvNode(*ch, fr.gortn.role, state.Chan.Type()))
+				fr.gortn.AddNode(sesstype.NewSelectRecvNode(*ch, fr.gortn.role, state.Chan.Type()))
 				fmt.Fprintf(os.Stderr, "    %s\n", orange((*fr.gortn.leaf).String()))
 
 			default:
@@ -356,8 +362,20 @@ func visitIf(inst *ssa.If, fr *frame) {
 		panic("If: Parent is nil")
 	}
 
-	// Check if this is a select-test-jump, if so handle separately.
-	if selTest, isSelTest := fr.env.selTest[inst.Cond]; isSelTest {
+	if ch, isRecvTest := fr.env.recvTest[inst.Cond]; isRecvTest {
+		fmt.Fprintf(os.Stderr, "  @ Switch to recvtest true\n")
+		fr.gortn.leaf = ifparent
+		fr.gortn.AddNode(sesstype.NewRecvNode(*ch, fr.gortn.role, ch.Type()))
+		fmt.Fprintf(os.Stderr, "  %s\n", orange((*fr.gortn.leaf).String()))
+		visitBlock(inst.Block().Succs[0], fr)
+
+		fmt.Fprintf(os.Stderr, "  @ Switch to recvtest false\n")
+		fr.gortn.leaf = ifparent
+		fr.gortn.AddNode(sesstype.NewRecvStopNode(*ch, fr.gortn.role, ch.Type()))
+		fmt.Fprintf(os.Stderr, "  %s\n", orange((*fr.gortn.leaf).String()))
+		visitBlock(inst.Block().Succs[1], fr)
+	} else if selTest, isSelTest := fr.env.selTest[inst.Cond]; isSelTest {
+		// Check if this is a select-test-jump, if so handle separately.
 		fmt.Fprintf(os.Stderr, "  @ Switch to select branch #%d\n", selTest.idx)
 		if selParent, ok := fr.env.selNode[selTest.tpl]; ok {
 			fr.gortn.leaf = ifparent
@@ -397,7 +415,7 @@ func visitMakeChan(inst *ssa.MakeChan, caller *frame) {
 	ch := caller.env.session.MakeChan(vd, role)
 
 	caller.env.chans[vd] = &ch
-	caller.gortn.AddNode(sesstype.MkNewChanNode(ch))
+	caller.gortn.AddNode(sesstype.NewNewChanNode(ch))
 	caller.locals[inst] = vd
 	fmt.Fprintf(os.Stderr, "   New channel %s { type: %s } by %s at %s\n", green(ch.Name()), ch.Type(), vd.String(), locn)
 	fmt.Fprintf(os.Stderr, "               ^ in role %s\n", role.Name())
@@ -407,13 +425,13 @@ func visitSend(send *ssa.Send, fr *frame) {
 	locn := loc(fr, send.Chan.Pos())
 	if vd, kind := fr.get(send.Chan); kind == Chan {
 		ch := fr.env.chans[vd]
-		fr.gortn.AddNode(sesstype.MkSendNode(fr.gortn.role, *ch, send.Chan.Type()))
+		fr.gortn.AddNode(sesstype.NewSendNode(fr.gortn.role, *ch, send.Chan.Type()))
 		fmt.Fprintf(os.Stderr, "  %s\n", orange((*fr.gortn.leaf).String()))
 	} else if kind == Nothing {
 		fr.locals[send.Chan] = utils.NewDef(send.Chan)
 		ch := fr.env.session.MakeExtChan(fr.locals[send.Chan], fr.gortn.role)
 		fr.env.chans[fr.locals[send.Chan]] = &ch
-		fr.gortn.AddNode(sesstype.MkSendNode(fr.gortn.role, ch, send.Chan.Type()))
+		fr.gortn.AddNode(sesstype.NewSendNode(fr.gortn.role, ch, send.Chan.Type()))
 		fmt.Fprintf(os.Stderr, "  %s\n", orange((*fr.gortn.leaf).String()))
 		fmt.Fprintf(os.Stderr, "   ^ Send: Channel %s at %s is external\n", reg(send.Chan), locn)
 	} else {
@@ -426,13 +444,20 @@ func visitRecv(recv *ssa.UnOp, fr *frame) {
 	locn := loc(fr, recv.X.Pos())
 	if vd, kind := fr.get(recv.X); kind == Chan {
 		ch := fr.env.chans[vd]
-		fr.gortn.AddNode(sesstype.MkRecvNode(*ch, fr.gortn.role, recv.X.Type()))
-		fmt.Fprintf(os.Stderr, "  %s\n", orange((*fr.gortn.leaf).String()))
+		if recv.CommaOk {
+			// ReceiveOK test
+			fr.recvok[recv] = ch
+			// TODO(nickng) technically this should do receive (both branches)
+		} else {
+			// Normal receive
+			fr.gortn.AddNode(sesstype.NewRecvNode(*ch, fr.gortn.role, recv.X.Type()))
+			fmt.Fprintf(os.Stderr, "  %s\n", orange((*fr.gortn.leaf).String()))
+		}
 	} else if kind == Nothing {
 		fr.locals[recv.X] = utils.NewDef(recv.X)
 		ch := fr.env.session.MakeExtChan(fr.locals[recv.X], fr.gortn.role)
 		fr.env.chans[fr.locals[recv.X]] = &ch
-		fr.gortn.AddNode(sesstype.MkRecvNode(ch, fr.gortn.role, recv.X.Type()))
+		fr.gortn.AddNode(sesstype.NewRecvNode(ch, fr.gortn.role, recv.X.Type()))
 		fmt.Fprintf(os.Stderr, "  %s\n", orange((*fr.gortn.leaf).String()))
 		fmt.Fprintf(os.Stderr, "   ^ Recv: Channel %s at %s is external\n", reg(recv.X), locn)
 	} else {
@@ -443,7 +468,7 @@ func visitRecv(recv *ssa.UnOp, fr *frame) {
 
 // visitClose for the close() builtin primitive.
 func visitClose(ch sesstype.Chan, fr *frame) {
-	fr.gortn.AddNode(sesstype.MkEndNode(ch))
+	fr.gortn.AddNode(sesstype.NewEndNode(ch))
 }
 
 func visitJump(inst *ssa.Jump, fr *frame) {

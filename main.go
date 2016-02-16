@@ -105,7 +105,7 @@ func main() {
 	var goFrm *frame
 	for len(goQueue) > 0 {
 		goFrm, goQueue = goQueue[0], goQueue[1:]
-		fmt.Fprintf(os.Stderr, "\n%s\n\n", goFrm.fn.Name())
+		fmt.Fprintf(os.Stderr, "\n%s\nLOCATION: %s%s\n", goFrm.fn.Name(), goFrm.gortn.role.Name(), loc(goFrm, goFrm.fn.Pos()))
 		visitFunc(goFrm.fn, goFrm)
 		goFrm.env.session.Types[goFrm.gortn.role] = goFrm.gortn.root
 	}

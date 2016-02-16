@@ -158,7 +158,7 @@ func (s *SendNode) String() string {
 	if s.nondet {
 		nd = "nondet "
 	}
-	return fmt.Sprintf("Send %s ->{ chan: %s %s}", s.sndr.Name(), s.dest.Name(), nd)
+	return fmt.Sprintf("Send %s→ᶜʰ%s %s", s.sndr.Name(), s.dest.Name(), nd)
 }
 
 // RecvNode represents a receive.
@@ -167,6 +167,7 @@ type RecvNode struct {
 	rcvr     Role       // Received by
 	nondet   bool       // Is this non-deterministic?
 	t        types.Type // Datatype
+	stop     bool       // Stop message only?
 	children []Node
 }
 
@@ -174,6 +175,7 @@ func (r *RecvNode) Kind() op       { return RecvOp }
 func (r *RecvNode) Receiver() Role { return r.rcvr }
 func (r *RecvNode) From() Chan     { return r.orig }
 func (r *RecvNode) IsNondet() bool { return r.nondet }
+func (r *RecvNode) Stop() bool     { return r.stop }
 func (r *RecvNode) Append(node Node) Node {
 	r.children = append(r.children, node)
 	return node
@@ -185,7 +187,10 @@ func (r *RecvNode) String() string {
 	if r.nondet {
 		nd = "nondet "
 	}
-	return fmt.Sprintf("Recv { chan: %s %s}-> %s", r.orig.Name(), nd, r.rcvr.Name())
+	if r.t == nil {
+		return fmt.Sprintf("Recv END %s←ᶜʰ%s%s", r.rcvr.Name(), r.orig.Name(), nd)
+	}
+	return fmt.Sprintf("Recv %s←ᶜʰ%s%s", r.rcvr.Name(), r.orig.Name(), nd)
 }
 
 // LabelNode makes a placeholder for loop/jumping
@@ -248,13 +253,13 @@ func (e *EmptyBodyNode) Child(i int) Node { return e.children[i] }
 func (e *EmptyBodyNode) Children() []Node { return e.children }
 func (e *EmptyBodyNode) String() string   { return "(Empty)" }
 
-// MkNewChanNode makes a NewChanNode.
-func MkNewChanNode(ch Chan) Node {
+// NewNewChanNode makes a NewChanNode.
+func NewNewChanNode(ch Chan) Node {
 	return &NewChanNode{ch: ch, children: []Node{}}
 }
 
-// MkSendNode makes a SendNode.
-func MkSendNode(sndr Role, dest Chan, typ types.Type) Node {
+// NewSendNode makes a SendNode.
+func NewSendNode(sndr Role, dest Chan, typ types.Type) Node {
 	return &SendNode{
 		sndr:     sndr,
 		dest:     dest,
@@ -264,8 +269,8 @@ func MkSendNode(sndr Role, dest Chan, typ types.Type) Node {
 	}
 }
 
-// MkSelectSendNode makes a SendNode in a select (non-deterministic).
-func MkSelectSendNode(sndr Role, dest Chan, typ types.Type) Node {
+// NewSelectSendNode makes a SendNode in a select (non-deterministic).
+func NewSelectSendNode(sndr Role, dest Chan, typ types.Type) Node {
 	return &SendNode{
 		sndr:     sndr,
 		dest:     dest,
@@ -275,19 +280,32 @@ func MkSelectSendNode(sndr Role, dest Chan, typ types.Type) Node {
 	}
 }
 
-// MkRecvNode makes a RecvNode.
-func MkRecvNode(orig Chan, rcvr Role, typ types.Type) Node {
+// NewRecvNode makes a RecvNode.
+func NewRecvNode(orig Chan, rcvr Role, typ types.Type) Node {
 	return &RecvNode{
 		orig:     orig,
 		rcvr:     rcvr,
 		nondet:   false,
 		t:        typ,
+		stop:     false,
 		children: []Node{},
 	}
 }
 
-// MkSelectRecvNode makes a RecvNode in a select (non-deterministic).
-func MkSelectRecvNode(orig Chan, rcvr Role, typ types.Type) Node {
+// NewRecvStopNode makes a RecvNode (for STOP messages).
+func NewRecvStopNode(orig Chan, rcvr Role, typ types.Type) Node {
+	return &RecvNode{
+		orig:     orig,
+		rcvr:     rcvr,
+		nondet:   false,
+		t:        typ,
+		stop:     true,
+		children: []Node{},
+	}
+}
+
+// NewSelectRecvNode makes a RecvNode in a select (non-deterministic).
+func NewSelectRecvNode(orig Chan, rcvr Role, typ types.Type) Node {
 	return &RecvNode{
 		orig:     orig,
 		rcvr:     rcvr,
@@ -297,24 +315,24 @@ func MkSelectRecvNode(orig Chan, rcvr Role, typ types.Type) Node {
 	}
 }
 
-// MkLabelNode makes a LabelNode.
-func MkLabelNode(name string) Node {
+// NewLabelNode makes a LabelNode.
+func NewLabelNode(name string) Node {
 	return &LabelNode{
 		name:     name,
 		children: []Node{},
 	}
 }
 
-// MkGotoNode makes a GotoNode.
-func MkGotoNode(name string) Node {
+// NewGotoNode makes a GotoNode.
+func NewGotoNode(name string) Node {
 	return &GotoNode{
 		name:     name,
 		children: []Node{},
 	}
 }
 
-// MkEndNode makse an EndNode.
-func MkEndNode(ch Chan) Node {
+// NewEndNode makse an EndNode.
+func NewEndNode(ch Chan) Node {
 	return &EndNode{
 		ch: ch,
 	}
