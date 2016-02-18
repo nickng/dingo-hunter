@@ -1,10 +1,13 @@
-langauge: go
+language: go
 go:
     - 1.6
-
+os:
+    - linux
 script:
     - go test -v ./...
-
 addons:
     ssh_known_hosts:
         - bitbucket.org
+notifications:
+    slack:
+        secure: tVChzqfZMyTmdTiiVf74gNVYeG6N6ceOzU5v4fKMQhGHyXQK74SSa3+9La1fQpcO7VGduSgtvGtFN2FOY4JfqKLY7v5y93RFOBdgGOVrys5WWY2vXHKS9pHbwjIHOTmdaWvkj9i3jR0g2FiCKt1sq2LuE9Qw9qOYFN4PiZzm8NP0CM7GKhFJ1emJ8nrQMJRwA6F7LvCizaN4p0XMDCNe31WpHecAaZVivtR4JA/1r4ufRI7yD2a6B3sk8pePpCBoKm3PKDEiuSLf1n4GbBmCI4iZbOZNZ+4tIFdLJnJQc520YIHJ/DTJZo6MqDeEotod0yIQ60jIWNwrxqfYXcZ1GcLPwAe5j5GKKWnIs5JH/tPB3Le8r5RwzJ+SXPMv8XTQQ/q5PmrhRCxOVLXS/Au+1KbooJrEyYG6etiP97ucXjmcKLL4f+JKwIhBHUNNwuKTO30s0dHJO66LINd/ncO89kUyYKV6ijm8S/4BEMvZaKoJJhjnNbjUXfX6jrG20DEDNl2TvAgeZm6/LeMQ/JObdYV35+IXXyB9Ns/obs6f4+3n/XM/xQA/apOhbRPX3RUQNIcSMcyH1Mwuud3ehsMXQ298bl2t/w0x2swL7UzcNj6SFppmb1VtKJYStPtKj9wbjy8E/y7qlxYMZZSsGXeOHlUu/rtnAD6zpAKi2VJdPRY=
