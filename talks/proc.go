@@ -1,5 +1,8 @@
 // From Go source code - https://github.com/golang/go
 // File runtime/proc.go
+
+// +build OMIT
+
 func checkdead() {
 ...
 
