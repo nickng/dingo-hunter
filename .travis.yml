@@ -1,0 +1,10 @@
+langauge: go
+go:
+    - 1.6
+
+script:
+    - go test -v ./...
+
+addons:
+    ssh_known_hosts:
+        - bitbucket.org
