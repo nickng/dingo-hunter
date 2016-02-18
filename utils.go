@@ -5,9 +5,9 @@ package main
 import (
 	"fmt"
 	"go/token"
+	"go/types"
 
 	"golang.org/x/tools/go/ssa"
-	"golang.org/x/tools/go/types"
 )
 
 func loc(fr *frame, pos token.Pos) string {
@@ -62,5 +62,4 @@ func derefAll(typ types.Type) types.Type {
 			return t
 		}
 	}
-	return t
 }

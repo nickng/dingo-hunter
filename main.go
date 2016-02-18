@@ -5,6 +5,8 @@
 // function as entry point.
 package main
 
+// +build go1.6
+
 // This file contains only the functions needed to start the analysis
 //  - Handle command line flags
 //  - Set up session variables
@@ -13,17 +15,16 @@ import (
 	"flag"
 	"fmt"
 	"go/build"
+	"go/types"
 	"os"
 	"time"
-
-	"golang.org/x/tools/go/loader"
-	"golang.org/x/tools/go/ssa"
-	"golang.org/x/tools/go/ssa/ssautil"
-	"golang.org/x/tools/go/types"
 
 	"github.com/nickng/dingo-hunter/sesstype"
 	"github.com/nickng/dingo-hunter/sesstype/generator"
 	"github.com/nickng/dingo-hunter/utils"
+	"golang.org/x/tools/go/loader"
+	"golang.org/x/tools/go/ssa"
+	"golang.org/x/tools/go/ssa/ssautil"
 )
 
 var (

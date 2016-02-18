@@ -1,9 +1,8 @@
 package main
 
 import (
-	"golang.org/x/tools/go/ssa"
-
 	"github.com/nickng/dingo-hunter/sesstype"
+	"golang.org/x/tools/go/ssa"
 )
 
 type goroutine struct {

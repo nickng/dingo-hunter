@@ -2,13 +2,12 @@ package main
 
 import (
 	"fmt"
+	"go/types"
 	"os"
-
-	"golang.org/x/tools/go/ssa"
-	"golang.org/x/tools/go/types"
 
 	"github.com/nickng/dingo-hunter/sesstype"
 	"github.com/nickng/dingo-hunter/utils"
+	"golang.org/x/tools/go/ssa"
 )
 
 // VarKind specifies the type of utils.VarDef used in frame.local[]

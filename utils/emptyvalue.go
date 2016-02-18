@@ -2,8 +2,9 @@ package utils
 
 import (
 	"go/token"
+	"go/types"
+
 	"golang.org/x/tools/go/ssa"
-	"golang.org/x/tools/go/types"
 )
 
 var (

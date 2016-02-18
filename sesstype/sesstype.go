@@ -6,11 +6,10 @@ package sesstype // import "github.com/nickng/dingo-hunter/sesstype"
 
 import (
 	"fmt"
-
-	"golang.org/x/tools/go/ssa"
-	"golang.org/x/tools/go/types"
+	"go/types"
 
 	"github.com/nickng/dingo-hunter/utils"
+	"golang.org/x/tools/go/ssa"
 )
 
 //go:generate stringer -type=op

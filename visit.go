@@ -3,13 +3,12 @@ package main
 import (
 	"fmt"
 	"go/token"
+	"go/types"
 	"os"
-
-	"golang.org/x/tools/go/ssa"
-	"golang.org/x/tools/go/types"
 
 	"github.com/nickng/dingo-hunter/sesstype"
 	"github.com/nickng/dingo-hunter/utils"
+	"golang.org/x/tools/go/ssa"
 )
 
 func visitBlock(blk *ssa.BasicBlock, fr *frame) {
