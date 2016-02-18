@@ -6,9 +6,9 @@ import (
 
 func TestNewStack(t *testing.T) {
 	ns := NewNodeStack()
-	ns.Push(MkLabelNode("TEST"))
-	ns.Push(MkLabelNode("TEST2"))
-	ns.Push(MkLabelNode("TEST3"))
+	ns.Push(NewLabelNode("TEST"))
+	ns.Push(NewLabelNode("TEST2"))
+	ns.Push(NewLabelNode("TEST3"))
 	l := ns.Top()
 	if l.String() != "TEST3" {
 		t.Fail()

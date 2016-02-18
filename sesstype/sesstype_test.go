@@ -11,7 +11,7 @@ func TestSendNode(t *testing.T) {
 	s := CreateSession()
 	r := s.GetRole("main")
 	c := s.MakeChan(utils.NewDef(utils.EmptyValue{T: nil}), r)
-	n := MkSendNode(r, c, nil)
+	n := NewSendNode(r, c, nil)
 	if n.Kind() != SendOp {
 		t.Errorf("Expecting node kind to be %s but got %s\n", SendOp, n.Kind())
 	}
@@ -22,7 +22,7 @@ func TestSendNode(t *testing.T) {
 		t.Errorf("Expecting node to have 0 children but got %d\n", len(n.Children()))
 	}
 
-	n2 := MkSelectSendNode(r, c, nil)
+	n2 := NewSelectSendNode(r, c, nil)
 	if n2.Kind() != SendOp {
 		t.Errorf("Expecting node kind to be %s but got %s\n", SendOp, n2.Kind())
 	}
@@ -47,7 +47,7 @@ func TestRecvNode(t *testing.T) {
 	s := CreateSession()
 	r := s.GetRole("main")
 	c := s.MakeChan(utils.NewDef(utils.EmptyValue{T: nil}), r)
-	n := MkRecvNode(c, r, nil)
+	n := NewRecvNode(c, r, nil)
 	if n.Kind() != RecvOp {
 		t.Errorf("Expecting node kind to be %s but got %s\n", RecvOp, n.Kind())
 	}
@@ -58,7 +58,7 @@ func TestRecvNode(t *testing.T) {
 		t.Errorf("Expecting node to have 0 children but got %d\n", len(n.Children()))
 	}
 
-	n2 := MkSelectRecvNode(c, r, nil)
+	n2 := NewSelectRecvNode(c, r, nil)
 	if n2.Kind() != RecvOp {
 		t.Errorf("Expecting node kind to be %s but got %s\n", RecvOp, n2.Kind())
 	}
@@ -80,7 +80,7 @@ func TestRecvNode(t *testing.T) {
 
 // Tests LabelNode and GotoNode creation.
 func TestLabelGotoNode(t *testing.T) {
-	l := MkLabelNode("Name")
+	l := NewLabelNode("Name")
 	if l.Kind() != NoOp {
 		t.Errorf("Expecting Goto node kind to be %s but got %s\n", NoOp, l.Kind())
 	}
@@ -88,7 +88,7 @@ func TestLabelGotoNode(t *testing.T) {
 		t.Errorf("Expecting Label node to have 0 children but got %d\n", len(l.Children()))
 	}
 
-	g := MkGotoNode("Name")
+	g := NewGotoNode("Name")
 	if g.Kind() != NoOp {
 		t.Errorf("Expecting Goto node kind to be %s but got %s\n", NoOp, g.Kind())
 	}
@@ -109,14 +109,14 @@ func TestNewChanNode(t *testing.T) {
 	s := CreateSession()
 	r := s.GetRole("main")
 	c := s.MakeChan(utils.NewDef(utils.EmptyValue{T: nil}), r)
-	n := MkNewChanNode(c)
+	n := NewNewChanNode(c)
 	if n.Kind() != NewChanOp {
 		t.Errorf("Expecting node kind to be %s but got %s\n", NewChanOp, n.Kind())
 	}
 	if len(n.Children()) != 0 {
 		t.Errorf("Expecting node to have 0 children but got %d\n", len(n.Children()))
 	}
-	n2 := MkNewChanNode(c)
+	n2 := NewNewChanNode(c)
 	if n2 != n.Append(n2) {
 		t.Errorf("Appended node is not same as expected\n")
 	}
@@ -130,14 +130,14 @@ func TestEndNode(t *testing.T) {
 	s := CreateSession()
 	r := s.GetRole("main")
 	c := s.MakeChan(utils.NewDef(utils.EmptyValue{T: nil}), r)
-	n := MkEndNode(c)
+	n := NewEndNode(c)
 	if n.Kind() != EndOp {
 		t.Errorf("Expecting node kind to be %s but got %s\n", EndOp, n.Kind())
 	}
 	if len(n.Children()) != 0 {
 		t.Errorf("Expecting node to have 0 children but got %d\n", len(n.Children()))
 	}
-	n2 := MkEndNode(c)
+	n2 := NewEndNode(c)
 	if n2 != n.Append(n2) {
 		t.Errorf("Appended node is not same as expected\n")
 	}
