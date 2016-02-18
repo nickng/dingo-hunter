@@ -1,3 +1,4 @@
 [submodule "third_party/gmc-synthesis"]
+	branch = dingo
 	path = third_party/gmc-synthesis
-	url = git@bitbucket.org:nickng/gmc-synthesis.git
+	url = https://bitbucket.org/nickng/gmc-synthesis
