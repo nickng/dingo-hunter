@@ -2,6 +2,8 @@
 
 ## Static analyser for finding Deadlocks in Go
 
+[![Build Status](https://travis-ci.org/nickng/dingo-hunter.svg?branch=master)](https://travis-ci.org/nickng/dingo-hunter)
+
 This is a static analyser to model concurrency and find deadlocks in Go code.
 We use a system known in the literature as
 [**Session Types**](http://mrg.doc.ic.ac.uk/publications/multiparty-asynchronous-session-types/)
