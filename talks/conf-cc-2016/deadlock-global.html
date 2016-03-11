@@ -1,0 +1,11 @@
+<table><tr><td>
+CFSMs are numbered as below
+<ul>
+    <li><b>0</b>. channel ch</li>
+    <li><b>1</b>. channel done</li>
+    <li><b>2</b>. main → done <i>1</i> ? int → done <i>1</i> ? <tt>int</tt> </li>
+    <li><b>3</b>. Send :19 → ch <i>0</i> ! <tt>int</tt></li>
+    <li><b>4</b>. Recv :20 → ch <i>0</i> ? <tt>int</tt> → done <i>1</i> ! <tt>done</tt></li>
+    <li><b>5</b>. Recv :21 → ch <i>0</i> ? <tt>int</tt> → done <i>1</i> ! <tt>done</tt></li>
+</ul>
+</td><td><img src="conf-cc-2016/deadlock-global.png"/></td></tr></table>

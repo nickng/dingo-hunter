@@ -1,0 +1,24 @@
+<table><tr><td>
+<div class="code" contenteditable="true" spellcheck="false">
+<pre>func main():
+0:                                                    entry P:0 S:0
+    <b>t0 = make chan int 0:int</b>                           chan int
+    <b>t1 = make chan int 0:int</b>                           chan int
+    t2 = changetype chan&lt;- int &lt;- chan int (t0)      chan&lt;- int
+    go Send(t2)
+    t3 = changetype &lt;-chan int &lt;- chan int (t0)      &lt;-chan int
+    t4 = changetype chan&lt;- int &lt;- chan int (t1)      chan&lt;- int
+    go RecvAck(t3, t4)
+    t5 = changetype &lt;-chan int &lt;- chan int (t0)      &lt;-chan int
+    t6 = changetype chan&lt;- int &lt;- chan int (t1)      chan&lt;- int
+    go RecvAck(t5, t6)
+    go main$1()
+    <b>t7 = &lt;-t1</b>                                               int
+    <b>t8 = &lt;-t1</b>                                               int
+    return
+</pre>
+</div>
+</td>
+<td>
+<div class="image"><img src="conf-cc-2016/ssa.png"></div>
+</td></tr></table>

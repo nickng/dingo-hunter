@@ -1,0 +1,47 @@
+<table><tr><td>
+<div class="code playground" contenteditable="true" spellcheck="false">
+<pre style="display: none"><span>// +build OMIT
+
+package main
+
+import (
+	"fmt"
+)
+
+func work(out chan&lt;- int) {
+	for {
+		out &lt;- 42
+	}
+}
+</span></pre>
+
+<pre><span num="14">func fanin(input1, input2 &lt;-chan int) &lt;-chan int {</span>
+<span num="15">    c := make(chan int)</span>
+<span num="16">    go func() {</span>
+<span num="17">        for {</span>
+<span num="18">            select {</span>
+<span num="19">            case s := &lt;-input1:</span>
+<span num="20">                c &lt;- s</span>
+<span num="21">            case s := &lt;-input2:</span>
+<span num="22">                c &lt;- s</span>
+<span num="23">            }</span>
+<span num="24">        }</span>
+<span num="25">    }()</span>
+<span num="26">    return c</span>
+<span num="27">}</span>
+</pre>
+
+<pre style="display: none"><span>
+func main() {
+	input1 := make(chan int)
+	input2 := make(chan int)
+	go work(input1)
+	go work(input2)
+	c := fanin(input1, input2)
+	for {
+		fmt.Println(&lt;-c)
+	}
+}
+</span></pre>
+</div>
+</td><td><img src="conf-cc-2016/fanin-global.png"/></td></tr></table>

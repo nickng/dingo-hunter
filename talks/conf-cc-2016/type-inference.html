@@ -1,0 +1,24 @@
+<table><tr><td>
+<div class="code" contenteditable="true" spellcheck="false">
+<pre><span num="17">func main() {</span>
+<span num="18">    ch, done := make(chan int), make(chan int)</span>
+<span num="19">    go Send(ch)</span>
+<span num="20">    go RecvAck(ch, done)</span>
+<span num="21">    go RecvAck(ch, done) // OOPS</span>
+<span num="22"></span>
+<span num="23">    // Anonymous goroutine: Some long running work (e.g. http service)</span>
+<span num="24">    go func() {</span>
+<span num="25">        for i := 0; i &lt; 3; i++ {</span>
+<span num="26">            fmt.Println("Working #", i); time.Sleep(1 * time.Second)</span>
+<span num="27">        }</span>
+<span num="28">    }()</span>
+<span num="29">    result = &lt;-done</span>
+<span num="30">    result = &lt;-done // OOPS</span>
+<span num="31">    fmt.Println("Result is ", result)</span>
+<span num="32">}</span>
+</pre>
+</div>
+</td>
+<td>
+<div class="image"><img src="conf-cc-2016/type-inference.png"></div>
+</td></tr></table>

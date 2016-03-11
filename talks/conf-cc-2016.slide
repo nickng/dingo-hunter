@@ -1,0 +1,199 @@
+Static Deadlock Detection for Go by Global Session Graph Synthesis
+
+*Nicholas*Ng* & Nobuko Yoshida
+
+Department of Computing
+Imperial College London
+{nickng,n.yoshida}@imperial.ac.uk
+
+http://mrg.doc.ic.ac.uk
+
+* Outline
+
+- Contributions
+- Go and Concurrency
+- Concurrency Problems
+- Static Analysis & hunting deadlocks by Global Graph Synthesis
+
+* Contributions
+
+- Static deadlock detection tool _dingo-hunter_
+- Deadlock detection based on session types
+- *Infer* session types as Communicating Finite State Machines (CFSMs)
+- *Synthesise* global session graphs from CFSMs
+.image conf-cc-2016/overview.png
+
+* Go and Concurrency
+
+- Developed by Google for multi-core programming
+- Concurrency model built on CSP (process calculi)
+- Message-passing *communication* over channels
+
+" _Do_not_communicate_by_sharing_memory_; _instead_, _share_memory_by_communicating_. "
+
+➜ *Goroutines* & *Channels*
+
+* Go concurrency: Goroutines and Channels
+
+- Goroutines: lightweight threads
+- Channels: bounded queues (default size 0)
+- Go concurrency = compose goroutines & coordinate with channels
+
+.play basic/concurrency.go /^func deepThought/,/END OMIT$/ HLsendrecv
+
+* Concurrency Problems
+
+- Deadlocks ☹
+- _Some_ goroutines are blocked waiting forever
+
+.play basic/concurrency.go /^func deepThought/,/END OMIT$/ HLdl
+
+* fatal error: all goroutines are asleep - deadlock!
+
+- Go has a _runtime_ [[http://github.com/golang/go/blob/d2c81ad84776edfb4c790666f1d80554b4393d46/src/runtime/proc.go#L3243][deadlock detector]]
+- No. of running goroutines:  if `run`>`0` ⟶ OK,  if `run`==`0` ⟶ deadlock ☹
+
+.code snippet/proc.txt
+
+* Runtime deadlock detection
+
+- Sound
+- Only if deadlock during execution
+- Only *global* deadlocks: if ALL goroutines are blocked
+
+* Defeating runtime deadlock detection
+
+.play deadlock/deadlock.go /^func Send/,/^}/ HLoops
+
+This will be our running example
+
+* Static Analysis & Deadlock Detection by Global Graph Synthesis
+
+* Static Analysis & Deadlock Detection by Global Graph Synthesis
+
+.image conf-cc-2016/overview.png
+
+- Explore all branches (vs. only execution path for runtime checker)
+- Approach based on *Multiparty*Session*Types* (MPST) [1]
+- Guarantee communication-safety & *deadlock-freedom* for n-party interactions
+.caption [1]: Honda, Yoshida, Carbone, _Multiparty_Asynchronous_Session_Types_ , POPL'08, J. ACM
+
+* The Multiparty Session Types (MPST) framework
+
+.image conf-cc-2016/mpst.png
+
+- *Global*Graph*Synthesis* [2] [[#colour:blue][local type(s)]] [[#colour:violet][⟶]] [[#colour:red][global type]]
+- [[#colour:blue][Local types]] as _Communicating_Finite_State_Machines_ (CFSMs) [3]
+- [[#colour:red][Global types]] as _graphical_choreographies_
+- Safety guaranteed by *multiparty*compatibility* property (global)
+
+.caption [2]: Lange, Tuosto, Yoshida, _From_Communicating_Machines_to_Graphical_Choreographies_ , POPL'15
+.caption [3]: Brand, Zafiropulo, _On_communicating_finite-state_machines_ , J.  ACM Vol. 30 No. 2, 1983
+
+* Type inference from Go code
+
+- Control flow graph as Finite State Machine (FSM), per goroutine
+- + Communication primitives: `make(chan`T)`, send, receive
+
+.html conf-cc-2016/type-inference.html
+
+* Type inference from Go code (with SSA IR)
+
+- make channel, send, receive - special SSA instructions
+
+.html conf-cc-2016/ssa.html
+
+* Inferred local session types
+
+- For simplicity: real variable names
+- Note: `main$1:24` (work anonymous function) has no communication
+.image conf-cc-2016/local-type.png
+.caption Variable names: `ch`=`main.t0`, `done`=`main.t1`
+
+* Inferred Local Types to Goroutine CFSMs
+
+- Local session types ⟹ CSFMs (_Communicating_Automata_)
+- *Receive* is ? transition, *Send* is ! transition
+
+.image conf-cc-2016/cfsm.png
+
+#.caption [4]: Deniélou, Yoshida, _Multiparty_Compatibility_in_Communicating_Automata:_Characterisation_and_Synthesis_ , ICALP 2013
+
+* Channel CFSMs
+
+- *CFSM*channels* - _fixed_ point-to-point links
+- *Go*channels* - _shared_, do not represent _fixed_ endpoint
+- 2 goroutines writing to same channel valid ✓
+
+.image conf-cc-2016/channel-problem.png
+.caption Note: Go channels valid regardless of the deadlock
+
+* Channel CFSMs
+
+- *Channel*CFSMs* defers selection to a machine (for each channel)
+- *Synchronous*channel* q0 → receive → send → q0
+
+.image conf-cc-2016/channel-cfsm.png
+.caption Channel CFSMs _done_ and _ch_ (showing only essential transitions)
+
+* Bonus: Select non-deterministic choice
+
+- Switch-case for communication
+
+.html conf-cc-2016/select.html
+
+* Global Graph Synthesis
+
+- Join CFSMs to get overall *global* graph
+- All synchronous transitions, [[#colour:blue][A: `ch!int`]] + [[#colour:blue][B: `ch?int`]] becomes [[#colour:red][A → B: int]]
+
+.html conf-cc-2016/deadlock-global.html
+
+* Global Graph Synthesis: What is safe?
+
+- Graph has *Multiparty*Compatibility* property
+- *Representability* All CFSMs are "represented" in global graph
+- *Branching*condition* Branches are propagated to all machines in choice
+.html conf-cc-2016/deadlock-global.html
+
+* Fan-in pattern
+
+- Merging pattern with `select`
+.html conf-cc-2016/fanin-global.html
+
+* htcat: Concurrent HTTP GETs
+
+.image conf-cc-2016/htcat-snippet.png
+.caption [[https://github.com/htcat/htcat][github.com:htcat/htcat]] (721 LoC)
+
+* Bigger example: htcat
+
+#.background conf-cc-2016/htcat.svg
+
+- 9632 nodes
+- 11 Goroutine CFSMs / 8 Channel CFSMs
+- Error handling code: conditional new goroutine
+
+`if`err`!=`nil`{`
+   `go`cat.d.cancel(err)`
+   `return`
+`}`
+
+* Conclusion
+
+- Static analysis tool for Go source code
+- Detect deadlock through global session graph synthesis
+- Applied to open source code base
+
+Static analysis tool
+
+- [[https://github.com/nickng/dingo-hunter][github.com/nickng/dingo-hunter]]
+Synthesis tool (POPL'15 artifact)
+
+- [[https://bitbucket.org/julien-lange/gmc-synthesis][bitbucket.org/julien-lange/gmc-synthesis]]
+
+* Future Work
+
+- *Buffered*channels* asynchronous communication over channels
+- Expanding bounded ranges (e.g. `for`i:=0;`i<10;`i++`{...}`)
+- More dynamic patterns
