@@ -612,7 +612,15 @@ a[href='#colour:red'] {
   cursor: default;
 }
 
-a[href='#colour:violet'] {
-  color: darkviolet;
+a[href='#colour:green'] {
+  color: green;
   cursor: default;
+}
+
+div.title-img {
+  background-position: center;
+  background-repeat: no-repeat;
+  background-image: url(/conf-cc-2016/idea.png);
+  width: 100%;
+  height: 400px;
 }

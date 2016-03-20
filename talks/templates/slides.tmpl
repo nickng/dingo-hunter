@@ -35,6 +35,7 @@
         <h3>{{$s.Title}}</h3>
         {{range $s.Elem}}{{elem $.Template .}}{{end}}
       {{else}}
+        <div class="title-img"></div>
         <h2>{{$s.Title}}</h2>
       {{end}}
       <footer>

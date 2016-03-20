@@ -11,8 +11,8 @@ var (
 	result int
 )
 
-func Send(ch chan<- int)                     { ch <- 42 }
-func RecvAck(ch <-chan int, done chan<- int) { done <- <-ch }
+func Send(ch chan<- int)                     { ch <- 42 }             // Send
+func RecvAck(ch <-chan int, done chan<- int) { v := <-ch; done <- v } // Recv then Send
 
 func main() {
 	ch, done := make(chan int), make(chan int)
