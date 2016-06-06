@@ -29,11 +29,13 @@ import (
 
 var (
 	session *sesstype.Session // Keeps track of the all session
-	ssaflag = ssa.BuilderModeFlag(flag.CommandLine, "ssa", ssa.BareInits)
+	ssaflag = ssa.BareInits
 	prefix  = flag.String("p", "output", "Output files prefix")
 	outdir  = flag.String("o", "third_party/gmc-synthesis/inputs", "Output directory for CFSMs")
 	goQueue = make([]*frame, 0)
 )
+
+func init() { flag.Var(&ssaflag, "ssa", "ssa mode (default: BareInits)") }
 
 const usage = "Usage dingo-hunter <main.go> ...\n"
 
@@ -129,6 +131,7 @@ func main() {
 		panic(err)
 	}
 
+	os.MkdirAll(*outdir, 0750)
 	cfsmPath := fmt.Sprintf("%s/%s_cfsms", *outdir, *prefix)
 	cfsmFile, err := os.OpenFile(cfsmPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
@@ -166,7 +169,7 @@ func loadSSA() (*ssa.Program, error) {
 	if err != nil {
 		return nil, err
 	}
-	progSSA := ssautil.CreateProgram(prog, *ssaflag) // If ssabuild specified
+	progSSA := ssautil.CreateProgram(prog, ssaflag) // If ssabuild specified
 
 	// Build and display only the initial packages (and synthetic wrappers),
 	// unless -run is specified.
