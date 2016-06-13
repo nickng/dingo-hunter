@@ -20,7 +20,7 @@ Follow `README` to install and build `gmc-synthesis`, i.e.
 
     $ cabal install MissingH split Graphalyze
     $ ./getpetrify # and install to /usr/local/ or in $PATH
-    $ ghc -threaded GMC.hs --make && ghc -make BuildGlobal
+    $ ghc -threaded GMC.hs --make && ghc --make BuildGlobal
 
 ## Example usage
 
