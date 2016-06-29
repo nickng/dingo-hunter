@@ -84,7 +84,7 @@ func (conf *Config) Build() (*SSAInfo, error) {
 	}
 	buildLog.Print("Program loaded and type checked")
 
-	prog := ssautil.CreateProgram(lprog, ssa.GlobalDebug)
+	prog := ssautil.CreateProgram(lprog, ssa.GlobalDebug|ssa.BareInits)
 
 	// Prepare Config for whole-program pointer analysis.
 	ptaConf, err := setupPTA(prog, lprog, conf.PtaLog)
