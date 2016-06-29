@@ -1,5 +1,9 @@
-// A concurrent prime sieve
-
+// Command infinite-primesieve is a modified primesieve example from Golang
+// blog. The program generates an infinite list  (instead of a fixed number) of
+// prime numbers.
+//
+// Original: https://golang.org/doc/play/sieve.go
+//
 package main
 
 import (
@@ -28,7 +32,7 @@ func Filter(in <-chan int, out chan<- int, prime int) {
 func main() {
 	ch := make(chan int) // Create a new channel.
 	go Generate(ch)      // Launch Generate goroutine.
-	for i := 0; i < 10; i++ {
+	for i := 0; ; i++ {
 		prime := <-ch
 		fmt.Println(prime)
 		ch1 := make(chan int)

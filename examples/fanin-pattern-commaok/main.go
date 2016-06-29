@@ -1,5 +1,8 @@
 package main
 
+// fanin pattern, using for-range loop to consume values (syntactic sugar of
+// loop over r, ok := <-ch)
+
 import (
 	"fmt"
 )

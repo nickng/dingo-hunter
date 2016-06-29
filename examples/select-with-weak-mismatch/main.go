@@ -1,5 +1,7 @@
 package main
 
+// This example tests how select works. Note that ch1 is never selected.
+
 import (
 	"fmt"
 )
