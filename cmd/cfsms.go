@@ -15,7 +15,11 @@
 package cmd
 
 import (
+	"log"
+
 	"github.com/nickng/dingo-hunter/cfsmextract"
+	"github.com/nickng/dingo-hunter/logwriter"
+	"github.com/nickng/dingo-hunter/ssabuilder"
 	"github.com/spf13/cobra"
 )
 
@@ -45,5 +49,41 @@ func init() {
 }
 
 func extractCFSMs(files []string) {
-	cfsmextract.Extract(files, prefix, outdir)
+	logFile, err := RootCmd.PersistentFlags().GetString("log")
+	if err != nil {
+		log.Fatal(err)
+	}
+	noLogging, err := RootCmd.PersistentFlags().GetBool("no-logging")
+	if err != nil {
+		log.Fatal(err)
+	}
+	noColour, err := RootCmd.PersistentFlags().GetBool("no-colour")
+	if err != nil {
+		log.Fatal(err)
+	}
+	l := logwriter.NewFile(logFile, !noLogging, !noColour)
+	if err := l.Create(); err != nil {
+		log.Fatal(err)
+	}
+	defer l.Cleanup()
+
+	conf, err := ssabuilder.NewConfig(files)
+	conf.BuildLog = l.Writer
+	if err != nil {
+		log.Fatal(err)
+	}
+	ssainfo, err := conf.Build()
+	if err != nil {
+		log.Fatal(err)
+	}
+	extract := cfsmextract.New(ssainfo, prefix, outdir)
+	go extract.Run()
+
+	select {
+	case <-extract.Error:
+		log.Fatal(err)
+	case <-extract.Done:
+		log.Println("Analysis finished in", extract.Time)
+		extract.WriteOutput()
+	}
 }

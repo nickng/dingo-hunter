@@ -132,6 +132,8 @@ func visitInst(inst ssa.Instruction, fr *frame) {
 	case *ssa.MakeInterface:
 		visitMakeInterface(inst, fr)
 
+	case *ssa.DebugRef:
+
 	default:
 		// Everything else not handled yet
 		if v, ok := inst.(ssa.Value); ok {
