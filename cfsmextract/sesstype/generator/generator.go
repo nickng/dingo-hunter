@@ -2,7 +2,7 @@
 package generator
 
 import (
-	"github.com/nickng/dingo-hunter/sesstype"
+	"github.com/nickng/dingo-hunter/cfsmextract/sesstype"
 	"io"
 )
 

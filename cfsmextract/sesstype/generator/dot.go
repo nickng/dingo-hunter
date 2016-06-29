@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/awalterschulze/gographviz"
-	"github.com/nickng/dingo-hunter/sesstype"
+	"github.com/nickng/dingo-hunter/cfsmextract/sesstype"
 )
 
 var (
