@@ -3,7 +3,7 @@ package sesstype
 import (
 	"testing"
 
-	"github.com/nickng/dingo-hunter/utils"
+	"github.com/nickng/dingo-hunter/cfsmextract/utils"
 )
 
 // Tests SendNode creation.

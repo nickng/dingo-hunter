@@ -24,9 +24,9 @@ Follow `README` to install and build `gmc-synthesis`, i.e.
 
 ## Example usage
 
-To run dingo-hunter on `example/deadlock/main.go`:
+To run dingo-hunter CFSMs generation on `example/deadlock/main.go`:
 
-    $ dingo-hunter -p deadlock example/deadlock/main.go
+    $ dingo-hunter cfsms --prefix deadlock example/deadlock/main.go
 
 Output should say 2 channels, then run synthesis tool on extracted CFSMs
 
@@ -35,9 +35,19 @@ Output should say 2 channels, then run synthesis tool on extracted CFSMs
 
 `SMC check` line indicates if the global graph satisfies SMC (i.e. safe) or not.
 
+## Publications
+
+  * [Static Deadlock Detection for Concurrent Go by Global Session Graph Synthesis](http://dl.acm.org/citation.cfm?doid=2892208.2892232), Nicholas Ng and Nobuko Yoshida, Int'l Conference on Compiler Construction (CC 2016), ACM
+
 ## Contributors
 
   * [nickng](http://github.com/nickng)
+
+## Limitations
+
+  * Our tool currently support synchronous (unbuffered channel) communication only
+  * Goroutines spawned after any communication operations must not depend on
+    those communication. Our model assumes goroutines are spawned independenly.
 
 ## License
 

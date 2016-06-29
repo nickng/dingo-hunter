@@ -1,4 +1,4 @@
-package main
+package cfsmextract
 
 // From golang.org/x/tools/go/ssa/interp/interp.go
 

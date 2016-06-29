@@ -1,4 +1,4 @@
-package sesstype // import "github.com/nickng/dingo-hunter/sesstype"
+package sesstype // import "github.com/nickng/dingo-hunter/cfsmextract/sesstype"
 
 // NodeStack is a stack for sesstype.Node
 type NodeStack struct {

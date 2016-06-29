@@ -1,12 +1,12 @@
-package main
+package cfsmextract
 
 import (
 	"fmt"
 	"go/types"
 	"os"
 
-	"github.com/nickng/dingo-hunter/sesstype"
-	"github.com/nickng/dingo-hunter/utils"
+	"github.com/nickng/dingo-hunter/cfsmextract/sesstype"
+	"github.com/nickng/dingo-hunter/cfsmextract/utils"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -55,6 +55,7 @@ type frame struct {
 // Environment: Variables/info available globally for all goroutines
 type environ struct {
 	session  *sesstype.Session
+	extract  *CFSMExtract
 	globals  map[ssa.Value]*utils.Definition      // Globals
 	arrays   map[*utils.Definition]Elems          // Array elements
 	structs  map[*utils.Definition]Fields         // Struct fields
@@ -81,7 +82,7 @@ func (env *environ) GetSessionChan(vd *utils.Definition) *sesstype.Chan {
 	panic(fmt.Sprintf("Channel %s undefined in session", vd.String()))
 }
 
-func makeToplevelFrame() *frame {
+func makeToplevelFrame(extract *CFSMExtract) *frame {
 	callee := &frame{
 		fn:      nil,
 		locals:  make(map[ssa.Value]*utils.Definition),
@@ -94,7 +95,8 @@ func makeToplevelFrame() *frame {
 		defers:  make([]*ssa.Defer, 0),
 		caller:  nil,
 		env: &environ{
-			session:  session,
+			session:  extract.session,
+			extract:  extract,
 			globals:  make(map[ssa.Value]*utils.Definition),
 			arrays:   make(map[*utils.Definition]Elems),
 			structs:  make(map[*utils.Definition]Fields),
@@ -114,7 +116,7 @@ func makeToplevelFrame() *frame {
 			ifparent: sesstype.NewNodeStack(),
 		},
 		gortn: &goroutine{
-			role:    session.GetRole("main"),
+			role:    extract.session.GetRole("main"),
 			root:    sesstype.NewLabelNode("main"),
 			leaf:    nil,
 			visited: make(map[*ssa.BasicBlock]sesstype.Node),
@@ -302,7 +304,7 @@ func (caller *frame) callGo(g *ssa.Go) {
 	fmt.Fprintf(os.Stderr, ")\n")
 
 	// TODO(nickng) Does not stop at recursive call.
-	goQueue = append(goQueue, callee)
+	caller.env.extract.goQueue = append(caller.env.extract.goQueue, callee)
 }
 
 func (callee *frame) translate(common *ssa.CallCommon) {

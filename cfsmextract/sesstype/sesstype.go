@@ -2,13 +2,13 @@
 // As opposed to role-based session types, this representation is channel-based.
 // In particular, sending and receiving both keep track of the role and
 // channel involved.
-package sesstype // import "github.com/nickng/dingo-hunter/sesstype"
+package sesstype // import "github.com/nickng/dingo-hunter/cfsmextract/sesstype"
 
 import (
 	"fmt"
 	"go/types"
 
-	"github.com/nickng/dingo-hunter/utils"
+	"github.com/nickng/dingo-hunter/cfsmextract/utils"
 	"golang.org/x/tools/go/ssa"
 )
 
