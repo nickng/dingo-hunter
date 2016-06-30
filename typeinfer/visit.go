@@ -698,11 +698,6 @@ func visitLookup(instr *ssa.Lookup, infer *TypeInfer, f *Function, b *Block, l *
 		return
 	}
 	// Lookup test.
-	if instr.CommaOk {
-		f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
-		f.commaok[f.locals[instr]] = &CommaOk{Instr: instr, Result: f.locals[instr]}
-		f.tuples[f.locals[instr]] = make(Tuples, 2) // { elem, lookupOk }
-	}
 	idx, ok := f.locals[instr.Index]
 	if !ok {
 		if c, ok := instr.Index.(*ssa.Const); ok {
@@ -712,7 +707,12 @@ func visitLookup(instr *ssa.Lookup, infer *TypeInfer, f *Function, b *Block, l *
 		}
 		f.locals[instr.Index] = idx
 	}
-	infer.Logger.Print(f.Sprintf(SkipSymbol+"%s[%s]", v, idx))
+	f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
+	if instr.CommaOk {
+		f.commaok[f.locals[instr]] = &CommaOk{Instr: instr, Result: f.locals[instr]}
+		f.tuples[f.locals[instr]] = make(Tuples, 2) // { elem, lookupOk }
+	}
+	infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = lookup %s[%s]", f.locals[instr], v, idx))
 }
 
 func visitMakeChan(instr *ssa.MakeChan, infer *TypeInfer, f *Function, b *Block, l *Loop) {
