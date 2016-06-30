@@ -1016,6 +1016,8 @@ func visitStore(instr *ssa.Store, infer *TypeInfer, f *Function, b *Block, l *Lo
 			f.updateInstances(dstInst, inst)
 		case *types.Struct:
 			f.updateInstances(dstInst, inst)
+		case *types.Map:
+			f.updateInstances(dstInst, inst)
 		default:
 			// Nothing to update.
 		}

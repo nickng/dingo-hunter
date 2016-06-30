@@ -240,6 +240,13 @@ func (caller *Function) updateInstances(old, new VarInstance) {
 			}
 		}
 	}
+	for inst, mmap := range caller.maps {
+		for k, v := range mmap {
+			if v == old {
+				caller.maps[inst][k] = new
+			}
+		}
+	}
 }
 
 // Block captures information about SSA block.
