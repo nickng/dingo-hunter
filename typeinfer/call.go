@@ -111,9 +111,11 @@ func (caller *Function) storeRetvals(infer *TypeInfer, retval ssa.Value, callee 
 		case 1:
 			// Creating external instance because return value may be used.
 			caller.locals[retval] = &ExtInstance{caller.Fn, caller.InstanceID(), int64(0)}
+			infer.Logger.Print(caller.Sprintf("retvals ext"))
 		default:
-			infer.Logger.Printf(caller.Sprintf(" -- unhandled retval hasBody=false, len=%d -- ",
-				callee.Fn.Signature.Results().Len()))
+			caller.locals[retval] = &ExtInstance{caller.Fn, caller.InstanceID(), int64(0)}
+			caller.tuples[caller.locals[retval]] = make(Tuples, callee.Fn.Signature.Results().Len())
+			infer.Logger.Print(caller.Sprintf("retvals ext len=%d", callee.Fn.Signature.Results().Len()))
 		}
 		return
 	}
@@ -129,12 +131,17 @@ func (caller *Function) storeRetvals(infer *TypeInfer, retval ssa.Value, callee 
 			caller.structs[caller.locals[retval]] = s
 		}
 		if instance, ok := caller.locals[retval].(*Instance); ok {
-			infer.Logger.Print(caller.Sprintf("saveRetvals: type=%s", instance.Type().String()))
+			infer.Logger.Print(caller.Sprintf("retvals: type=%s", instance.Type().String()))
 		} else {
-			infer.Logger.Print(caller.Sprintf("saveRetvals: (external)"))
+			infer.Logger.Print(caller.Sprintf("retvals: (external)"))
 		}
 	default:
-		infer.Logger.Printf(caller.Sprintf(" -- unhandled retval hasBody=true, len=%d -- ", len(callee.retvals)))
+		caller.locals[retval] = &Instance{retval, caller.InstanceID(), int64(0)}
+		caller.tuples[caller.locals[retval]] = make(Tuples, len(callee.retvals))
+		for i := range callee.retvals {
+			caller.tuples[caller.locals[retval]][i] = callee.retvals[i]
+		}
+		infer.Logger.Print(caller.Sprintf("retvals len=%d", len(callee.retvals)))
 	}
 }
 
