@@ -65,6 +65,8 @@ func visitInstr(instr ssa.Instruction, infer *TypeInfer, f *Function, b *Block, 
 		visitCall(instr, infer, f, b, l)
 	case *ssa.ChangeType:
 		visitChangeType(instr, infer, f, b, l)
+	case *ssa.Convert:
+		visitConvert(instr, infer, f, b, l)
 	case *ssa.DebugRef:
 		//infer.Logger.Printf(f.Sprintf(SkipSymbol+"debug\t\t%s", instr))
 	case *ssa.Defer:
@@ -113,6 +115,8 @@ func visitInstr(instr ssa.Instruction, infer *TypeInfer, f *Function, b *Block, 
 		visitSlice(instr, infer, f, b, l)
 	case *ssa.Store:
 		visitStore(instr, infer, f, b, l)
+	case *ssa.TypeAssert:
+		visitTypeAssert(instr, infer, f, b, l)
 	case *ssa.UnOp:
 		switch instr.Op {
 		case token.ARROW:
@@ -251,6 +255,28 @@ func visitChangeType(instr *ssa.ChangeType, infer *TypeInfer, f *Function, b *Bl
 		return
 	}
 	visitSkip(instr, infer, f, b, l)
+}
+
+func visitConvert(instr *ssa.Convert, infer *TypeInfer, f *Function, b *Block, l *Loop) {
+	_, ok := f.locals[instr.X]
+	if !ok {
+		if c, ok := instr.X.(*ssa.Const); ok {
+			f.locals[instr.X] = &ConstInstance{c}
+		} else if _, ok := instr.X.(*ssa.Global); ok {
+			inst, ok := f.Prog.globals[instr.X]
+			if !ok {
+				infer.Logger.Fatalf("convert (global): %s: %s", instr.X, ErrUnknownValue)
+			}
+			f.locals[instr.X] = inst
+			infer.Logger.Print(f.Sprintf(SkipSymbol+"%s convert= %s (global)", f.locals[instr], instr.X.Name()))
+			return
+		} else {
+			infer.Logger.Fatalf("convert: %s: %s", instr.X.Name(), ErrUnknownValue)
+			return
+		}
+	}
+	f.locals[instr] = f.locals[instr.X]
+	infer.Logger.Print(f.Sprintf(SkipSymbol+"%s convert= %s", f.locals[instr], instr.X.Name()))
 }
 
 func visitDefer(instr *ssa.Defer, infer *TypeInfer, f *Function, b *Block, l *Loop) {
@@ -397,6 +423,7 @@ func visitField(instr *ssa.Field, infer *TypeInfer, f *Function, b *Block, l *Lo
 	}
 	infer.Logger.Fatal(f.Sprintf("field: %s is not struct: %s", struc.Name(), ErrInvalidVarRead))
 }
+
 func visitFieldAddr(instr *ssa.FieldAddr, infer *TypeInfer, f *Function, b *Block, l *Loop) {
 	field, struc, index := instr, instr.X, instr.Field
 	if sType, ok := derefType(struc.Type()).Underlying().(*types.Struct); ok {
@@ -945,8 +972,14 @@ func visitSlice(instr *ssa.Slice, infer *TypeInfer, f *Function, b *Block, l *Lo
 	if !ok {
 		aInst, ok = f.Prog.arrays[f.locals[instr.X]]
 		if !ok {
-			infer.Logger.Fatalf("slice: non-slice %s/%s: %s", instr.X.Type().String(), instr.X.Name(), ErrUnknownValue)
-			return
+			if _, ok := f.locals[instr.X].(*ConstInstance); ok {
+				infer.Logger.Print(f.Sprintf("slice: const %s %s", instr.X.Name(), f.locals[instr.X]))
+				f.arrays[f.locals[instr.X]] = make(Elems)
+				aInst = f.arrays[f.locals[instr.X]]
+			} else {
+				infer.Logger.Fatalf("slice: non-slice %s/%s: %s", instr.X.Name(), instr.X.Type().String(), ErrUnknownValue)
+				return
+			}
 		}
 		f.Prog.arrays[f.locals[instr]] = aInst
 		infer.Logger.Print(f.Sprintf(ValSymbol+"%s = slice %s", f.locals[instr], f.locals[instr.X]))
@@ -1010,9 +1043,53 @@ func visitStore(instr *ssa.Store, infer *TypeInfer, f *Function, b *Block, l *Lo
 		f.updateInstances(dstInst, inst)
 	case *types.Struct:
 		f.updateInstances(dstInst, inst)
+	case *types.Map:
+		f.updateInstances(dstInst, inst)
 	default:
 		// Nothing to update.
 	}
 	infer.Logger.Print(f.Sprintf(ValSymbol+"*%s store= %s/%s", dstPtr.Name(), source.Name(), f.locals[source]))
 	return
+}
+
+func visitTypeAssert(instr *ssa.TypeAssert, infer *TypeInfer, f *Function, b *Block, l *Loop) {
+	if iface, ok := instr.AssertedType.(*types.Interface); ok {
+		if meth, _ := types.MissingMethod(instr.X.Type(), iface, true); meth == nil { // No missing methods
+			inst, ok := f.locals[instr.X]
+			if !ok {
+				infer.Logger.Fatalf("typeassert: iface X %s: %s", instr.X.Name(), ErrUnknownValue)
+				return
+			}
+			if instr.CommaOk {
+				f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
+				f.tuples[f.locals[instr]] = make(Tuples, 2)
+				f.tuples[f.locals[instr]][0] = inst
+				infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = typeassert iface %s commaok", f.locals[instr], inst))
+				return
+			}
+			f.locals[instr] = inst
+			infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = typeassert iface %s", f.locals[instr], inst))
+			return
+		}
+		infer.Logger.Fatalf("typeassert: %s: %s", instr.String(), ErrMethodNotFound)
+	} else { // Concrete type
+		if types.AssignableTo(instr.AssertedType.Underlying(), instr.X.Type().Underlying()) {
+			inst, ok := f.locals[instr.X]
+			if !ok {
+				infer.Logger.Fatalf("typeassert: X %s: %s", instr.X.Name(), ErrUnknownValue)
+				return
+			}
+			if instr.CommaOk {
+				f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
+				f.tuples[f.locals[instr]] = make(Tuples, 2)
+				f.tuples[f.locals[instr]][0] = inst
+				infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = typeassert %s commaok", f.locals[instr], inst))
+				return
+			}
+			f.locals[instr] = inst
+			infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = typeassert %s", f.locals[instr], inst))
+			return
+		}
+		infer.Logger.Fatalf("typeassert: %s: %s", instr.String(), ErrIncompatType)
+	}
 }

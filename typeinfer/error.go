@@ -21,4 +21,5 @@ var (
 	ErrIfaceIncomplete = errors.New("interface not fully implemented")
 	ErrMethodNotFound  = errors.New("interface method not found")
 	ErrPhiUnknownEdge  = errors.New("phi node has edge from unknown block")
+	ErrIncompatType    = errors.New("cannot convert incompatible type")
 )
