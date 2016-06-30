@@ -182,7 +182,11 @@ func (caller *Function) invoke(common *ssa.CallCommon, infer *TypeInfer, b *Bloc
 	}
 	fn := findMethod(common.Value.Parent().Prog, common.Method, inst.Var().Type(), infer)
 	if fn == nil {
-		infer.Logger.Fatalf("invoke: cannot locate concrete method: %s", meth.String())
+		if meth == nil {
+			infer.Logger.Printf("invoke: cannot locate concrete method")
+		} else {
+			infer.Logger.Printf("invoke: cannot locate concrete method: %s", meth.String())
+		}
 		return nil
 	}
 	return caller.call(common, fn, common.Value, infer, b, l)
