@@ -172,6 +172,14 @@ func (caller *Function) prepareCallFn(common *ssa.CallCommon, fn *ssa.Function, 
 			callee.locals[param] = &ConstInstance{c}
 		}
 	}
+
+	if inst, ok := caller.locals[common.Value]; ok {
+		if cap, ok := caller.Prog.closures[inst]; ok {
+			for i, fv := range callee.Fn.FreeVars {
+				callee.locals[fv] = cap[i]
+			}
+		}
+	}
 	return callee
 }
 
