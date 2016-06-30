@@ -13,54 +13,57 @@ import (
 
 // Call performs call on a given unprepared call context.
 func (caller *Function) Call(call *ssa.Call, infer *TypeInfer, b *Block, l *Loop) {
-	if call != nil {
-		common := call.Common()
-		switch fn := common.Value.(type) {
-		case *ssa.Builtin:
-			switch fn.Name() {
-			case "close":
-				ch, ok := caller.locals[common.Args[0]]
-				if !ok {
-					infer.Logger.Fatalf("call close: %s: %s", common.Args[0].Name(), ErrUnknownValue)
-					return
-				}
-				caller.FuncDef.AddStmts(&migo.CloseStatement{ch.String()})
-				infer.Logger.Print(caller.Sprintf("close %s", common.Args[0]))
-			case "len":
-				if l.State == Enter {
-					len, err := caller.callLen(common, infer)
-					if err == ErrRuntimeLen {
-						l.Bound = Dynamic
-						return
-					}
-					l.Bound, l.End = Static, len
-					return
-				}
-				caller.locals[call] = &Instance{call, caller.InstanceID(), l.Index}
-				infer.Logger.Printf(caller.Sprintf("  builtin.%s", common.String()))
-			default:
-				infer.Logger.Printf(caller.Sprintf("  builtin.%s", common.String()))
-			}
-		case *ssa.MakeClosure:
-			infer.Logger.Printf(caller.Sprintf(SkipSymbol+" make closure %s", fn.String()))
-			caller.callClosure(common, fn, infer, b, l)
-		case *ssa.Function:
-			if common.StaticCallee() == nil {
-				infer.Logger.Fatal("Call with nil CallCommon")
-			}
-			callee := caller.callFn(common, infer, b, l)
-			if callee != nil {
-				caller.storeRetvals(infer, call.Value(), callee)
-			}
-		default:
-			if !common.IsInvoke() {
-				infer.Logger.Print("Unknown call type", common.String(), common.Description())
+	if call == nil {
+		infer.Logger.Fatal("Call is nil")
+		return
+	}
+	common := call.Common()
+	switch fn := common.Value.(type) {
+	case *ssa.Builtin:
+		switch fn.Name() {
+		case "close":
+			ch, ok := caller.locals[common.Args[0]]
+			if !ok {
+				infer.Logger.Fatalf("call close: %s: %s", common.Args[0].Name(), ErrUnknownValue)
 				return
 			}
-			callee := caller.invoke(common, infer, b, l)
-			if callee != nil {
-				caller.storeRetvals(infer, call.Value(), callee)
+			caller.FuncDef.AddStmts(&migo.CloseStatement{ch.String()})
+			infer.Logger.Print(caller.Sprintf("close %s", common.Args[0]))
+			return
+		case "len":
+			if l.State == Enter {
+				len, err := caller.callLen(common, infer)
+				if err == ErrRuntimeLen {
+					l.Bound = Dynamic
+					return
+				}
+				l.Bound, l.End = Static, len
+				return
 			}
+			caller.locals[call] = &Instance{call, caller.InstanceID(), l.Index}
+			infer.Logger.Printf(caller.Sprintf("  builtin.%s", common.String()))
+		default:
+			infer.Logger.Printf(caller.Sprintf("  builtin.%s", common.String()))
+		}
+	case *ssa.MakeClosure:
+		infer.Logger.Printf(caller.Sprintf(SkipSymbol+" make closure %s", fn.String()))
+		caller.callClosure(common, fn, infer, b, l)
+	case *ssa.Function:
+		if common.StaticCallee() == nil {
+			infer.Logger.Fatal("Call with nil CallCommon")
+		}
+		callee := caller.callFn(common, infer, b, l)
+		if callee != nil {
+			caller.storeRetvals(infer, call.Value(), callee)
+		}
+	default:
+		if !common.IsInvoke() {
+			infer.Logger.Print("Unknown call type", common.String(), common.Description())
+			return
+		}
+		callee := caller.invoke(common, infer, b, l)
+		if callee != nil {
+			caller.storeRetvals(infer, call.Value(), callee)
 		}
 	}
 }
@@ -119,6 +122,12 @@ func (caller *Function) storeRetvals(infer *TypeInfer, retval ssa.Value, callee 
 		// Nothing.
 	case 1:
 		caller.locals[retval] = callee.retvals[0]
+		if a, ok := callee.arrays[caller.locals[retval]]; ok {
+			caller.arrays[caller.locals[retval]] = a
+		}
+		if s, ok := callee.structs[caller.locals[retval]]; ok {
+			caller.structs[caller.locals[retval]] = s
+		}
 		if instance, ok := caller.locals[retval].(*Instance); ok {
 			infer.Logger.Print(caller.Sprintf("saveRetvals: type=%s", instance.Type().String()))
 		} else {
@@ -166,7 +175,7 @@ func (caller *Function) invoke(common *ssa.CallCommon, infer *TypeInfer, b *Bloc
 	}
 	fn := findMethod(common.Value.Parent().Prog, common.Method, inst.Var().Type(), infer)
 	if fn == nil {
-		infer.Logger.Fatalf("invoke: cannnot locate concrete method: %s", meth.String())
+		infer.Logger.Fatalf("invoke: cannot locate concrete method: %s", meth.String())
 		return nil
 	}
 	return caller.call(common, fn, common.Value, infer, b, l)
