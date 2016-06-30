@@ -9,14 +9,15 @@ func work(out chan<- int) {
 		out <- 42
 	}
 }
-func fanin(input1, input2 <-chan int) <-chan int {
+
+func fanin(ch1, ch2 <-chan int) <-chan int {
 	c := make(chan int)
 	go func() {
 		for {
 			select {
-			case s := <-input1:
+			case s := <-ch1:
 				c <- s
-			case s := <-input2:
+			case s := <-ch2:
 				c <- s
 			}
 		}

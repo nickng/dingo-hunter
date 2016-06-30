@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 )
 
 func work(out chan<- int) {
@@ -12,14 +13,15 @@ func work(out chan<- int) {
 		out <- 42
 	}
 }
-func fanin(input1, input2 <-chan int) <-chan int {
+
+func fanin(ch1, ch2 <-chan int) <-chan int {
 	c := make(chan int)
 	go func() {
 		for {
 			select {
-			case s := <-input1:
+			case s := <-ch1:
 				c <- s
-			case s := <-input2:
+			case s := <-ch2:
 				c <- s
 			default:
 				close(c)
@@ -35,7 +37,8 @@ func main() {
 	input2 := make(chan int)
 	go work(input1)
 	go work(input2)
-	for c := range fanin(input1, input2) {
-		fmt.Println(c)
+	time.Sleep(1 * time.Second)
+	for v := range fanin(input1, input2) {
+		fmt.Println(v)
 	}
 }
