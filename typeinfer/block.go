@@ -34,7 +34,11 @@ func detectLoop(blk *ssa.BasicBlock, infer *TypeInfer, f *Function, l **Loop) {
 				// Back to loop init, but we don't need to find loop bounds
 				(*l).State = Enter
 			} else {
-				infer.Logger.Printf(LoopSymbol+"enter NESTED loop (%s)", (*l).IndexVar.Name())
+				if (*l).IndexVar != nil {
+					infer.Logger.Print(f.Sprintf(LoopSymbol+"enter NESTED loop (%s)", (*l).IndexVar.Name()))
+				} else {
+					infer.Logger.Print(f.Sprintf(LoopSymbol + "enter NESTED loop"))
+				}
 				f.loopstack.Push(*l)
 				*l = &Loop{Parent: f, Bound: Unknown, State: Enter, LoopBlock: blk.Index}
 			}

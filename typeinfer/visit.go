@@ -186,7 +186,7 @@ func visitBinOp(instr *ssa.BinOp, infer *TypeInfer, f *Function, b *Block, l *Lo
 			case token.LSS: // i < N
 				if i, ok := instr.Y.(*ssa.Const); ok && i.Value.Kind() == constant.Int {
 					l.SetCond(instr, i.Int64()-1)
-					if _, ok := instr.X.(*ssa.Phi); ok {
+					if _, ok := instr.X.(*ssa.Phi); ok && l.Start < l.End {
 						l.Bound = Static
 						infer.Logger.Printf(f.Sprintf(LoopSymbol+"i <= %s", fmtLoopHL(l.End)))
 						return
@@ -197,7 +197,7 @@ func visitBinOp(instr *ssa.BinOp, infer *TypeInfer, f *Function, b *Block, l *Lo
 			case token.LEQ: // i <= N
 				if i, ok := instr.Y.(*ssa.Const); ok && i.Value.Kind() == constant.Int {
 					l.SetCond(instr, i.Int64())
-					if _, ok := instr.X.(*ssa.Phi); ok {
+					if _, ok := instr.X.(*ssa.Phi); ok && l.Start < l.End {
 						l.Bound = Static
 						infer.Logger.Printf(f.Sprintf(LoopSymbol+"i <= %s", fmtLoopHL(l.End)))
 						return
@@ -208,7 +208,7 @@ func visitBinOp(instr *ssa.BinOp, infer *TypeInfer, f *Function, b *Block, l *Lo
 			case token.GTR: // i > N
 				if i, ok := instr.Y.(*ssa.Const); ok && i.Value.Kind() == constant.Int {
 					l.SetCond(instr, i.Int64()+1)
-					if _, ok := instr.X.(*ssa.Phi); ok {
+					if _, ok := instr.X.(*ssa.Phi); ok && l.Start > l.End {
 						l.Bound = Static
 						infer.Logger.Printf(f.Sprintf(LoopSymbol+"i > %s", fmtLoopHL(l.End)))
 						return
@@ -219,7 +219,7 @@ func visitBinOp(instr *ssa.BinOp, infer *TypeInfer, f *Function, b *Block, l *Lo
 			case token.GEQ: // i >= N
 				if i, ok := instr.Y.(*ssa.Const); ok && i.Value.Kind() == constant.Int {
 					l.SetCond(instr, i.Int64())
-					if _, ok := instr.X.(*ssa.Phi); ok {
+					if _, ok := instr.X.(*ssa.Phi); ok && l.Start > l.End {
 						l.Bound = Static
 						infer.Logger.Printf(f.Sprintf(LoopSymbol+"i >= %s", fmtLoopHL(l.End)))
 						return
