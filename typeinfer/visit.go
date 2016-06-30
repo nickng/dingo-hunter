@@ -761,12 +761,13 @@ func visitMakeInterface(instr *ssa.MakeInterface, infer *TypeInfer, f *Function,
 func visitMakeMap(instr *ssa.MakeMap, infer *TypeInfer, f *Function, b *Block, l *Loop) {
 	f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
 	f.maps[f.locals[instr]] = make(map[VarInstance]VarInstance)
-	infer.Logger.Printf(f.Sprintf(SkipSymbol+"%s = make-map", f.locals[instr]))
+	infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = make-map", f.locals[instr]))
 }
 
 func visitMakeSlice(instr *ssa.MakeSlice, infer *TypeInfer, f *Function, b *Block, l *Loop) {
 	f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
 	f.arrays[f.locals[instr]] = make(Elems)
+	infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = make-slice", f.locals[instr]))
 }
 
 func visitMapUpdate(instr *ssa.MapUpdate, infer *TypeInfer, f *Function, b *Block, l *Loop) {
@@ -937,7 +938,7 @@ func visitSlice(instr *ssa.Slice, infer *TypeInfer, f *Function, b *Block, l *Lo
 		return
 	}
 	if basic, ok := instr.Type().Underlying().(*types.Basic); ok && basic.Kind() == types.String {
-		infer.Logger.Printf(f.Sprintf(SkipSymbol + "slice on string, skipping"))
+		infer.Logger.Printf(f.Sprintf(SkipSymbol+"%s = slice on string, skipping", f.locals[instr]))
 		return
 	}
 	aInst, ok := f.arrays[f.locals[instr.X]]
