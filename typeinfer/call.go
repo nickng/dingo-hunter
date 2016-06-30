@@ -203,7 +203,7 @@ func (caller *Function) call(common *ssa.CallCommon, fn *ssa.Function, rcvr ssa.
 	}
 	visitFunc(callee.Fn, infer, callee)
 	if callee.HasBody() {
-		callStmt := &migo.CallStatement{Name: fmt.Sprintf("%s_%d", callee.Fn.String(), callee.InstanceID()), Params: []*migo.Parameter{}}
+		callStmt := &migo.CallStatement{Name: fmt.Sprintf("%s", callee.Fn.String()), Params: []*migo.Parameter{}}
 		for i, c := range common.Args {
 			if _, ok := c.Type().(*types.Chan); ok {
 				callStmt.AddParams(&migo.Parameter{Caller: c, Callee: callee.Fn.Params[i]})

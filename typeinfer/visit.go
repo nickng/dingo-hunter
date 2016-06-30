@@ -697,16 +697,16 @@ func visitJump(jump *ssa.Jump, infer *TypeInfer, f *Function, b *Block, l *Loop)
 		infer.Logger.Printf(f.Sprintf(SplitSymbol+"Jump (%d ⇾ %d) %s", curr.Index, next.Index, l.String()))
 		var stmt migo.Statement
 		if l.Bound == Static && l.HasNext() {
-			stmt = &migo.CallStatement{Name: fmt.Sprintf("%s_%d#%d_loop%d", f.Fn.String(), f.InstanceID(), next.Index, l.Index), Params: []*migo.Parameter{}}
+			stmt = &migo.CallStatement{Name: fmt.Sprintf("%s#%d_loop%d", f.Fn.String(), next.Index, l.Index), Params: []*migo.Parameter{}}
 		} else {
-			stmt = &migo.CallStatement{Name: fmt.Sprintf("%s_%d#%d", f.Fn.String(), f.InstanceID(), next.Index), Params: []*migo.Parameter{}}
+			stmt = &migo.CallStatement{Name: fmt.Sprintf("%s#%d", f.Fn.String(), next.Index), Params: []*migo.Parameter{}}
 		}
 		f.FuncDef.AddStmts(stmt)
 		if _, visited := f.Visited[next]; !visited {
-			oldFunc, newFunc := f.FuncDef, migo.NewFunction(fmt.Sprintf("%s_%d#%d", f.Fn.String(), f.InstanceID(), next.Index))
+			oldFunc, newFunc := f.FuncDef, migo.NewFunction(fmt.Sprintf("%s#%d", f.Fn.String(), next.Index))
 			if l.Bound == Static && l.HasNext() {
-				newFunc = migo.NewFunction(fmt.Sprintf("%s_%d#%d_loop%d", f.Fn.String(), f.InstanceID(), next.Index, l.Index))
-				infer.Logger.Print("ADD" + fmt.Sprintf("%s_%d#%d_loop%d", f.Fn.String(), f.InstanceID(), next.Index, l.Index))
+				newFunc = migo.NewFunction(fmt.Sprintf("%s#%d_loop%d", f.Fn.String(), next.Index, l.Index))
+				infer.Logger.Print("ADD" + fmt.Sprintf("%s#%d_loop%d", f.Fn.String(), next.Index, l.Index))
 			}
 			infer.Env.MigoProg.AddFunction(newFunc)
 			f.FuncDef = newFunc

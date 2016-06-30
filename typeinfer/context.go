@@ -145,7 +145,7 @@ func (caller *Function) prepareCallFn(common *ssa.CallCommon, fn *ssa.Function, 
 	} else {
 		callee.Prog.FuncInstance[callee.Fn] = 0
 	}
-	callee.FuncDef.Name = fmt.Sprintf("%s_%d", fn.String(), callee.Prog.FuncInstance[callee.Fn])
+	callee.FuncDef.Name = fn.String()
 	callee.id = callee.Prog.FuncInstance[callee.Fn]
 	for i, param := range callee.Fn.Params {
 		var argCaller ssa.Value
