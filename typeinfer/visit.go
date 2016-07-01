@@ -244,17 +244,14 @@ func visitCall(instr *ssa.Call, infer *TypeInfer, f *Function, b *Block, l *Loop
 }
 
 func visitChangeType(instr *ssa.ChangeType, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	if _, ok := instr.Type().Underlying().(*types.Chan); ok {
-		inst, ok := f.locals[instr.X]
-		if !ok {
-			infer.Logger.Fatalf("changetype: %s→%s: %s", instr.X.Name(), instr.Name(), ErrUnknownValue)
-			return
-		}
-		f.locals[instr] = inst
-		infer.Logger.Print(f.Sprintf(ValSymbol+"%s = %s (type: %s ← %s)", instr.Name(), instr.X.Name(), fmtType(instr.Type()), fmtType(instr.X.Type())))
+	inst, ok := f.locals[instr.X]
+	if !ok {
+		infer.Logger.Fatalf("changetype: %s→%s: %s", instr.X.Name(), instr.Name(), ErrUnknownValue)
 		return
 	}
-	visitSkip(instr, infer, f, b, l)
+	f.locals[instr] = inst
+	infer.Logger.Print(f.Sprintf(ValSymbol+"%s = %s (type: %s ← %s)", instr.Name(), instr.X.Name(), fmtType(instr.Type()), fmtType(instr.X.Type())))
+	return
 }
 
 func visitConvert(instr *ssa.Convert, infer *TypeInfer, f *Function, b *Block, l *Loop) {
@@ -674,8 +671,13 @@ func visitJump(jump *ssa.Jump, infer *TypeInfer, f *Function, b *Block, l *Loop)
 func visitLookup(instr *ssa.Lookup, infer *TypeInfer, f *Function, b *Block, l *Loop) {
 	v, ok := f.locals[instr.X]
 	if !ok {
-		infer.Logger.Fatalf("lookup: %s: %s", instr.X, ErrUnknownValue)
-		return
+		if c, ok := instr.X.(*ssa.Const); ok {
+			f.locals[instr.X] = &ConstInstance{c}
+			v = f.locals[instr.X]
+		} else {
+			infer.Logger.Fatalf("lookup: %s: %s", instr.X, ErrUnknownValue)
+			return
+		}
 	}
 	// Lookup test.
 	idx, ok := f.locals[instr.Index]
@@ -827,8 +829,8 @@ func visitReturn(ret *ssa.Return, infer *TypeInfer, f *Function, b *Block, l *Lo
 			infer.Logger.Printf("Returning uninitialised value %s/%s", ret.Results[0].Name(), f.locals[ret.Results[0]])
 			return
 		}
+		f.retvals = append(f.retvals, f.locals[ret.Results[0]]) // XXX careful with multi exit pt
 		infer.Logger.Printf(f.Sprintf(ReturnSymbol+"return %s", res))
-		f.retvals[0] = f.locals[ret.Results[0]] // XXX careful with multi exit pt
 	default:
 		infer.Logger.Printf(f.Sprintf(ReturnSymbol+"return %d", len(ret.Results)))
 		for _, res := range ret.Results {
