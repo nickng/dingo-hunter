@@ -31,7 +31,7 @@ const (
 	ErrorSymbol     = " ◹ "
 	FieldSymbol     = " ↦ "
 	NewSymbol       = "新"
-	SubSymbol       = " ▸"
+	SubSymbol       = "    ▸ "
 	ValSymbol       = "├ "
 	AssignSymbol    = "≔"
 )

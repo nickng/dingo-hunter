@@ -295,23 +295,7 @@ func visitDeref(instr *ssa.UnOp, infer *TypeInfer, f *Function, b *Block, l *Loo
 		f.locals[ptr], f.locals[val] = inst, inst
 		infer.Logger.Print(f.Sprintf(ValSymbol+"%s deref= %s (global) of type %s", inst, ptr, ptr.Type()))
 		// Initialise global array/struct if needed.
-		switch t := derefAllType(f.locals[ptr].Var().Type()).Underlying().(type) {
-		case *types.Array:
-			if _, ok := f.Prog.arrays[f.locals[ptr]]; !ok {
-				f.Prog.arrays[f.locals[ptr]] = make(Elems, t.Len())
-			}
-		case *types.Slice:
-			if _, ok := f.Prog.arrays[f.locals[ptr]]; !ok {
-				f.Prog.arrays[f.locals[ptr]] = make(Elems, 0)
-			}
-		case *types.Struct:
-			if _, ok := f.Prog.structs[f.locals[ptr]]; !ok {
-				f.Prog.structs[f.locals[ptr]] = make(Fields, t.NumFields())
-			}
-		default:
-			return
-		}
-		infer.Logger.Print(f.Sprintf(SubSymbol + "initialised data structure pointing to"))
+		initNestedRefVar(infer, f, b, l, f.locals[ptr], true)
 		return
 	}
 	// Local.
@@ -323,23 +307,7 @@ func visitDeref(instr *ssa.UnOp, infer *TypeInfer, f *Function, b *Block, l *Loo
 	f.locals[ptr], f.locals[val] = inst, inst
 	infer.Logger.Print(f.Sprintf(ValSymbol+"%s deref= %s of type %s", val, ptr, ptr.Type()))
 	// Initialise array/struct if needed.
-	switch t := derefAllType(f.locals[ptr].Var().Type()).Underlying().(type) {
-	case *types.Array:
-		if _, ok := f.arrays[f.locals[ptr]]; !ok {
-			f.arrays[f.locals[ptr]] = make(Elems, t.Len())
-		}
-	case *types.Slice:
-		if _, ok := f.arrays[f.locals[ptr]]; !ok {
-			f.arrays[f.locals[ptr]] = make(Elems, 0)
-		}
-	case *types.Struct:
-		if _, ok := f.structs[f.locals[ptr]]; !ok {
-			f.structs[f.locals[ptr]] = make(Fields, t.NumFields())
-		}
-	default:
-		return
-	}
-	infer.Logger.Print(f.Sprintf(SubSymbol + "initialised data structure pointing to"))
+	initNestedRefVar(infer, f, b, l, f.locals[ptr], false)
 	return
 }
 
@@ -351,14 +319,7 @@ func visitExtract(instr *ssa.Extract, infer *TypeInfer, f *Function, b *Block, l
 		}
 		f.tuples[tupleInst][instr.Index] = &Instance{instr, f.InstanceID(), l.Index}
 		f.locals[instr] = f.tuples[tupleInst][instr.Index]
-		switch t := derefType(instr.Type()).Underlying().(type) {
-		case *types.Array:
-			f.arrays[f.locals[instr]] = make(Elems, t.Len())
-		case *types.Slice:
-			f.arrays[f.locals[instr]] = make(Elems, 0)
-		case *types.Struct:
-			f.structs[f.locals[instr]] = make(Fields, t.NumFields())
-		}
+		initNestedRefVar(infer, f, b, l, f.locals[instr], false)
 		// Detect select tuple.
 		if _, ok := f.selects[tupleInst]; ok {
 			switch instr.Index {
@@ -406,19 +367,13 @@ func visitField(instr *ssa.Field, infer *TypeInfer, f *Function, b *Block, l *Lo
 		}
 		infer.Logger.Print(f.Sprintf(ValSymbol+"%s = %s"+FieldSymbol+"{%d} of type %s", instr.Name(), sInst, index, sType.String()))
 		if fields[index] != nil {
-			infer.Logger.Print(f.Sprintf(SubSymbol+"accessed as %s:%s", fields[index], fields[index].Var().Type()))
+			infer.Logger.Print(f.Sprintf(SubSymbol+"accessed as %s", fields[index]))
 		} else {
 			fields[index] = &Instance{field, f.InstanceID(), l.Index}
 			infer.Logger.Print(f.Sprintf(SubSymbol+"field uninitialised, set to %s", field.Name()))
 		}
-		if fType, ok := derefType(field.Type()).Underlying().(*types.Struct); ok && f.structs[fields[index]] == nil {
-			f.structs[fields[index]] = make(Fields, fType.NumFields())
-			infer.Logger.Print(f.Sprintf(SubSymbol+"field %s is a struct", field.Name()))
-		} else if _, ok := derefType(field.Type()).Underlying().(*types.Slice); ok && f.arrays[fields[index]] == nil {
-			f.arrays[fields[index]] = make(Elems)
-			infer.Logger.Print(f.Sprintf(SubSymbol+"field %s is a slice", field.Name()))
-		}
 		f.locals[field] = fields[index]
+		initNestedRefVar(infer, f, b, l, f.locals[field], false)
 		return
 	}
 	infer.Logger.Fatal(f.Sprintf("field: %s is not struct: %s", struc.Name(), ErrInvalidVarRead))
@@ -446,13 +401,7 @@ func visitFieldAddr(instr *ssa.FieldAddr, infer *TypeInfer, f *Function, b *Bloc
 		} else {
 			fields[index] = &Instance{field, f.InstanceID(), l.Index}
 			infer.Logger.Print(f.Sprintf(SubSymbol+"field uninitialised, set to %s", field.Name()))
-		}
-		if fType, ok := derefType(field.Type()).Underlying().(*types.Struct); ok && f.structs[fields[index]] == nil {
-			f.structs[fields[index]] = make(Fields, fType.NumFields())
-			infer.Logger.Print(f.Sprintf(SubSymbol+"field %s is a struct", field.Name()))
-		} else if _, ok := derefType(field.Type()).Underlying().(*types.Slice); ok && f.arrays[fields[index]] == nil {
-			f.arrays[fields[index]] = make(Elems)
-			infer.Logger.Print(f.Sprintf(SubSymbol+"field %s is a slice", field.Name()))
+			initNestedRefVar(infer, f, b, l, fields[index], false)
 		}
 		f.locals[field] = fields[index]
 		return
@@ -469,16 +418,6 @@ func visitIf(instr *ssa.If, infer *TypeInfer, f *Function, b *Block, l *Loop) {
 	if len(instr.Block().Succs) != 2 {
 		infer.Logger.Fatal(ErrInvalidIfSucc)
 	}
-	/*
-		if instr.Cond.String() == "*init$guard" {
-			if _, visited := f.Prog.InitPkgs[instr.Cond.Parent().Package()]; visited {
-				visitBasicBlock(instr.Block().Succs[0], infer, ctx, loop)
-			} else {
-				visitBasicBlock(instr.Block().Succs[1], infer, ctx, loop)
-			}
-			return
-		}
-	*/
 	// Detect and unroll l.
 	if l.State != NonLoop && l.Bound == Static && instr.Cond == l.CondVar {
 		if l.HasNext() {
@@ -616,6 +555,7 @@ func visitIndex(instr *ssa.Index, infer *TypeInfer, f *Function, b *Block, l *Lo
 		} else {
 			elems[index] = &Instance{elem, f.InstanceID(), l.Index}
 			infer.Logger.Printf(f.Sprintf(SubSymbol+"elem uninitialised, set to %s", elem.Name()))
+			initNestedRefVar(infer, f, b, l, elems[index], false)
 		}
 		f.locals[elem] = elems[index]
 		return
@@ -648,6 +588,7 @@ func visitIndexAddr(instr *ssa.IndexAddr, infer *TypeInfer, f *Function, b *Bloc
 		} else {
 			elems[index] = &Instance{elem, f.InstanceID(), l.Index}
 			infer.Logger.Printf(f.Sprintf(SubSymbol+"elem uninitialised, set to %s", elem.Name()))
+			initNestedRefVar(infer, f, b, l, elems[index], false)
 		}
 		f.locals[elem] = elems[index]
 		return
@@ -676,6 +617,7 @@ func visitIndexAddr(instr *ssa.IndexAddr, infer *TypeInfer, f *Function, b *Bloc
 		} else {
 			elems[index] = &Instance{elem, f.InstanceID(), l.Index}
 			infer.Logger.Printf(f.Sprintf(SubSymbol+"elem uninitialised, set to %s", elem.Name()))
+			initNestedRefVar(infer, f, b, l, elems[index], false)
 		}
 		f.locals[elem] = elems[index]
 		return
@@ -867,20 +809,7 @@ func visitRecv(instr *ssa.UnOp, infer *TypeInfer, f *Function, b *Block, l *Loop
 	f.FuncDef.AddStmts(&migo.RecvStatement{Chan: c.Name()})
 	f.FuncDef.AddParams(&migo.Parameter{Caller: c, Callee: c})
 	// Initialise received value if needed.
-	switch t := derefAllType(f.locals[instr].Var().Type()).Underlying().(type) {
-	case *types.Array:
-		if _, ok := f.arrays[f.locals[instr]]; !ok {
-			f.arrays[f.locals[instr]] = make(Elems, t.Len())
-		}
-	case *types.Slice:
-		if _, ok := f.arrays[f.locals[instr]]; !ok {
-			f.arrays[f.locals[instr]] = make(Elems, 0)
-		}
-	case *types.Struct:
-		if _, ok := f.structs[f.locals[instr]]; !ok {
-			f.structs[f.locals[instr]] = make(Fields, t.NumFields())
-		}
-	}
+	initNestedRefVar(infer, f, b, l, f.locals[instr], false)
 }
 
 func visitReturn(ret *ssa.Return, infer *TypeInfer, f *Function, b *Block, l *Loop) {
