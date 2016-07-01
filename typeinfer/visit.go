@@ -711,7 +711,8 @@ func visitJump(jump *ssa.Jump, infer *TypeInfer, f *Function, b *Block, l *Loop)
 		}
 		f.FuncDef.AddStmts(stmt)
 		if _, visited := f.Visited[next]; !visited {
-			oldFunc, newFunc := f.FuncDef, migo.NewFunction(fmt.Sprintf("%s#%d", f.Fn.String(), next.Index))
+			newBlock := NewBlock(f, next, b.Index)
+			oldFunc, newFunc := f.FuncDef, newBlock.MigoDef
 			if l.Bound == Static && l.HasNext() {
 				newFunc = migo.NewFunction(fmt.Sprintf("%s#%d_loop%d", f.Fn.String(), next.Index, l.Index))
 				infer.Logger.Print("ADD" + fmt.Sprintf("%s#%d_loop%d", f.Fn.String(), next.Index, l.Index))
@@ -719,9 +720,9 @@ func visitJump(jump *ssa.Jump, infer *TypeInfer, f *Function, b *Block, l *Loop)
 			for _, p := range stmt.Params {
 				newFunc.AddParams(&migo.Parameter{Caller: p.Callee, Callee: p.Callee})
 			}
-			infer.Env.MigoProg.AddFunction(newFunc)
 			f.FuncDef = newFunc
-			visitBasicBlock(next, infer, f, NewBlock(f, next, b.Index), l)
+			infer.Env.MigoProg.AddFunction(newFunc)
+			visitBasicBlock(next, infer, f, newBlock, l)
 			f.FuncDef = oldFunc
 			return
 		}
@@ -862,7 +863,9 @@ func visitRecv(instr *ssa.UnOp, infer *TypeInfer, f *Function, b *Block, l *Loop
 	}
 	pos := infer.SSA.DecodePos(ch.(*Instance).Pos())
 	infer.Logger.Print(f.Sprintf(RecvSymbol+"%s = %s @ %s", f.locals[instr], ch, fmtPos(pos)))
-	f.FuncDef.AddStmts(&migo.RecvStatement{Chan: f.locals[instr.X].String()})
+	c := getChan(f.locals[instr.X].Var(), infer)
+	f.FuncDef.AddStmts(&migo.RecvStatement{Chan: c.Name()})
+	f.FuncDef.AddParams(&migo.Parameter{Caller: c, Callee: c})
 	// Initialise received value if needed.
 	switch t := derefAllType(f.locals[instr].Var().Type()).Underlying().(type) {
 	case *types.Array:
@@ -881,6 +884,9 @@ func visitRecv(instr *ssa.UnOp, infer *TypeInfer, f *Function, b *Block, l *Loop
 }
 
 func visitReturn(ret *ssa.Return, infer *TypeInfer, f *Function, b *Block, l *Loop) {
+	if b.MigoDef.IsEmpty() {
+		b.MigoDef.AddStmts(&migo.TauStatement{})
+	}
 	switch len(ret.Results) {
 	case 0:
 		infer.Logger.Printf(f.Sprintf(ReturnSymbol))
@@ -930,16 +936,19 @@ func visitSelect(instr *ssa.Select, infer *TypeInfer, f *Function, b *Block, l *
 	selStmt := f.selects[f.locals[instr]].MigoStmt
 	for _, sel := range instr.States {
 		ch, ok := f.locals[sel.Chan]
+
 		if !ok {
 			infer.Logger.Print("Select found an unknown channel", sel.Chan.String())
 		}
 		var stmt migo.Statement
+		c := getChan(ch.Var(), infer)
 		switch sel.Dir {
 		case types.SendOnly:
-			stmt = &migo.SendStatement{Chan: ch.String()}
+			stmt = &migo.SendStatement{Chan: c.Name()}
 		case types.RecvOnly:
-			stmt = &migo.RecvStatement{Chan: ch.String()}
+			stmt = &migo.RecvStatement{Chan: c.Name()}
 		}
+		f.FuncDef.AddParams(&migo.Parameter{Caller: c, Callee: c})
 		selStmt.Cases = append(selStmt.Cases, []migo.Statement{stmt})
 	}
 	// Default case exists.
@@ -958,7 +967,9 @@ func visitSend(instr *ssa.Send, infer *TypeInfer, f *Function, b *Block, l *Loop
 	}
 	pos := infer.SSA.DecodePos(ch.(*Instance).Pos())
 	infer.Logger.Printf(f.Sprintf(SendSymbol+"%s @ %s", ch, fmtPos(pos)))
-	f.FuncDef.AddStmts(&migo.SendStatement{Chan: f.locals[instr.Chan].String()})
+	c := getChan(f.locals[instr.Chan].Var(), infer)
+	f.FuncDef.AddStmts(&migo.SendStatement{Chan: c.Name()})
+	f.FuncDef.AddParams(&migo.Parameter{Caller: c, Callee: c})
 }
 
 func visitSkip(instr ssa.Instruction, infer *TypeInfer, f *Function, b *Block, loop *Loop) {

@@ -116,7 +116,7 @@ func (f *Function) AddParams(params ...*Parameter) {
 	for _, param := range params {
 		found := false
 		for _, p := range f.Params {
-			if p == param {
+			if p.Callee == param.Callee || p.Caller == param.Caller {
 				found = true
 			}
 		}
