@@ -657,7 +657,6 @@ func visitJump(jump *ssa.Jump, infer *TypeInfer, f *Function, b *Block, l *Loop)
 			oldFunc, newFunc := f.FuncDef, newBlock.MigoDef
 			if l.Bound == Static && l.HasNext() {
 				newFunc = migo.NewFunction(fmt.Sprintf("%s#%d_loop%d", f.Fn.String(), next.Index, l.Index))
-				infer.Logger.Print("ADD" + fmt.Sprintf("%s#%d_loop%d", f.Fn.String(), next.Index, l.Index))
 			}
 			for _, p := range stmt.Params {
 				newFunc.AddParams(&migo.Parameter{Caller: p.Callee, Callee: p.Callee})
@@ -825,17 +824,17 @@ func visitReturn(ret *ssa.Return, infer *TypeInfer, f *Function, b *Block, l *Lo
 		}
 		res, ok := f.locals[ret.Results[0]]
 		if !ok {
-			infer.Logger.Printf("Returning uninitialised value %s/%s", ret.Results[0].Name(), ret.Results[0])
-		} else {
-			infer.Logger.Printf(f.Sprintf(ReturnSymbol+"return %s", res))
+			infer.Logger.Printf("Returning uninitialised value %s/%s", ret.Results[0].Name(), f.locals[ret.Results[0]])
+			return
 		}
-		f.retvals = append(f.retvals, f.locals[ret.Results[0]])
+		infer.Logger.Printf(f.Sprintf(ReturnSymbol+"return %s", res))
+		f.retvals[0] = f.locals[ret.Results[0]] // XXX careful with multi exit pt
 	default:
 		infer.Logger.Printf(f.Sprintf(ReturnSymbol+"return %d", len(ret.Results)))
 		for _, res := range ret.Results {
-			f.retvals = append(f.retvals, f.locals[res])
-			infer.Logger.Printf(f.Sprintf("   - %s", f.locals[res]))
+			f.retvals = append(f.retvals, f.locals[res]) // XXX careful with multi exit pt
 		}
+		infer.Logger.Printf(f.Sprintf("%v", f.retvals))
 	}
 }
 
