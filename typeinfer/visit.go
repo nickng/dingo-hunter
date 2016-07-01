@@ -37,7 +37,7 @@ func visitFunc(fn *ssa.Function, infer *TypeInfer, f *Function) {
 }
 
 func visitBasicBlock(blk *ssa.BasicBlock, infer *TypeInfer, f *Function, prevB *Block, l *Loop) {
-	detectLoop(blk, infer, f, &l)
+	loopStateTransition(blk, infer, f, &l)
 	if l.Bound == Static && l.HasNext() {
 		infer.Logger.Printf(f.Sprintf(BlockSymbol+"%s %d (loop %s=%d)", fmtBlock("block"), blk.Index, l.CondVar.Name(), l.Index))
 		// Loop and can continue, so don't mark as visited yet
@@ -844,7 +844,7 @@ func visitNext(instr *ssa.Next, infer *TypeInfer, f *Function, b *Block, l *Loop
 }
 
 func visitPhi(instr *ssa.Phi, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	phiDetectLoop(instr, infer, f, b, l)
+	loopDetectBounds(instr, infer, f, b, l)
 }
 
 func visitRecv(instr *ssa.UnOp, infer *TypeInfer, f *Function, b *Block, l *Loop) {
