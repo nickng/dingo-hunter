@@ -72,11 +72,11 @@ func (caller *Function) Call(call *ssa.Call, infer *TypeInfer, b *Block, l *Loop
 func (caller *Function) Go(instr *ssa.Go, infer *TypeInfer) {
 	common := instr.Common()
 	callee := caller.prepareCallFn(common, common.StaticCallee(), nil)
-	spawnStmt := &migo.SpawnStatement{Name: callee.Fn.String(), Params: []string{}}
-	for _, c := range common.Args {
+	spawnStmt := &migo.SpawnStatement{Name: callee.Fn.String(), Params: []*migo.Parameter{}}
+	for i, c := range common.Args {
 		if _, ok := c.Type().(*types.Chan); ok {
 			ch := getChan(c, infer)
-			spawnStmt.AddParams(ch.Name())
+			spawnStmt.AddParams(&migo.Parameter{Caller: ch, Callee: callee.Fn.Params[i]})
 		}
 	}
 	caller.FuncDef.AddStmts(spawnStmt)
@@ -206,7 +206,8 @@ func (caller *Function) call(common *ssa.CallCommon, fn *ssa.Function, rcvr ssa.
 		callStmt := &migo.CallStatement{Name: fmt.Sprintf("%s", callee.Fn.String()), Params: []*migo.Parameter{}}
 		for i, c := range common.Args {
 			if _, ok := c.Type().(*types.Chan); ok {
-				callStmt.AddParams(&migo.Parameter{Caller: c, Callee: callee.Fn.Params[i]})
+				ch := getChan(c, infer)
+				callStmt.AddParams(&migo.Parameter{Caller: ch, Callee: callee.Fn.Params[i]})
 			}
 		}
 		caller.FuncDef.AddStmts(callStmt)

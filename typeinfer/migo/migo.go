@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"go/token"
-	"strings"
 
 	"golang.org/x/tools/go/ssa"
 )
@@ -64,8 +63,8 @@ func (p *Parameter) String() string {
 	return fmt.Sprintf("[%s → %s]", p.Caller.Name(), p.Callee.Name())
 }
 
-// AsParameterString converts a slice of *Parameter to parameter string.
-func AsParameterString(params []*Parameter) string {
+// CalleeParameterString converts a slice of *Parameter to parameter string.
+func CalleeParameterString(params []*Parameter) string {
 	var buf bytes.Buffer
 	for i, p := range params {
 		if i == 0 {
@@ -77,12 +76,25 @@ func AsParameterString(params []*Parameter) string {
 	return buf.String()
 }
 
+// CallerParameterString converts a slice of *Parameter to parameter string.
+func CallerParameterString(params []*Parameter) string {
+	var buf bytes.Buffer
+	for i, p := range params {
+		if i == 0 {
+			buf.WriteString(p.Caller.Name())
+		} else {
+			buf.WriteString(fmt.Sprintf(", %s", p.Caller.Name()))
+		}
+	}
+	return buf.String()
+}
+
 // Function is a block of Statements sharing the same parameters.
 type Function struct {
 	Name   string       // Name of the function.
 	Params []*Parameter // Parameters (map from local variable name to Parameter).
 	pos    token.Pos    // Position of the function in Go source code.
-	stmts  []Statement  // Function body (slice of statements).
+	Stmts  []Statement  // Function body (slice of statements).
 	stack  *StmtsStack  // Stack for working with nested conditionals.
 	varIdx int          // Next fresh variable index.
 }
@@ -92,7 +104,7 @@ func NewFunction(name string) *Function {
 	return &Function{
 		Name:   name,
 		Params: []*Parameter{},
-		stmts:  []Statement{},
+		Stmts:  []Statement{},
 		stack:  NewStmtsStack(),
 	}
 }
@@ -126,23 +138,23 @@ func (f *Function) GetParamByCalleeValue(v ssa.Value) (*Parameter, error) {
 
 // AddStmts add Statement(s) to a Function.
 func (f *Function) AddStmts(stmts ...Statement) {
-	numStmts := len(f.stmts)
+	numStmts := len(f.Stmts)
 	if numStmts > 1 {
-		if _, ok := f.stmts[numStmts-1].(*TauStatement); ok {
-			f.stmts = append(f.stmts[:numStmts], stmts...)
+		if _, ok := f.Stmts[numStmts-1].(*TauStatement); ok {
+			f.Stmts = append(f.Stmts[:numStmts], stmts...)
 			return
 		}
 	}
-	f.stmts = append(f.stmts, stmts...)
+	f.Stmts = append(f.Stmts, stmts...)
 }
 
 // IsEmpty returns true if the Function body is empty.
-func (f *Function) IsEmpty() bool { return len(f.stmts) == 0 }
+func (f *Function) IsEmpty() bool { return len(f.Stmts) == 0 }
 
 // PutAway pushes current statements to stack.
 func (f *Function) PutAway() {
-	f.stack.Push(f.stmts)
-	f.stmts = []Statement{}
+	f.stack.Push(f.Stmts)
+	f.Stmts = []Statement{}
 }
 
 // Restore pops current statements from stack.
@@ -150,8 +162,8 @@ func (f *Function) Restore() ([]Statement, error) { return f.stack.Pop() }
 
 func (f *Function) String() string {
 	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintf("def %s(%s):\n", f.Name, AsParameterString(f.Params)))
-	for _, stmt := range f.stmts {
+	buf.WriteString(fmt.Sprintf("def %s(%s):\n", f.Name, CalleeParameterString(f.Params)))
+	for _, stmt := range f.Stmts {
 		buf.WriteString(fmt.Sprintf(" %s;\n", stmt))
 	}
 	return buf.String()
@@ -169,7 +181,7 @@ type CallStatement struct {
 }
 
 func (s *CallStatement) String() string {
-	return fmt.Sprintf("call %s(%s)", s.Name, AsParameterString(s.Params))
+	return fmt.Sprintf("call %s(%s)", s.Name, CallerParameterString(s.Params))
 }
 
 // AddParams add parameter(s) to a Function call.
@@ -199,15 +211,15 @@ func (s *CloseStatement) String() string {
 // SpawnStatement captures spawning of goroutines.
 type SpawnStatement struct {
 	Name   string
-	Params []string
+	Params []*Parameter
 }
 
 func (s *SpawnStatement) String() string {
-	return fmt.Sprintf("spawn %s(%s)", s.Name, strings.Join(s.Params, ","))
+	return fmt.Sprintf("spawn %s(%s)", s.Name, CallerParameterString(s.Params))
 }
 
 // AddParams add parameter(s) to a goroutine spawning Function call.
-func (s *SpawnStatement) AddParams(params ...string) {
+func (s *SpawnStatement) AddParams(params ...*Parameter) {
 	for _, param := range params {
 		found := false
 		for _, p := range s.Params {
@@ -223,13 +235,13 @@ func (s *SpawnStatement) AddParams(params ...string) {
 
 // NewChanStatement creates and names a newly created channel.
 type NewChanStatement struct {
-	Name string
+	Name ssa.Value
 	Chan string
 	Size int64
 }
 
 func (s *NewChanStatement) String() string {
-	return fmt.Sprintf("let %s = newchan %s, %d", s.Name, s.Chan, s.Size)
+	return fmt.Sprintf("let %s = newchan %s, %d", s.Name.Name(), s.Chan, s.Size)
 }
 
 // IfStatement is a conditional statement.

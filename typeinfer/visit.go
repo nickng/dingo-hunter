@@ -695,11 +695,19 @@ func visitJump(jump *ssa.Jump, infer *TypeInfer, f *Function, b *Block, l *Loop)
 	}
 	if len(next.Preds) > 1 {
 		infer.Logger.Printf(f.Sprintf(SplitSymbol+"Jump (%d ⇾ %d) %s", curr.Index, next.Index, l.String()))
-		var stmt migo.Statement
+		var stmt *migo.CallStatement
 		if l.Bound == Static && l.HasNext() {
 			stmt = &migo.CallStatement{Name: fmt.Sprintf("%s#%d_loop%d", f.Fn.String(), next.Index, l.Index), Params: []*migo.Parameter{}}
 		} else {
 			stmt = &migo.CallStatement{Name: fmt.Sprintf("%s#%d", f.Fn.String(), next.Index), Params: []*migo.Parameter{}}
+		}
+		for _, s := range f.FuncDef.Stmts {
+			if nc, ok := s.(*migo.NewChanStatement); ok {
+				stmt.AddParams(&migo.Parameter{Caller: nc.Name, Callee: nc.Name})
+			}
+		}
+		for _, p := range f.FuncDef.Params {
+			stmt.AddParams(&migo.Parameter{Caller: p.Callee, Callee: p.Callee})
 		}
 		f.FuncDef.AddStmts(stmt)
 		if _, visited := f.Visited[next]; !visited {
@@ -707,6 +715,9 @@ func visitJump(jump *ssa.Jump, infer *TypeInfer, f *Function, b *Block, l *Loop)
 			if l.Bound == Static && l.HasNext() {
 				newFunc = migo.NewFunction(fmt.Sprintf("%s#%d_loop%d", f.Fn.String(), next.Index, l.Index))
 				infer.Logger.Print("ADD" + fmt.Sprintf("%s#%d_loop%d", f.Fn.String(), next.Index, l.Index))
+			}
+			for _, p := range stmt.Params {
+				newFunc.AddParams(&migo.Parameter{Caller: p.Callee, Callee: p.Callee})
 			}
 			infer.Env.MigoProg.AddFunction(newFunc)
 			f.FuncDef = newFunc
@@ -759,7 +770,7 @@ func visitMakeChan(instr *ssa.MakeChan, infer *TypeInfer, f *Function, b *Block,
 		chType.Elem(),
 		bufSz.Int64(),
 		fmtPos(infer.SSA.FSet.Position(instr.Pos()).String())))
-	f.FuncDef.AddStmts(&migo.NewChanStatement{Name: instr.Name(), Chan: newch.String(), Size: bufSz.Int64()})
+	f.FuncDef.AddStmts(&migo.NewChanStatement{Name: instr, Chan: newch.String(), Size: bufSz.Int64()})
 }
 
 func visitMakeClosure(instr *ssa.MakeClosure, infer *TypeInfer, f *Function, b *Block, l *Loop) {
