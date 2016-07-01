@@ -15,7 +15,7 @@ func phiSelectEdge(instr *ssa.Phi, infer *TypeInfer, f *Function, b *Block, l *L
 			if !ok {
 				c, ok := instr.Edges[i].(*ssa.Const)
 				if !ok {
-					infer.Logger.Fatalf("phi: create instance Edge[%d]=%s: %s", i, instr.Edges[i].String()+instr.Edges[i].Name(), ErrUnknownValue)
+					infer.Logger.Fatalf("phi: create instance Edge[%d]=%#v: %s", i, instr.Edges[i], ErrUnknownValue)
 				}
 				f.locals[instr], edge = &ConstInstance{c}, pred.Index
 				infer.Logger.Printf(f.Sprintf(PhiSymbol+"%s/%s = %s, selected const from block %d", instr.Name(), f.locals[instr], instr.String(), edge))
