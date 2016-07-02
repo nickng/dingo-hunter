@@ -829,14 +829,13 @@ func visitReturn(ret *ssa.Return, infer *TypeInfer, f *Function, b *Block, l *Lo
 			infer.Logger.Printf("Returning uninitialised value %s/%s", ret.Results[0].Name(), f.locals[ret.Results[0]])
 			return
 		}
-		f.retvals = append(f.retvals, f.locals[ret.Results[0]]) // XXX careful with multi exit pt
-		infer.Logger.Printf(f.Sprintf(ReturnSymbol+"return %s", res))
+		f.retvals = append(f.retvals, f.locals[ret.Results[0]])
+		infer.Logger.Printf(f.Sprintf(ReturnSymbol+"return[1] %s %v", res, f.retvals))
 	default:
-		infer.Logger.Printf(f.Sprintf(ReturnSymbol+"return %d", len(ret.Results)))
 		for _, res := range ret.Results {
-			f.retvals = append(f.retvals, f.locals[res]) // XXX careful with multi exit pt
+			f.retvals = append(f.retvals, f.locals[res])
 		}
-		infer.Logger.Printf(f.Sprintf("%v", f.retvals))
+		infer.Logger.Printf(f.Sprintf(ReturnSymbol+"return[%d] %v", len(ret.Results), f.retvals))
 	}
 }
 

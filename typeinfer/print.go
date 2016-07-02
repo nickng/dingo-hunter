@@ -12,6 +12,7 @@ import (
 const (
 	BlockSymbol     = "┝ "
 	CallSymbol      = " ↘ "
+	ExitSymbol      = " ↙ "
 	ChanSymbol      = "ν "
 	FuncEnterSymbol = "┌"
 	FuncExitSymbol  = "└"

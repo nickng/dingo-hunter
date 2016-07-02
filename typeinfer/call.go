@@ -64,6 +64,15 @@ func (caller *Function) Call(call *ssa.Call, infer *TypeInfer, b *Block, l *Loop
 		callee := caller.invoke(common, infer, b, l)
 		if callee != nil {
 			caller.storeRetvals(infer, call.Value(), callee)
+		} else {
+			// Mock out the return values.
+			switch common.Signature().Results().Len() {
+			case 0:
+			case 1:
+				caller.locals[call.Value()] = &ExtInstance{}
+			case 2:
+				infer.Logger.Printf("TODO handle failed invoke multi-return values")
+			}
 		}
 	}
 }
@@ -111,11 +120,11 @@ func (caller *Function) storeRetvals(infer *TypeInfer, retval ssa.Value, callee 
 		case 1:
 			// Creating external instance because return value may be used.
 			caller.locals[retval] = &ExtInstance{caller.Fn, caller.InstanceID(), int64(0)}
-			infer.Logger.Print(caller.Sprintf("retvals ext"))
+			infer.Logger.Print(caller.Sprintf(ExitSymbol + "external"))
 		default:
 			caller.locals[retval] = &ExtInstance{caller.Fn, caller.InstanceID(), int64(0)}
 			caller.tuples[caller.locals[retval]] = make(Tuples, callee.Fn.Signature.Results().Len())
-			infer.Logger.Print(caller.Sprintf("retvals ext len=%d", callee.Fn.Signature.Results().Len()))
+			infer.Logger.Print(caller.Sprintf(ExitSymbol+"external len=%d", callee.Fn.Signature.Results().Len()))
 		}
 		return
 	}
@@ -123,25 +132,40 @@ func (caller *Function) storeRetvals(infer *TypeInfer, retval ssa.Value, callee 
 	case 0:
 		// Nothing.
 	case 1:
-		caller.locals[retval] = callee.retvals[0]
+		// XXX Pick the last return value from the exit paths
+		//     This assumes idiomatic Go for error path to return early
+		//     https://golang.org/doc/effective_go.html#if
+		caller.locals[retval] = callee.retvals[len(callee.retvals)-1]
 		if a, ok := callee.arrays[caller.locals[retval]]; ok {
 			caller.arrays[caller.locals[retval]] = a
 		}
 		if s, ok := callee.structs[caller.locals[retval]]; ok {
 			caller.structs[caller.locals[retval]] = s
 		}
-		if instance, ok := caller.locals[retval].(*Instance); ok {
-			infer.Logger.Print(caller.Sprintf("retvals: type=%s", instance.Type().String()))
-		} else {
-			infer.Logger.Print(caller.Sprintf("retvals: (external)"))
+		switch inst := caller.locals[retval].(type) {
+		case *Instance:
+			infer.Logger.Print(caller.Sprintf(ExitSymbol+"[1] %s", inst))
+			return
+		case *ConstInstance:
+			infer.Logger.Print(caller.Sprintf(ExitSymbol+"[1] constant %s", inst))
+			return
+		case *ExtInstance:
+			infer.Logger.Print(caller.Sprintf(ExitSymbol+"[1] (ext) %s", inst))
+			return
+		default:
+			infer.Logger.Fatalf("return[1]: %s: not an instance %+v", ErrUnknownValue, retval)
 		}
 	default:
 		caller.locals[retval] = &Instance{retval, caller.InstanceID(), int64(0)}
-		caller.tuples[caller.locals[retval]] = make(Tuples, len(callee.retvals))
+		caller.tuples[caller.locals[retval]] = make(Tuples, callee.Fn.Signature.Results().Len())
 		for i := range callee.retvals {
-			caller.tuples[caller.locals[retval]][i] = callee.retvals[i]
+			tupleIdx := i % callee.Fn.Signature.Results().Len()
+			caller.tuples[caller.locals[retval]][tupleIdx] = callee.retvals[i]
 		}
-		infer.Logger.Print(caller.Sprintf("retvals len=%d", len(callee.retvals)))
+		// XXX Pick the return values from the last exit path
+		//     This assumes idiomatic Go for error path to return early
+		//     https://golang.org/doc/effective_go.html#if
+		infer.Logger.Print(caller.Sprintf(ExitSymbol+"[%d/%d] %v", callee.Fn.Signature.Results().Len(), len(callee.retvals), caller.tuples[caller.locals[retval]]))
 	}
 }
 
