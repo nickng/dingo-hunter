@@ -246,7 +246,7 @@ func visitCall(instr *ssa.Call, infer *TypeInfer, f *Function, b *Block, l *Loop
 func visitChangeType(instr *ssa.ChangeType, infer *TypeInfer, f *Function, b *Block, l *Loop) {
 	inst, ok := f.locals[instr.X]
 	if !ok {
-		infer.Logger.Fatalf("changetype: %s→%s: %s", instr.X.Name(), instr.Name(), ErrUnknownValue)
+		infer.Logger.Fatalf("changetype: %s: %v → %v", ErrUnknownValue, instr.X, instr)
 		return
 	}
 	f.locals[instr] = inst
@@ -262,13 +262,13 @@ func visitConvert(instr *ssa.Convert, infer *TypeInfer, f *Function, b *Block, l
 		} else if _, ok := instr.X.(*ssa.Global); ok {
 			inst, ok := f.Prog.globals[instr.X]
 			if !ok {
-				infer.Logger.Fatalf("convert (global): %s: %s", instr.X, ErrUnknownValue)
+				infer.Logger.Fatalf("convert (global): %s: %+v", ErrUnknownValue, instr.X)
 			}
 			f.locals[instr.X] = inst
 			infer.Logger.Print(f.Sprintf(SkipSymbol+"%s convert= %s (global)", f.locals[instr], instr.X.Name()))
 			return
 		} else {
-			infer.Logger.Fatalf("convert: %s: %s", instr.X.Name(), ErrUnknownValue)
+			infer.Logger.Fatalf("convert: %s: %+v", ErrUnknownValue, instr.X)
 			return
 		}
 	}
@@ -286,7 +286,7 @@ func visitDeref(instr *ssa.UnOp, infer *TypeInfer, f *Function, b *Block, l *Loo
 	if _, ok := ptr.(*ssa.Global); ok {
 		inst, ok := f.Prog.globals[ptr]
 		if !ok {
-			infer.Logger.Fatalf("deref (global): %s: %s", ptr, ErrUnknownValue)
+			infer.Logger.Fatalf("deref (global): %s: %+v", ErrUnknownValue, ptr)
 			return
 		}
 		f.locals[ptr], f.locals[val] = inst, inst
@@ -298,7 +298,7 @@ func visitDeref(instr *ssa.UnOp, infer *TypeInfer, f *Function, b *Block, l *Loo
 	// Local.
 	inst, ok := f.locals[ptr]
 	if !ok {
-		infer.Logger.Fatalf("deref: %s: %s", ptr, ErrUnknownValue)
+		infer.Logger.Fatalf("deref: %s: %+v", ErrUnknownValue, ptr)
 		return
 	}
 	f.locals[ptr], f.locals[val] = inst, inst
@@ -311,7 +311,7 @@ func visitDeref(instr *ssa.UnOp, infer *TypeInfer, f *Function, b *Block, l *Loo
 func visitExtract(instr *ssa.Extract, infer *TypeInfer, f *Function, b *Block, l *Loop) {
 	if tupleInst, ok := f.locals[instr.Tuple]; ok {
 		if _, ok := f.tuples[tupleInst]; !ok { // Tuple uninitialised
-			infer.Logger.Fatalf("extract: %s unexpected tuple: %s", instr.String(), ErrUnknownValue)
+			infer.Logger.Fatalf("extract: %s: Unexpected tuple: %+v", ErrUnknownValue, instr)
 			return
 		}
 		f.tuples[tupleInst][instr.Index] = &Instance{instr, f.InstanceID(), l.Index}
@@ -351,14 +351,14 @@ func visitField(instr *ssa.Field, infer *TypeInfer, f *Function, b *Block, l *Lo
 	if sType, ok := struc.Type().Underlying().(*types.Struct); ok {
 		sInst, ok := f.locals[struc]
 		if !ok {
-			infer.Logger.Fatalf("field: %s: %s", struc, ErrUnknownValue)
+			infer.Logger.Fatalf("field: %s :%+v", ErrUnknownValue, struc)
 			return
 		}
 		fields, ok := f.structs[sInst]
 		if !ok {
 			fields, ok = f.Prog.structs[sInst]
 			if !ok {
-				infer.Logger.Fatalf("field: struct uninitialised %s: %s", sInst, ErrUnknownValue)
+				infer.Logger.Fatalf("field: %s: struct uninitialised %+v", ErrUnknownValue, sInst)
 				return
 			}
 		}
@@ -373,7 +373,7 @@ func visitField(instr *ssa.Field, infer *TypeInfer, f *Function, b *Block, l *Lo
 		initNestedRefVar(infer, f, b, l, f.locals[field], false)
 		return
 	}
-	infer.Logger.Fatal(f.Sprintf("field: %s is not struct: %s", struc.Name(), ErrInvalidVarRead))
+	infer.Logger.Fatalf("field: %s: field is not struct: %+v", ErrInvalidVarRead, struc)
 }
 
 func visitFieldAddr(instr *ssa.FieldAddr, infer *TypeInfer, f *Function, b *Block, l *Loop) {
@@ -381,14 +381,14 @@ func visitFieldAddr(instr *ssa.FieldAddr, infer *TypeInfer, f *Function, b *Bloc
 	if sType, ok := derefType(struc.Type()).Underlying().(*types.Struct); ok {
 		sInst, ok := f.locals[struc]
 		if !ok {
-			infer.Logger.Fatalf("field-addr: %s: %s", struc, ErrUnknownValue)
+			infer.Logger.Fatalf("field-addr: %s: %+v", ErrUnknownValue, struc)
 			return
 		}
 		fields, ok := f.structs[sInst]
 		if !ok {
 			fields, ok = f.Prog.structs[sInst]
 			if !ok {
-				infer.Logger.Fatalf("field-addr: struct uninitialised %s: %s", sInst, ErrUnknownValue)
+				infer.Logger.Fatalf("field-addr: %s: struct uninitialised %+v", ErrUnknownValue, sInst)
 				return
 			}
 		}
@@ -403,7 +403,7 @@ func visitFieldAddr(instr *ssa.FieldAddr, infer *TypeInfer, f *Function, b *Bloc
 		f.locals[field] = fields[index]
 		return
 	}
-	infer.Logger.Fatal(f.Sprintf("field-addr: %s is not struct: %s", struc.Name(), ErrInvalidVarRead))
+	infer.Logger.Fatalf("field-addr: %s: field is not struct: %+v", ErrInvalidVarRead, struc)
 }
 
 func visitGo(instr *ssa.Go, infer *TypeInfer, f *Function, b *Block, l *Loop) {
@@ -534,7 +534,7 @@ func visitIndex(instr *ssa.Index, infer *TypeInfer, f *Function, b *Block, l *Lo
 		if !ok {
 			aInst, ok = f.Prog.globals[array]
 			if !ok {
-				infer.Logger.Fatalf("index: array %s: %s", array, ErrUnknownValue)
+				infer.Logger.Fatalf("index: %s: array %+v", ErrUnknownValue, array)
 				return
 			}
 		}
@@ -542,7 +542,7 @@ func visitIndex(instr *ssa.Index, infer *TypeInfer, f *Function, b *Block, l *Lo
 		if !ok {
 			elems, ok = f.Prog.arrays[aInst]
 			if !ok {
-				infer.Logger.Fatalf("index: array uninitialised %s: %s", aInst, ErrUnknownValue)
+				infer.Logger.Fatalf("index: %s: not an array %+v", ErrUnknownValue, aInst)
 				return
 			}
 		}
@@ -567,7 +567,7 @@ func visitIndexAddr(instr *ssa.IndexAddr, infer *TypeInfer, f *Function, b *Bloc
 		if !ok {
 			aInst, ok = f.Prog.globals[array]
 			if !ok {
-				infer.Logger.Fatalf("index-addr: array %s: %s", array, ErrUnknownValue)
+				infer.Logger.Fatalf("index-addr: %s: array %+v", ErrUnknownValue, array)
 				return
 			}
 		}
@@ -575,7 +575,7 @@ func visitIndexAddr(instr *ssa.IndexAddr, infer *TypeInfer, f *Function, b *Bloc
 		if !ok {
 			elems, ok = f.Prog.arrays[aInst]
 			if !ok {
-				infer.Logger.Fatalf("index-addr: array uninitialised %s: %s", aInst, ErrUnknownValue)
+				infer.Logger.Fatalf("index-addr: %s: array uninitialised %s", ErrUnknownValue, aInst)
 				return
 			}
 		}
@@ -596,7 +596,7 @@ func visitIndexAddr(instr *ssa.IndexAddr, infer *TypeInfer, f *Function, b *Bloc
 		if !ok {
 			sInst, ok = f.Prog.globals[array]
 			if !ok {
-				infer.Logger.Fatalf("index-addr: slice %s: %s", array, ErrUnknownValue)
+				infer.Logger.Fatalf("index-addr: %s: slice %+v", ErrUnknownValue, array)
 				return
 			}
 		}
@@ -604,7 +604,7 @@ func visitIndexAddr(instr *ssa.IndexAddr, infer *TypeInfer, f *Function, b *Bloc
 		if !ok {
 			elems, ok = f.Prog.arrays[sInst]
 			if !ok {
-				infer.Logger.Fatalf("index-addr: slice uninitialised %s: %s", sInst, ErrUnknownValue)
+				infer.Logger.Fatalf("index-addr: %s: slice uninitialised %+v", ErrUnknownValue, sInst)
 				return
 			}
 		}
@@ -619,7 +619,7 @@ func visitIndexAddr(instr *ssa.IndexAddr, infer *TypeInfer, f *Function, b *Bloc
 		f.locals[elem] = elems[index]
 		return
 	}
-	infer.Logger.Fatal(f.Sprintf("index-addr: %s is not array/slice: %s", array.Name(), ErrInvalidVarRead))
+	infer.Logger.Fatalf("index-addr: %s: not array/slice %+v", ErrInvalidVarRead, array)
 }
 
 func visitJump(jump *ssa.Jump, infer *TypeInfer, f *Function, b *Block, l *Loop) {
@@ -675,7 +675,7 @@ func visitLookup(instr *ssa.Lookup, infer *TypeInfer, f *Function, b *Block, l *
 			f.locals[instr.X] = &ConstInstance{c}
 			v = f.locals[instr.X]
 		} else {
-			infer.Logger.Fatalf("lookup: %s: %s", instr.X, ErrUnknownValue)
+			infer.Logger.Fatalf("lookup: %s: %+v", ErrUnknownValue, instr.X)
 			return
 		}
 	}
@@ -732,7 +732,7 @@ func visitMakeInterface(instr *ssa.MakeInterface, infer *TypeInfer, f *Function,
 		if c, ok := instr.X.(*ssa.Const); ok {
 			f.locals[instr.X] = &ConstInstance{c}
 		} else {
-			infer.Logger.Fatalf("make-iface: %s/%s: %s", instr.X.Name(), instr.X.String(), ErrUnknownValue)
+			infer.Logger.Fatalf("make-iface: %s: %s", ErrUnknownValue, instr.X)
 			return
 		}
 	}
@@ -755,12 +755,12 @@ func visitMakeSlice(instr *ssa.MakeSlice, infer *TypeInfer, f *Function, b *Bloc
 func visitMapUpdate(instr *ssa.MapUpdate, infer *TypeInfer, f *Function, b *Block, l *Loop) {
 	inst, ok := f.locals[instr.Map]
 	if !ok {
-		infer.Logger.Fatalf("map-update: %s: %s", instr.Map, ErrUnknownValue)
+		infer.Logger.Fatalf("map-update: %s: %s", ErrUnknownValue, instr.Map)
 		return
 	}
 	m, ok := f.maps[inst]
 	if !ok {
-		infer.Logger.Fatalf("map-update: uninitialised map: %s", instr.Map)
+		infer.Logger.Fatalf("map-update: uninitialised map: %+v", instr.Map)
 		return
 	}
 	k, ok := f.locals[instr.Key]
@@ -795,7 +795,7 @@ func visitRecv(instr *ssa.UnOp, infer *TypeInfer, f *Function, b *Block, l *Loop
 	f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index} // received value
 	ch, ok := f.locals[instr.X]
 	if !ok { // Channel does not exist
-		infer.Logger.Fatalf("recv: %s: %s", instr.X, ErrUnknownValue)
+		infer.Logger.Fatalf("recv: %s: %+v", ErrUnknownValue, instr.X)
 		return
 	}
 	// Receive test.
@@ -893,7 +893,7 @@ func visitSelect(instr *ssa.Select, infer *TypeInfer, f *Function, b *Block, l *
 func visitSend(instr *ssa.Send, infer *TypeInfer, f *Function, b *Block, l *Loop) {
 	ch, ok := f.locals[instr.Chan]
 	if !ok {
-		infer.Logger.Fatal("send:", ErrUnknownValue)
+		infer.Logger.Fatalf("send: %s: %+v", ErrUnknownValue, instr.Chan)
 	}
 	pos := infer.SSA.DecodePos(ch.(*Instance).Pos())
 	infer.Logger.Printf(f.Sprintf(SendSymbol+"%s @ %s", ch, fmtPos(pos)))
@@ -913,7 +913,7 @@ func visitSkip(instr ssa.Instruction, infer *TypeInfer, f *Function, b *Block, l
 func visitSlice(instr *ssa.Slice, infer *TypeInfer, f *Function, b *Block, l *Loop) {
 	f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
 	if _, ok := f.locals[instr.X]; !ok {
-		infer.Logger.Fatalf("slice: %s: %s", instr.X.Name(), ErrUnknownValue)
+		infer.Logger.Fatalf("slice: %s: %+v", ErrUnknownValue, instr.X)
 		return
 	}
 	if basic, ok := instr.Type().Underlying().(*types.Basic); ok && basic.Kind() == types.String {
@@ -929,7 +929,7 @@ func visitSlice(instr *ssa.Slice, infer *TypeInfer, f *Function, b *Block, l *Lo
 				f.arrays[f.locals[instr.X]] = make(Elems)
 				aInst = f.arrays[f.locals[instr.X]]
 			} else {
-				infer.Logger.Fatalf("slice: non-slice %s/%s: %s", instr.X.Name(), instr.X.Type().String(), ErrUnknownValue)
+				infer.Logger.Fatalf("slice: %s: non-slice %+v", ErrUnknownValue, instr.X)
 				return
 			}
 		}
@@ -947,7 +947,7 @@ func visitStore(instr *ssa.Store, infer *TypeInfer, f *Function, b *Block, l *Lo
 	if _, ok := dstPtr.(*ssa.Global); ok {
 		dstInst, ok := f.Prog.globals[dstPtr]
 		if !ok {
-			infer.Logger.Fatalf("store (global): %s: %s", dstPtr, ErrUnknownValue)
+			infer.Logger.Fatalf("store (global): %s: %+v", ErrUnknownValue, dstPtr)
 		}
 		inst, ok := f.locals[source]
 		if !ok {
@@ -956,7 +956,7 @@ func visitStore(instr *ssa.Store, infer *TypeInfer, f *Function, b *Block, l *Lo
 				if c, ok := source.(*ssa.Const); ok {
 					inst = &ConstInstance{c}
 				} else {
-					infer.Logger.Fatalf("store (global): %s: %s", source, ErrUnknownValue)
+					infer.Logger.Fatalf("store (global): %s: %+v", ErrUnknownValue, source)
 				}
 			}
 		}
@@ -979,7 +979,7 @@ func visitStore(instr *ssa.Store, infer *TypeInfer, f *Function, b *Block, l *Lo
 	// Local.
 	dstInst, ok := f.locals[dstPtr]
 	if !ok {
-		infer.Logger.Fatalf("store: addr %s: %s", dstPtr.Name(), ErrUnknownValue)
+		infer.Logger.Fatalf("store: addr %s: %+v", ErrUnknownValue, dstPtr)
 	}
 	inst, ok := f.locals[source]
 	if !ok {
@@ -1011,7 +1011,7 @@ func visitTypeAssert(instr *ssa.TypeAssert, infer *TypeInfer, f *Function, b *Bl
 		if meth, _ := types.MissingMethod(instr.X.Type(), iface, true); meth == nil { // No missing methods
 			inst, ok := f.locals[instr.X]
 			if !ok {
-				infer.Logger.Fatalf("typeassert: iface X %s: %s", instr.X.Name(), ErrUnknownValue)
+				infer.Logger.Fatalf("typeassert: %s: iface X %+v", ErrUnknownValue, instr.X.Name())
 				return
 			}
 			if instr.CommaOk {
@@ -1025,12 +1025,12 @@ func visitTypeAssert(instr *ssa.TypeAssert, infer *TypeInfer, f *Function, b *Bl
 			infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = typeassert iface %s", f.locals[instr], inst))
 			return
 		}
-		infer.Logger.Fatalf("typeassert: %s: %s", instr.String(), ErrMethodNotFound)
+		infer.Logger.Fatalf("typeassert: %s: %+v", ErrMethodNotFound, instr)
 	} else { // Concrete type
 		if types.AssignableTo(instr.AssertedType.Underlying(), instr.X.Type().Underlying()) {
 			inst, ok := f.locals[instr.X]
 			if !ok {
-				infer.Logger.Fatalf("typeassert: X %s: %s", instr.X.Name(), ErrUnknownValue)
+				infer.Logger.Fatalf("typeassert: %s: assert from %+v", ErrUnknownValue, instr.X)
 				return
 			}
 			if instr.CommaOk {
@@ -1044,6 +1044,6 @@ func visitTypeAssert(instr *ssa.TypeAssert, infer *TypeInfer, f *Function, b *Bl
 			infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = typeassert %s", f.locals[instr], inst))
 			return
 		}
-		infer.Logger.Fatalf("typeassert: %s: %s", instr.String(), ErrIncompatType)
+		infer.Logger.Fatalf("typeassert: %s: %+v", ErrIncompatType, instr)
 	}
 }
