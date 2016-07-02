@@ -95,6 +95,8 @@ func (i *ConstInstance) String() string {
 		return fmt.Sprintf("%d", i.Const.Int64())
 	case constant.Bool:
 		return fmt.Sprintf("%s", i.Const.String())
+	case constant.String:
+		return fmt.Sprintf("%s", i.Const.String())
 	default:
 		return fmt.Sprintf("__unimplemented__ %s", i.Const.Type())
 	}
