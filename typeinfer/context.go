@@ -168,6 +168,9 @@ func (caller *Function) prepareCallFn(common *ssa.CallCommon, fn *ssa.Function, 
 			if fields, ok := caller.structs[inst]; ok {
 				callee.structs[inst] = fields
 			}
+			if maps, ok := caller.maps[inst]; ok {
+				callee.maps[inst] = maps
+			}
 		} else if c, ok := argCaller.(*ssa.Const); ok {
 			callee.locals[param] = &ConstInstance{c}
 		}

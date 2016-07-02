@@ -142,6 +142,9 @@ func (caller *Function) storeRetvals(infer *TypeInfer, retval ssa.Value, callee 
 		if s, ok := callee.structs[caller.locals[retval]]; ok {
 			caller.structs[caller.locals[retval]] = s
 		}
+		if m, ok := callee.maps[caller.locals[retval]]; ok {
+			caller.maps[caller.locals[retval]] = m
+		}
 		switch inst := caller.locals[retval].(type) {
 		case *Instance:
 			infer.Logger.Print(caller.Sprintf(ExitSymbol+"[1] %s", inst))
