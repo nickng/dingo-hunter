@@ -295,6 +295,11 @@ func visitDeref(instr *ssa.UnOp, infer *TypeInfer, f *Function, b *Block, l *Loo
 		initNestedRefVar(infer, f, b, l, f.locals[ptr], true)
 		return
 	}
+	if basic, ok := derefType(ptr.Type()).Underlying().(*types.Basic); ok && basic.Kind() == types.Byte {
+		infer.Logger.Print(f.Sprintf(SubSymbol+"deref: %+v is a byte", ptr))
+		// Create new byte instance here, bytes do no need explicit allocation.
+		f.locals[ptr] = &Instance{ptr, f.InstanceID(), l.Index}
+	}
 	// Local.
 	inst, ok := f.locals[ptr]
 	if !ok {
@@ -1039,6 +1044,10 @@ func visitStore(instr *ssa.Store, infer *TypeInfer, f *Function, b *Block, l *Lo
 		}
 		infer.Logger.Print(f.Sprintf(ValSymbol+"%s = %s (global)", dstPtr.Name(), f.locals[source]))
 		return
+	}
+	if basic, ok := derefType(dstPtr.Type()).Underlying().(*types.Basic); ok && basic.Kind() == types.Byte {
+		infer.Logger.Print(f.Sprintf(SubSymbol+"store: %+v is a byte", dstPtr))
+		f.locals[dstPtr] = &Instance{dstPtr, f.InstanceID(), l.Index}
 	}
 	// Local.
 	dstInst, ok := f.locals[dstPtr]
