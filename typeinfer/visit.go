@@ -384,6 +384,24 @@ func visitFieldAddr(instr *ssa.FieldAddr, infer *TypeInfer, f *Function, b *Bloc
 			infer.Logger.Fatalf("field-addr: %s: %+v", ErrUnknownValue, struc)
 			return
 		}
+		// Check status of instance.
+		switch inst := sInst.(type) {
+		case *Instance: // Continue
+		case *ExtInstance: // Continue
+			infer.Logger.Print(f.Sprintf(SubSymbol+"field-addr: %+v is external", sInst))
+			f.locals[field] = inst
+			return
+		case *ConstInstance:
+			infer.Logger.Print(f.Sprintf(SubSymbol+"field-addr: %+v is a constant", sInst))
+			if inst.Const.IsNil() {
+				f.locals[field] = inst
+			}
+			return
+		default:
+			infer.Logger.Fatalf("field-addr: %s: external or not instance %+v", ErrUnknownValue, sInst)
+			return
+		}
+		// Find the struct.
 		fields, ok := f.structs[sInst]
 		if !ok {
 			fields, ok = f.Prog.structs[sInst]
@@ -571,6 +589,23 @@ func visitIndexAddr(instr *ssa.IndexAddr, infer *TypeInfer, f *Function, b *Bloc
 				return
 			}
 		}
+		// Check status of instance.
+		switch inst := aInst.(type) {
+		case *Instance: // Continue
+		case *ExtInstance: // External
+			infer.Logger.Print(f.Sprintf(SubSymbol+"index-addr: array %+v is external", aInst))
+			f.locals[elem] = inst
+		case *ConstInstance:
+			infer.Logger.Print(f.Sprintf(SubSymbol+"index-addr: array %+v is a constant", aInst))
+			if inst.Const.IsNil() {
+				f.locals[elem] = inst
+			}
+			return
+		default:
+			infer.Logger.Fatalf("index-addr: %s: array is not instance %+v", ErrUnknownValue, aInst)
+			return
+		}
+		// Find the array.
 		elems, ok := f.arrays[aInst]
 		if !ok {
 			elems, ok = f.Prog.arrays[aInst]
@@ -600,6 +635,28 @@ func visitIndexAddr(instr *ssa.IndexAddr, infer *TypeInfer, f *Function, b *Bloc
 				return
 			}
 		}
+		// Check status of instance.
+		switch inst := sInst.(type) {
+		case *Instance: // Continue
+			if basic, ok := sType.Elem().(*types.Basic); ok && basic.Kind() == types.Byte {
+				f.locals[elem] = inst
+				return
+			}
+		case *ExtInstance: // External
+			infer.Logger.Print(f.Sprintf(SubSymbol+"index-addr: slice %+v is external", sInst))
+			f.locals[elem] = inst
+			return
+		case *ConstInstance:
+			infer.Logger.Print(f.Sprintf(SubSymbol+"index-addr: slice %+v is a constant", sInst))
+			if inst.Const.IsNil() {
+				f.locals[elem] = inst
+			}
+			return
+		default:
+			infer.Logger.Fatalf("index-addr: %s: slice is not instance %+v", ErrUnknownValue, sInst)
+			return
+		}
+		// Find the slice.
 		elems, ok := f.arrays[sInst]
 		if !ok {
 			elems, ok = f.Prog.arrays[sInst]
@@ -919,16 +976,24 @@ func visitSlice(instr *ssa.Slice, infer *TypeInfer, f *Function, b *Block, l *Lo
 		infer.Logger.Printf(f.Sprintf(SkipSymbol+"%s = slice on string, skipping", f.locals[instr]))
 		return
 	}
+	if slice, ok := instr.Type().Underlying().(*types.Slice); ok {
+		if basic, ok := slice.Elem().Underlying().(*types.Basic); ok && basic.Kind() == types.Byte {
+			infer.Logger.Printf(f.Sprintf(SkipSymbol+"%s = slice on byte, skipping", f.locals[instr]))
+			return
+		}
+	}
 	aInst, ok := f.arrays[f.locals[instr.X]]
 	if !ok {
 		aInst, ok = f.Prog.arrays[f.locals[instr.X]]
 		if !ok {
-			if _, ok := f.locals[instr.X].(*ConstInstance); ok {
-				infer.Logger.Print(f.Sprintf("slice: const %s %s", instr.X.Name(), f.locals[instr.X]))
+			switch f.locals[instr.X].(type) {
+			case *Instance: // Continue
+				infer.Logger.Fatalf("slice: %s: non-slice %+v", ErrUnknownValue, instr.X)
+				return
+			case *ConstInstance:
 				f.arrays[f.locals[instr.X]] = make(Elems)
 				aInst = f.arrays[f.locals[instr.X]]
-			} else {
-				infer.Logger.Fatalf("slice: %s: non-slice %+v", ErrUnknownValue, instr.X)
+				infer.Logger.Print(f.Sprintf("slice: const %s %s", instr.X.Name(), f.locals[instr.X]))
 				return
 			}
 		}

@@ -191,9 +191,18 @@ func (caller *Function) invoke(common *ssa.CallCommon, infer *TypeInfer, b *Bloc
 		infer.Logger.Fatalf("invoke: %s: %s", common.Value.Name(), ErrUnknownValue)
 		return nil
 	}
-	inst, ok := ifaceInst.(*Instance) // Interface is concrete
-	if !ok {
-		infer.Logger.Fatalf("invoke: %s is not concrete", ifaceInst)
+	switch inst := ifaceInst.(type) {
+	case *Instance: // OK
+	case *ConstInstance:
+		if inst.Const.IsNil() {
+			return nil
+		}
+		infer.Logger.Fatalf("invoke: %+v is not nil nor concrete", ifaceInst)
+	case *ExtInstance:
+		infer.Logger.Printf(caller.Sprintf("invoke: %+v external", ifaceInst))
+		return nil
+	default:
+		infer.Logger.Printf(caller.Sprintf("invoke: %+v unknown", ifaceInst))
 		return nil
 	}
 	meth, _ := types.MissingMethod(inst.Var().Type(), iface, true) // static
