@@ -205,15 +205,15 @@ func (caller *Function) invoke(common *ssa.CallCommon, infer *TypeInfer, b *Bloc
 		infer.Logger.Printf(caller.Sprintf("invoke: %+v unknown", ifaceInst))
 		return nil
 	}
-	meth, _ := types.MissingMethod(inst.Var().Type(), iface, true) // static
+	meth, _ := types.MissingMethod(ifaceInst.Var().Type(), iface, true) // static
 	if meth != nil {
-		meth, _ = types.MissingMethod(inst.Var().Type(), iface, false) // non-static
+		meth, _ = types.MissingMethod(ifaceInst.Var().Type(), iface, false) // non-static
 		if meth != nil {
 			infer.Logger.Printf("invoke: missing method %s: %s", meth.String(), ErrIfaceIncomplete)
 			return nil
 		}
 	}
-	fn := findMethod(common.Value.Parent().Prog, common.Method, inst.Var().Type(), infer)
+	fn := findMethod(common.Value.Parent().Prog, common.Method, ifaceInst.Var().Type(), infer)
 	if fn == nil {
 		if meth == nil {
 			infer.Logger.Printf("invoke: cannot locate concrete method")
