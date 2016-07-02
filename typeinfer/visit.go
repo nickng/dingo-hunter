@@ -250,7 +250,16 @@ func visitChangeType(instr *ssa.ChangeType, infer *TypeInfer, f *Function, b *Bl
 		return
 	}
 	f.locals[instr] = inst
-	infer.Logger.Print(f.Sprintf(ValSymbol+"%s = %s (type: %s ← %s)", instr.Name(), instr.X.Name(), fmtType(instr.Type()), fmtType(instr.X.Type())))
+	if a, ok := f.arrays[f.locals[instr.X]]; ok {
+		f.arrays[f.locals[instr]] = a
+	}
+	if s, ok := f.structs[f.locals[instr.X]]; ok {
+		f.structs[f.locals[instr]] = s
+	}
+	if m, ok := f.maps[f.locals[instr.X]]; ok {
+		f.maps[f.locals[instr]] = m
+	}
+	infer.Logger.Print(f.Sprintf(ValSymbol+"%s = %s (type: %s ← %s)", instr.Name(), instr.X.Name(), fmtType(instr.Type()), fmtType(instr.X.Type().Underlying())))
 	return
 }
 
@@ -752,6 +761,7 @@ func visitLookup(instr *ssa.Lookup, infer *TypeInfer, f *Function, b *Block, l *
 		f.locals[instr.Index] = idx
 	}
 	f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
+	initNestedRefVar(infer, f, b, l, f.locals[instr], false)
 	if instr.CommaOk {
 		f.commaok[f.locals[instr]] = &CommaOk{Instr: instr, Result: f.locals[instr]}
 		f.tuples[f.locals[instr]] = make(Tuples, 2) // { elem, lookupOk }
@@ -822,8 +832,9 @@ func visitMapUpdate(instr *ssa.MapUpdate, infer *TypeInfer, f *Function, b *Bloc
 	}
 	m, ok := f.maps[inst]
 	if !ok {
-		infer.Logger.Fatalf("map-update: uninitialised map: %+v", instr.Map)
-		return
+		f.maps[inst] = make(map[VarInstance]VarInstance) // XXX This shouldn't happen
+		m = f.maps[inst]                                 // The map must be defined somewhere we skipped
+		infer.Logger.Printf("map-update: uninitialised map: %+v %s", instr.Map, instr.Map.String())
 	}
 	k, ok := f.locals[instr.Key]
 	if !ok {
@@ -1072,6 +1083,12 @@ func visitStore(instr *ssa.Store, infer *TypeInfer, f *Function, b *Block, l *Lo
 		f.updateInstances(dstInst, inst)
 	case *types.Map:
 		f.updateInstances(dstInst, inst)
+		if _, ok := f.maps[f.locals[dstPtr]]; ok {
+			infer.Logger.Println("DST is a map")
+		}
+		if _, ok := f.maps[f.locals[source]]; ok {
+			infer.Logger.Println("SRC is a map")
+		}
 	default:
 		// Nothing to update.
 	}
