@@ -255,9 +255,13 @@ func (caller *Function) call(common *ssa.CallCommon, fn *ssa.Function, rcvr ssa.
 }
 
 func (caller *Function) callClosure(common *ssa.CallCommon, closure *ssa.MakeClosure, infer *TypeInfer, b *Block, l *Loop) {
-	// closure.Bindings
-	// closure.Fn
-	infer.Logger.Fatalf("call closure: %s", ErrUnimplemented)
+	callee := caller.prepareCallFn(common, closure.Fn.(*ssa.Function), nil)
+	for _, b := range closure.Bindings {
+		if inst, ok := caller.locals[b]; ok {
+			callee.locals[b] = inst
+		}
+	}
+	callee.call(common, common.StaticCallee(), nil, infer, b, l)
 }
 
 func findMethod(prog *ssa.Program, meth *types.Func, typ types.Type, infer *TypeInfer) *ssa.Function {
