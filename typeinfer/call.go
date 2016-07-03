@@ -146,6 +146,12 @@ func (caller *Function) storeRetvals(infer *TypeInfer, retval ssa.Value, callee 
 		if m, ok := callee.maps[caller.locals[retval]]; ok {
 			caller.maps[caller.locals[retval]] = m
 		}
+		if a, ok := callee.Prog.arrays[caller.locals[retval]]; ok {
+			caller.arrays[caller.locals[retval]] = a
+		}
+		if s, ok := callee.Prog.structs[caller.locals[retval]]; ok {
+			caller.structs[caller.locals[retval]] = s
+		}
 		switch inst := caller.locals[retval].(type) {
 		case *Instance:
 			infer.Logger.Print(caller.Sprintf(ExitSymbol+"[1] %s", inst))
@@ -161,11 +167,45 @@ func (caller *Function) storeRetvals(infer *TypeInfer, retval ssa.Value, callee 
 		}
 	default:
 		caller.locals[retval] = &Instance{retval, caller.InstanceID(), int64(0)}
-		caller.tuples[caller.locals[retval]] = make(Tuples, callee.Fn.Signature.Results().Len())
-		for i := range callee.retvals {
-			tupleIdx := i % callee.Fn.Signature.Results().Len()
-			if callee.retvals[i] != nil {
-				caller.tuples[caller.locals[retval]][tupleIdx] = callee.retvals[i]
+		if callee.Fn.Signature.Results().Len() == 1 {
+			caller.locals[retval] = callee.retvals[len(callee.retvals)-1]
+			if a, ok := callee.arrays[caller.locals[retval]]; ok {
+				caller.arrays[caller.locals[retval]] = a
+			}
+			if s, ok := callee.structs[caller.locals[retval]]; ok {
+				caller.structs[caller.locals[retval]] = s
+			}
+			if m, ok := callee.maps[caller.locals[retval]]; ok {
+				caller.maps[caller.locals[retval]] = m
+			}
+			if a, ok := callee.Prog.arrays[caller.locals[retval]]; ok {
+				caller.arrays[caller.locals[retval]] = a
+			}
+			if s, ok := callee.Prog.structs[caller.locals[retval]]; ok {
+				caller.structs[caller.locals[retval]] = s
+			}
+		} else {
+			caller.tuples[caller.locals[retval]] = make(Tuples, callee.Fn.Signature.Results().Len())
+			for i := range callee.retvals {
+				tupleIdx := i % callee.Fn.Signature.Results().Len()
+				if callee.retvals[i] != nil {
+					caller.tuples[caller.locals[retval]][tupleIdx] = callee.retvals[i]
+				}
+				if a, ok := callee.arrays[callee.retvals[i]]; ok {
+					caller.arrays[callee.retvals[i]] = a
+				}
+				if s, ok := callee.structs[callee.retvals[i]]; ok {
+					caller.structs[callee.retvals[i]] = s
+				}
+				if m, ok := callee.maps[callee.retvals[i]]; ok {
+					caller.maps[callee.retvals[i]] = m
+				}
+				if a, ok := callee.Prog.arrays[callee.retvals[i]]; ok {
+					caller.arrays[callee.retvals[i]] = a
+				}
+				if s, ok := callee.Prog.structs[callee.retvals[i]]; ok {
+					caller.structs[callee.retvals[i]] = s
+				}
 			}
 		}
 		// XXX Pick the return values from the last exit path
