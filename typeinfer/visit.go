@@ -385,8 +385,8 @@ func visitField(instr *ssa.Field, infer *TypeInfer, f *Function, b *Block, l *Lo
 			fields[index] = &Instance{field, f.InstanceID(), l.Index}
 			infer.Logger.Print(f.Sprintf(SubSymbol+"field uninitialised, set to %s", field.Name()))
 		}
-		f.locals[field] = fields[index]
 		initNestedRefVar(infer, f, b, l, f.locals[field], false)
+		f.locals[field] = fields[index]
 		return
 	}
 	infer.Logger.Fatalf("field: %s: field is not struct: %+v", ErrInvalidVarRead, struc)
@@ -397,8 +397,11 @@ func visitFieldAddr(instr *ssa.FieldAddr, infer *TypeInfer, f *Function, b *Bloc
 	if sType, ok := derefType(struc.Type()).Underlying().(*types.Struct); ok {
 		sInst, ok := f.locals[struc]
 		if !ok {
-			infer.Logger.Fatalf("field-addr: %s: %+v", ErrUnknownValue, struc)
-			return
+			sInst, ok = f.Prog.globals[struc]
+			if !ok {
+				infer.Logger.Fatalf("field-addr: %s: %+v", ErrUnknownValue, struc)
+				return
+			}
 		}
 		// Check status of instance.
 		switch inst := sInst.(type) {
@@ -432,8 +435,8 @@ func visitFieldAddr(instr *ssa.FieldAddr, infer *TypeInfer, f *Function, b *Bloc
 		} else {
 			fields[index] = &Instance{field, f.InstanceID(), l.Index}
 			infer.Logger.Print(f.Sprintf(SubSymbol+"field uninitialised, set to %s", field.Name()))
-			initNestedRefVar(infer, f, b, l, fields[index], false)
 		}
+		initNestedRefVar(infer, f, b, l, fields[index], false)
 		f.locals[field] = fields[index]
 		return
 	}
@@ -586,8 +589,8 @@ func visitIndex(instr *ssa.Index, infer *TypeInfer, f *Function, b *Block, l *Lo
 		} else {
 			elems[index] = &Instance{elem, f.InstanceID(), l.Index}
 			infer.Logger.Printf(f.Sprintf(SubSymbol+"elem uninitialised, set to %s", elem.Name()))
-			initNestedRefVar(infer, f, b, l, elems[index], false)
 		}
+		initNestedRefVar(infer, f, b, l, elems[index], false)
 		f.locals[elem] = elems[index]
 		return
 	}
@@ -636,8 +639,8 @@ func visitIndexAddr(instr *ssa.IndexAddr, infer *TypeInfer, f *Function, b *Bloc
 		} else {
 			elems[index] = &Instance{elem, f.InstanceID(), l.Index}
 			infer.Logger.Printf(f.Sprintf(SubSymbol+"elem uninitialised, set to %s", elem.Name()))
-			initNestedRefVar(infer, f, b, l, elems[index], false)
 		}
+		initNestedRefVar(infer, f, b, l, elems[index], false)
 		f.locals[elem] = elems[index]
 		return
 	}
@@ -687,8 +690,8 @@ func visitIndexAddr(instr *ssa.IndexAddr, infer *TypeInfer, f *Function, b *Bloc
 		} else {
 			elems[index] = &Instance{elem, f.InstanceID(), l.Index}
 			infer.Logger.Printf(f.Sprintf(SubSymbol+"elem uninitialised, set to %s", elem.Name()))
-			initNestedRefVar(infer, f, b, l, elems[index], false)
 		}
+		initNestedRefVar(infer, f, b, l, elems[index], false)
 		f.locals[elem] = elems[index]
 		return
 	}
