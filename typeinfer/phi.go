@@ -25,6 +25,10 @@ func phiSelectEdge(instr *ssa.Phi, infer *TypeInfer, f *Function, b *Block, l *L
 					f.locals[instr.Edges[i]] = &Instance{instr.Edges[i], f.InstanceID(), l.Index}
 					e, edge = f.locals[instr.Edges[i]], pred.Index
 					infer.Logger.Printf(f.Sprintf(PhiSymbol+"%s/%s = %s, selected call from block %d", instr.Name(), e, instr.String(), edge))
+				case *ssa.UnOp:
+					f.locals[instr.Edges[i]] = &Instance{instr.Edges[i], f.InstanceID(), l.Index}
+					e, edge = f.locals[instr.Edges[i]], pred.Index
+					infer.Logger.Printf(f.Sprintf(PhiSymbol+"%s/%s = %s, selected UnOp from block %d", instr.Name(), e, instr.String(), edge))
 				default:
 					infer.Logger.Fatalf("phi: create instance Edge[%d]=%#v: %s", i, instr.Edges[i], ErrUnknownValue)
 					return
