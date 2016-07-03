@@ -1088,12 +1088,6 @@ func visitStore(instr *ssa.Store, infer *TypeInfer, f *Function, b *Block, l *Lo
 		f.updateInstances(dstInst, inst)
 	case *types.Map:
 		f.updateInstances(dstInst, inst)
-		if _, ok := f.maps[f.locals[dstPtr]]; ok {
-			infer.Logger.Println("DST is a map")
-		}
-		if _, ok := f.maps[f.locals[source]]; ok {
-			infer.Logger.Println("SRC is a map")
-		}
 	default:
 		// Nothing to update.
 	}
