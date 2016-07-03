@@ -328,7 +328,9 @@ func visitExtract(instr *ssa.Extract, infer *TypeInfer, f *Function, b *Block, l
 			infer.Logger.Fatalf("extract: %s: Unexpected tuple: %+v", ErrUnknownValue, instr)
 			return
 		}
-		f.tuples[tupleInst][instr.Index] = &Instance{instr, f.InstanceID(), l.Index}
+		if inst := f.tuples[tupleInst][instr.Index]; inst == nil {
+			f.tuples[tupleInst][instr.Index] = &Instance{instr, f.InstanceID(), l.Index}
+		}
 		f.locals[instr] = f.tuples[tupleInst][instr.Index]
 		initNestedRefVar(infer, f, b, l, f.locals[instr], false)
 		// Detect select tuple.
@@ -412,7 +414,7 @@ func visitFieldAddr(instr *ssa.FieldAddr, infer *TypeInfer, f *Function, b *Bloc
 			}
 			return
 		default:
-			infer.Logger.Fatalf("field-addr: %s: external or not instance %+v", ErrUnknownValue, sInst)
+			infer.Logger.Fatalf("field-addr: %s: not instance %+v", ErrUnknownValue, sInst)
 			return
 		}
 		// Find the struct.
@@ -1106,8 +1108,8 @@ func visitTypeAssert(instr *ssa.TypeAssert, infer *TypeInfer, f *Function, b *Bl
 			}
 			if instr.CommaOk {
 				f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
+				f.commaok[f.locals[instr]] = &CommaOk{Instr: instr, Result: f.locals[instr]}
 				f.tuples[f.locals[instr]] = make(Tuples, 2)
-				f.tuples[f.locals[instr]][0] = inst
 				infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = typeassert iface %s commaok", f.locals[instr], inst))
 				return
 			}
@@ -1116,24 +1118,22 @@ func visitTypeAssert(instr *ssa.TypeAssert, infer *TypeInfer, f *Function, b *Bl
 			return
 		}
 		infer.Logger.Fatalf("typeassert: %s: %+v", ErrMethodNotFound, instr)
-	} else { // Concrete type
-		if types.AssignableTo(instr.AssertedType.Underlying(), instr.X.Type().Underlying()) {
-			inst, ok := f.locals[instr.X]
-			if !ok {
-				infer.Logger.Fatalf("typeassert: %s: assert from %+v", ErrUnknownValue, instr.X)
-				return
-			}
-			if instr.CommaOk {
-				f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
-				f.tuples[f.locals[instr]] = make(Tuples, 2)
-				f.tuples[f.locals[instr]][0] = inst
-				infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = typeassert %s commaok", f.locals[instr], inst))
-				return
-			}
-			f.locals[instr] = inst
-			infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = typeassert %s", f.locals[instr], inst))
-			return
-		}
-		infer.Logger.Fatalf("typeassert: %s: %+v", ErrIncompatType, instr)
+		return
 	}
+	inst, ok := f.locals[instr.X]
+	if !ok {
+		infer.Logger.Fatalf("typeassert: %s: assert from %+v", ErrUnknownValue, instr.X)
+		return
+	}
+	if instr.CommaOk {
+		f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
+		f.commaok[f.locals[instr]] = &CommaOk{Instr: instr, Result: f.locals[instr]}
+		f.tuples[f.locals[instr]] = make(Tuples, 2)
+		infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = typeassert %s commaok", f.locals[instr], inst))
+		return
+	}
+	f.locals[instr] = inst
+	infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = typeassert %s", f.locals[instr], f.locals[instr.X]))
+	return
+	//infer.Logger.Fatalf("typeassert: %s: %+v", ErrIncompatType, instr)
 }

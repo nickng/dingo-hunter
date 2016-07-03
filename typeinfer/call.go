@@ -71,7 +71,8 @@ func (caller *Function) Call(call *ssa.Call, infer *TypeInfer, b *Block, l *Loop
 			case 1:
 				caller.locals[call.Value()] = &ExtInstance{}
 			case 2:
-				infer.Logger.Printf("TODO handle failed invoke multi-return values")
+				caller.locals[call.Value()] = &ExtInstance{}
+				caller.tuples[caller.locals[call.Value()]] = make(Tuples, common.Signature().Results().Len())
 			}
 		}
 	}
@@ -163,7 +164,9 @@ func (caller *Function) storeRetvals(infer *TypeInfer, retval ssa.Value, callee 
 		caller.tuples[caller.locals[retval]] = make(Tuples, callee.Fn.Signature.Results().Len())
 		for i := range callee.retvals {
 			tupleIdx := i % callee.Fn.Signature.Results().Len()
-			caller.tuples[caller.locals[retval]][tupleIdx] = callee.retvals[i]
+			if callee.retvals[i] != nil {
+				caller.tuples[caller.locals[retval]][tupleIdx] = callee.retvals[i]
+			}
 		}
 		// XXX Pick the return values from the last exit path
 		//     This assumes idiomatic Go for error path to return early
