@@ -63,6 +63,8 @@ func visitInstr(instr ssa.Instruction, infer *TypeInfer, f *Function, b *Block, 
 		visitBinOp(instr, infer, f, b, l)
 	case *ssa.Call:
 		visitCall(instr, infer, f, b, l)
+	case *ssa.ChangeInterface:
+		visitChangeInterface(instr, infer, f, b, l)
 	case *ssa.ChangeType:
 		visitChangeType(instr, infer, f, b, l)
 	case *ssa.Convert:
@@ -261,6 +263,14 @@ func visitChangeType(instr *ssa.ChangeType, infer *TypeInfer, f *Function, b *Bl
 	}
 	infer.Logger.Print(f.Sprintf(ValSymbol+"%s = %s (type: %s ← %s)", instr.Name(), instr.X.Name(), fmtType(instr.Type()), fmtType(instr.X.Type().Underlying())))
 	return
+}
+
+func visitChangeInterface(instr *ssa.ChangeInterface, infer *TypeInfer, f *Function, b *Block, l *Loop) {
+	inst, ok := f.locals[instr.X]
+	if !ok {
+		infer.Logger.Fatalf("changeiface: %s: %v → %v", ErrUnknownValue, instr.X, instr)
+	}
+	f.locals[instr] = inst
 }
 
 func visitConvert(instr *ssa.Convert, infer *TypeInfer, f *Function, b *Block, l *Loop) {
