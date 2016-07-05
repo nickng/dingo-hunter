@@ -531,12 +531,10 @@ func visitIf(instr *ssa.If, infer *TypeInfer, f *Function, b *Block, l *Loop) {
 
 	// Save parent.
 	f.FuncDef.PutAway()
-	f.FuncDef.AddStmts(&migo.TauStatement{})
 	infer.Logger.Printf(f.Sprintf(IfSymbol+"if %s then"+JumpSymbol+"%d", cond, instr.Block().Succs[0].Index))
 	visitBasicBlock(instr.Block().Succs[0], infer, f, NewBlock(f, instr.Block().Succs[0], b.Index), l)
 	// Save then.
 	f.FuncDef.PutAway()
-	f.FuncDef.AddStmts(&migo.TauStatement{})
 	infer.Logger.Printf(f.Sprintf(IfSymbol+"if %s else"+JumpSymbol+"%d", cond, instr.Block().Succs[1].Index))
 	visitBasicBlock(instr.Block().Succs[1], infer, f, NewBlock(f, instr.Block().Succs[1], b.Index), l)
 	// Save else.
@@ -554,22 +552,6 @@ func visitIf(instr *ssa.If, infer *TypeInfer, f *Function, b *Block, l *Loop) {
 		infer.Logger.Fatal("restore if-then-else parent:", err)
 	}
 	f.FuncDef.AddStmts(parentStmts...)
-
-	emptyStmt := false
-	if len(thenStmts) == 1 {
-		if _, ok := thenStmts[0].(*migo.TauStatement); ok {
-			emptyStmt = true
-		}
-	}
-	if len(elseStmts) == 1 {
-		if _, ok := elseStmts[0].(*migo.TauStatement); ok {
-			emptyStmt = emptyStmt && true
-		}
-	}
-	if emptyStmt {
-		f.FuncDef.AddStmts(&migo.TauStatement{})
-		return
-	}
 	f.FuncDef.AddStmts(&migo.IfStatement{Then: thenStmts, Else: elseStmts})
 }
 
@@ -902,9 +884,6 @@ func visitRecv(instr *ssa.UnOp, infer *TypeInfer, f *Function, b *Block, l *Loop
 }
 
 func visitReturn(ret *ssa.Return, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	if b.MigoDef.IsEmpty() {
-		b.MigoDef.AddStmts(&migo.TauStatement{})
-	}
 	switch len(ret.Results) {
 	case 0:
 		infer.Logger.Printf(f.Sprintf(ReturnSymbol))
