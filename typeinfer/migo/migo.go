@@ -7,37 +7,45 @@ import (
 	"bytes"
 	"fmt"
 	"go/token"
+	"strings"
 
 	"golang.org/x/tools/go/ssa"
 )
 
+var (
+	nameFilter = strings.NewReplacer("(", "", ")", "", "*", "", "/", "_")
+)
+
 // Program is a set of Functions in a program.
 type Program struct {
-	defs []*Function
+	Funcs   []*Function // Function definitions.
+	visited map[*Function]int
 }
 
 // NewProgram creates a new empty Program.
-func NewProgram() *Program { return &Program{[]*Function{}} }
+func NewProgram() *Program {
+	return &Program{Funcs: []*Function{}}
+}
 
 // AddFunction adds a Function to Program.
 //
 // If Function already exists this does nothing.
 func (p *Program) AddFunction(f *Function) {
-	for _, def := range p.defs {
-		if def.Name == f.Name {
+	for _, fun := range p.Funcs {
+		if fun.Name == f.Name {
 			return
 		}
 	}
-	p.defs = append(p.defs, f)
+	p.Funcs = append(p.Funcs, f)
 }
 
 // Function gets a Function in a Program by name.
 //
 // Returns the function and a bool indicating whether lookup was successful.
 func (p *Program) Function(name string) (*Function, bool) {
-	for _, def := range p.defs {
-		if def.Name == name {
-			return def, true
+	for _, f := range p.Funcs {
+		if f.Name == name {
+			return f, true
 		}
 	}
 	return nil, false
@@ -45,12 +53,52 @@ func (p *Program) Function(name string) (*Function, bool) {
 
 func (p *Program) String() string {
 	var buf bytes.Buffer
-	for _, d := range p.defs {
-		if !d.IsEmpty() {
-			buf.WriteString(d.String())
+	/*
+		if fn, ok := p.Function("main.main"); ok {
+			p.visited = make(map[*Function]int)
+			MarkComm(p, fn, fn.Stmts)
+		}
+		for _, f := range p.Funcs {
+			if matched, _ := regexp.MatchString("main.main.*", f.Name); matched {
+				buf.WriteString(f.String())
+			} else if f.HasComm && !f.IsEmpty() {
+				buf.WriteString(f.String())
+			}
+		}
+	*/
+	for _, f := range p.Funcs {
+		if !f.IsEmpty() {
+			buf.WriteString(f.String())
 		}
 	}
 	return buf.String()
+}
+
+func MarkComm(p *Program, f *Function, ss []Statement) bool {
+	if _, ok := p.visited[f]; !ok {
+		p.visited[f] = 1
+		for _, s := range ss {
+			switch stmt := s.(type) {
+			case *NewChanStatement:
+				f.HasComm = true
+			case *CallStatement:
+				if fn, ok := p.Function(stmt.SimpleName()); ok {
+					f.HasComm = f.HasComm || MarkComm(p, fn, fn.Stmts)
+				}
+			case *SpawnStatement:
+				if fn, ok := p.Function(stmt.SimpleName()); ok {
+					fn.HasComm = true
+					MarkComm(p, fn, fn.Stmts)
+				}
+				f.HasComm = true
+			case *IfStatement:
+				f.HasComm = f.HasComm || MarkComm(p, f, stmt.Then) || MarkComm(p, f, stmt.Else)
+			case *SendStatement, *RecvStatement, *SelectStatement:
+				f.HasComm = true
+			}
+		}
+	}
+	return f.HasComm
 }
 
 // Parameter is a translation from caller environment to callee.
@@ -91,12 +139,14 @@ func CallerParameterString(params []*Parameter) string {
 
 // Function is a block of Statements sharing the same parameters.
 type Function struct {
-	Name   string       // Name of the function.
-	Params []*Parameter // Parameters (map from local variable name to Parameter).
-	pos    token.Pos    // Position of the function in Go source code.
-	Stmts  []Statement  // Function body (slice of statements).
-	stack  *StmtsStack  // Stack for working with nested conditionals.
-	varIdx int          // Next fresh variable index.
+	Name    string       // Name of the function.
+	Params  []*Parameter // Parameters (map from local variable name to Parameter).
+	Stmts   []Statement  // Function body (slice of statements).
+	HasComm bool         // Does the function has communication statement?
+
+	stack  *StmtsStack // Stack for working with nested conditionals.
+	pos    token.Pos   // Position of the function in Go source code.
+	varIdx int         // Next fresh variable index.
 }
 
 // NewFunction creates a new Function using the given name.
@@ -136,6 +186,10 @@ func (f *Function) GetParamByCalleeValue(v ssa.Value) (*Parameter, error) {
 	return nil, fmt.Errorf("Parameter not found")
 }
 
+func (f *Function) SimpleName() string {
+	return nameFilter.Replace(f.Name)
+}
+
 // AddStmts add Statement(s) to a Function.
 func (f *Function) AddStmts(stmts ...Statement) {
 	numStmts := len(f.Stmts)
@@ -162,9 +216,9 @@ func (f *Function) Restore() ([]Statement, error) { return f.stack.Pop() }
 
 func (f *Function) String() string {
 	var buf bytes.Buffer
-	buf.WriteString(fmt.Sprintf("def %s(%s):\n", f.Name, CalleeParameterString(f.Params)))
+	buf.WriteString(fmt.Sprintf("def %s(%s):\n", f.SimpleName(), CalleeParameterString(f.Params)))
 	for _, stmt := range f.Stmts {
-		buf.WriteString(fmt.Sprintf(" %s;\n", stmt))
+		buf.WriteString(fmt.Sprintf("    %s;\n", stmt))
 	}
 	return buf.String()
 }
@@ -180,8 +234,12 @@ type CallStatement struct {
 	Params []*Parameter
 }
 
+func (s *CallStatement) SimpleName() string {
+	return nameFilter.Replace(s.Name)
+}
+
 func (s *CallStatement) String() string {
-	return fmt.Sprintf("call %s(%s)", s.Name, CallerParameterString(s.Params))
+	return fmt.Sprintf("call %s(%s)", s.SimpleName(), CallerParameterString(s.Params))
 }
 
 // AddParams add parameter(s) to a Function call.
@@ -214,8 +272,12 @@ type SpawnStatement struct {
 	Params []*Parameter
 }
 
+func (s *SpawnStatement) SimpleName() string {
+	return nameFilter.Replace(s.Name)
+}
+
 func (s *SpawnStatement) String() string {
-	return fmt.Sprintf("spawn %s(%s)", s.Name, CallerParameterString(s.Params))
+	return fmt.Sprintf("spawn %s(%s)", s.SimpleName(), CallerParameterString(s.Params))
 }
 
 // AddParams add parameter(s) to a goroutine spawning Function call.
@@ -241,7 +303,7 @@ type NewChanStatement struct {
 }
 
 func (s *NewChanStatement) String() string {
-	return fmt.Sprintf("let %s = newchan %s, %d", s.Name.Name(), s.Chan, s.Size)
+	return fmt.Sprintf("let %s = newchan %s, %d", s.Name.Name(), nameFilter.Replace(s.Chan), s.Size)
 }
 
 // IfStatement is a conditional statement.
@@ -271,14 +333,14 @@ type SelectStatement struct{ Cases [][]Statement }
 
 func (s *SelectStatement) String() string {
 	var buf bytes.Buffer
-	buf.WriteString("select  ")
+	buf.WriteString("select")
 	for _, c := range s.Cases {
-		buf.WriteString("case ")
+		buf.WriteString("\n      case ")
 		for _, stmt := range c {
 			buf.WriteString(fmt.Sprintf("%s; ", stmt.String()))
 		}
 	}
-	buf.WriteString(" endselect")
+	buf.WriteString("\n    endselect")
 	return buf.String()
 }
 

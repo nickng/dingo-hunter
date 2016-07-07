@@ -6,6 +6,7 @@ package typeinfer
 import (
 	"bytes"
 	"fmt"
+	"go/types"
 	"log"
 
 	"github.com/nickng/dingo-hunter/typeinfer/migo"
@@ -132,6 +133,8 @@ func NewFunction(caller *Function) *Function {
 	}
 }
 
+// HasBody returns true if Function is user-defined or has source code and
+// built in SSA program.
 func (caller *Function) HasBody() bool { return caller.hasBody }
 
 // prepareCallFn prepares a caller Function to visit performing necessary context switching and returns a new callee Function.
@@ -157,6 +160,9 @@ func (caller *Function) prepareCallFn(common *ssa.CallCommon, fn *ssa.Function, 
 			}
 		} else {
 			argCaller = common.Args[i]
+		}
+		if _, ok := argCaller.Type().(*types.Chan); ok {
+			callee.FuncDef.AddParams(&migo.Parameter{Caller: argCaller, Callee: param})
 		}
 		if inst, ok := caller.locals[argCaller]; ok {
 			callee.locals[param] = inst
@@ -260,11 +266,14 @@ type Block struct {
 	Index    int            // Current block index.
 }
 
+// NewBlock creates a new block enclosed by the given function.
 func NewBlock(parent *Function, block *ssa.BasicBlock, curr int) *Block {
-	return &Block{
+	blockFn := fmt.Sprintf("%s#%d", parent.Fn.String(), block.Index)
+	parent.ChildBlocks[block.Index] = &Block{
 		Function: parent,
-		MigoDef:  migo.NewFunction(fmt.Sprintf("%s#%d", parent.Fn.String(), block.Index)),
+		MigoDef:  migo.NewFunction(blockFn),
 		Pred:     curr,
 		Index:    block.Index,
 	}
+	return parent.ChildBlocks[block.Index]
 }

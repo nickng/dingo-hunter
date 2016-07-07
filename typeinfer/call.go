@@ -4,7 +4,6 @@ package typeinfer
 // i.e. builtin, call, closure, defer, go.
 
 import (
-	"fmt"
 	"go/types"
 
 	"github.com/nickng/dingo-hunter/typeinfer/migo"
@@ -90,6 +89,7 @@ func (caller *Function) Go(instr *ssa.Go, infer *TypeInfer) {
 		}
 	}
 	caller.FuncDef.AddStmts(spawnStmt)
+	caller.FuncDef.HasComm = true
 	// Don't actually call/visit the function but enqueue it.
 	infer.GQueue = append(infer.GQueue, callee)
 }
@@ -282,7 +282,7 @@ func (caller *Function) call(common *ssa.CallCommon, fn *ssa.Function, rcvr ssa.
 	}
 	visitFunc(callee.Fn, infer, callee)
 	if callee.HasBody() {
-		callStmt := &migo.CallStatement{Name: fmt.Sprintf("%s", callee.Fn.String()), Params: []*migo.Parameter{}}
+		callStmt := &migo.CallStatement{Name: callee.Fn.String(), Params: []*migo.Parameter{}}
 		for i, c := range common.Args {
 			if _, ok := c.Type().(*types.Chan); ok {
 				ch := getChan(c, infer)

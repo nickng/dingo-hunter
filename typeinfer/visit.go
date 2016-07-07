@@ -708,16 +708,19 @@ func visitJump(jump *ssa.Jump, infer *TypeInfer, f *Function, b *Block, l *Loop)
 		if l.Bound == Static && l.HasNext() {
 			stmt = &migo.CallStatement{Name: fmt.Sprintf("%s#%d_loop%d", f.Fn.String(), next.Index, l.Index), Params: []*migo.Parameter{}}
 		} else {
-			stmt = &migo.CallStatement{Name: fmt.Sprintf("%s#%d", f.Fn.String(), next.Index), Params: []*migo.Parameter{}}
-		}
-		for _, s := range f.FuncDef.Stmts {
-			if nc, ok := s.(*migo.NewChanStatement); ok {
-				stmt.AddParams(&migo.Parameter{Caller: nc.Name, Callee: nc.Name})
+			stmt = &migo.CallStatement{Name: fmt.Sprintf("%s#%d", f.Fn.String(), next.Index)}
+			for _, p := range f.FuncDef.Params {
+				stmt.AddParams(&migo.Parameter{Caller: p.Callee, Callee: p.Callee})
 			}
 		}
-		for _, p := range f.FuncDef.Params {
-			stmt.AddParams(&migo.Parameter{Caller: p.Callee, Callee: p.Callee})
-		}
+		//for _, s := range f.FuncDef.Stmts {
+		//	if nc, ok := s.(*migo.NewChanStatement); ok {
+		//		stmt.AddParams(&migo.Parameter{Caller: nc.Name, Callee: nc.Name})
+		//	}
+		//}
+		//for _, p := range f.FuncDef.Params {
+		//	stmt.AddParams(&migo.Parameter{Caller: p.Callee, Callee: p.Callee})
+		//}
 		f.FuncDef.AddStmts(stmt)
 		if _, visited := f.Visited[next]; !visited {
 			newBlock := NewBlock(f, next, b.Index)
@@ -876,11 +879,12 @@ func visitRecv(instr *ssa.UnOp, infer *TypeInfer, f *Function, b *Block, l *Loop
 		f.commaok[f.locals[instr]] = &CommaOk{Instr: instr, Result: f.locals[instr]}
 		f.tuples[f.locals[instr]] = make(Tuples, 2) // { recvVal, recvOk }
 	}
+	infer.Logger.Println(ch)
 	pos := infer.SSA.DecodePos(ch.(*Instance).Pos())
 	infer.Logger.Print(f.Sprintf(RecvSymbol+"%s = %s @ %s", f.locals[instr], ch, fmtPos(pos)))
-	c := getChan(f.locals[instr.X].Var(), infer)
-	f.FuncDef.AddStmts(&migo.RecvStatement{Chan: c.Name()})
-	f.FuncDef.AddParams(&migo.Parameter{Caller: c, Callee: c})
+	f.FuncDef.AddStmts(&migo.RecvStatement{Chan: ch.Var().Name()})
+	f.FuncDef.HasComm = true
+
 	// Initialise received value if needed.
 	initNestedRefVar(infer, f, b, l, f.locals[instr], false)
 }
@@ -911,16 +915,18 @@ func visitReturn(ret *ssa.Return, infer *TypeInfer, f *Function, b *Block, l *Lo
 func visitRunDefers(instr *ssa.RunDefers, infer *TypeInfer, f *Function, b *Block, l *Loop) {
 	for i := len(f.defers) - 1; i >= 0; i-- {
 		common := f.defers[i].Common()
-		callee := f.prepareCallFn(common, common.StaticCallee(), nil)
-		visitFunc(callee.Fn, infer, callee)
-		if callee.HasBody() {
-			callStmt := &migo.CallStatement{Name: callee.Fn.String(), Params: []*migo.Parameter{}}
-			for i, c := range common.Args {
-				if _, ok := c.Type().(*types.Chan); ok {
-					callStmt.AddParams(&migo.Parameter{Caller: c, Callee: callee.Fn.Params[i]})
+		if common.StaticCallee() != nil {
+			callee := f.prepareCallFn(common, common.StaticCallee(), nil)
+			visitFunc(callee.Fn, infer, callee)
+			if callee.HasBody() {
+				callStmt := &migo.CallStatement{Name: callee.Fn.String(), Params: []*migo.Parameter{}}
+				for _, c := range common.Args {
+					if _, ok := c.Type().(*types.Chan); ok {
+						infer.Logger.Fatalf("channel in defer: %s", ErrUnimplemented)
+					}
 				}
+				callee.FuncDef.AddStmts(callStmt)
 			}
-			callee.FuncDef.AddStmts(callStmt)
 		}
 	}
 }
@@ -934,19 +940,17 @@ func visitSelect(instr *ssa.Select, infer *TypeInfer, f *Function, b *Block, l *
 	selStmt := f.selects[f.locals[instr]].MigoStmt
 	for _, sel := range instr.States {
 		ch, ok := f.locals[sel.Chan]
-
 		if !ok {
 			infer.Logger.Print("Select found an unknown channel", sel.Chan.String())
 		}
 		var stmt migo.Statement
-		c := getChan(ch.Var(), infer)
+		//c := getChan(ch.Var(), infer)
 		switch sel.Dir {
 		case types.SendOnly:
-			stmt = &migo.SendStatement{Chan: c.Name()}
+			stmt = &migo.SendStatement{Chan: ch.Var().Name()}
 		case types.RecvOnly:
-			stmt = &migo.RecvStatement{Chan: c.Name()}
+			stmt = &migo.RecvStatement{Chan: ch.Var().Name()}
 		}
-		f.FuncDef.AddParams(&migo.Parameter{Caller: c, Callee: c})
 		selStmt.Cases = append(selStmt.Cases, []migo.Statement{stmt})
 	}
 	// Default case exists.
@@ -955,6 +959,7 @@ func visitSelect(instr *ssa.Select, infer *TypeInfer, f *Function, b *Block, l *
 	}
 	f.tuples[f.locals[instr]] = make(Tuples, 2+len(selStmt.Cases)) // index + recvok + cases
 	f.FuncDef.AddStmts(selStmt)
+	f.FuncDef.HasComm = true
 	infer.Logger.Print(f.Sprintf(SelectSymbol+" %d cases %s = %s", 2+len(selStmt.Cases), instr.Name(), instr.String()))
 }
 
@@ -965,9 +970,8 @@ func visitSend(instr *ssa.Send, infer *TypeInfer, f *Function, b *Block, l *Loop
 	}
 	pos := infer.SSA.DecodePos(ch.(*Instance).Pos())
 	infer.Logger.Printf(f.Sprintf(SendSymbol+"%s @ %s", ch, fmtPos(pos)))
-	c := getChan(f.locals[instr.Chan].Var(), infer)
-	f.FuncDef.AddStmts(&migo.SendStatement{Chan: c.Name()})
-	f.FuncDef.AddParams(&migo.Parameter{Caller: c, Callee: c})
+	f.FuncDef.AddStmts(&migo.SendStatement{Chan: ch.Var().Name()})
+	f.FuncDef.HasComm = true
 }
 
 func visitSkip(instr ssa.Instruction, infer *TypeInfer, f *Function, b *Block, loop *Loop) {
