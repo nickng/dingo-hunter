@@ -32,11 +32,13 @@ func visitFunc(fn *ssa.Function, infer *TypeInfer, f *Function) {
 		f.hasBody = false // No body
 		return
 	}
-	visitBasicBlock(fn.Blocks[0], infer, f, NewBlock(f, fn.Blocks[0], 0), &Loop{Parent: f})
+	// When entering function, always visit as block 0
+	block0 := NewBlock(f, fn.Blocks[0], 0)
+	visitBasicBlock(fn.Blocks[0], infer, f, block0, &Loop{Parent: f})
 	f.hasBody = true
 }
 
-func visitBasicBlock(blk *ssa.BasicBlock, infer *TypeInfer, f *Function, prevB *Block, l *Loop) {
+func visitBasicBlock(blk *ssa.BasicBlock, infer *TypeInfer, f *Function, bPrev *Block, l *Loop) {
 	loopStateTransition(blk, infer, f, &l)
 	if l.Bound == Static && l.HasNext() {
 		infer.Logger.Printf(f.Sprintf(BlockSymbol+"%s %d (loop %s=%d)", fmtBlock("block"), blk.Index, l.CondVar.Name(), l.Index))
@@ -51,7 +53,7 @@ func visitBasicBlock(blk *ssa.BasicBlock, infer *TypeInfer, f *Function, prevB *
 	infer.Logger.Printf(f.Sprintf(BlockSymbol+"%s %d; %s", fmtBlock("block"), blk.Index, fmtLoopHL(blk.Comment)))
 	f.Visited[blk] = 0
 	for _, instr := range blk.Instrs {
-		visitInstr(instr, infer, f, prevB, l)
+		visitInstr(instr, infer, f, bPrev, l)
 	}
 }
 
