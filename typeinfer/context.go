@@ -68,12 +68,13 @@ func NewProgram(infer *TypeInfer) *Program {
 // Function environment stores local variable instances (as reference), return
 // values, if-then-else parent, select-condition.
 type Function struct {
-	Fn      *ssa.Function           // Function callee (this).
-	Caller  *Function               // Function caller (parent).
-	Prog    *Program                // Program environment (global).
-	Visited map[*ssa.BasicBlock]int // Visited block tracking.
-	Level   int                     // Call level (for indentation).
-	FuncDef *migo.Function          // Function definition.
+	Fn          *ssa.Function           // Function callee (this).
+	Caller      *Function               // Function caller (parent).
+	Prog        *Program                // Program environment (global).
+	Visited     map[*ssa.BasicBlock]int // Visited block tracking.
+	Level       int                     // Call level (for indentation).
+	FuncDef     *migo.Function          // Function definition.
+	ChildBlocks map[int]*Block          // Map from index -> child SSA blocks.
 
 	id        int                                         // Instance identifier.
 	hasBody   bool                                        // True if function has body.
@@ -92,10 +93,11 @@ type Function struct {
 // NewMainFunction returns a new main() call context.
 func NewMainFunction(prog *Program, mainFn *ssa.Function) *Function {
 	return &Function{
-		Fn:      mainFn,
-		Prog:    prog,
-		Visited: make(map[*ssa.BasicBlock]int),
-		FuncDef: migo.NewFunction("main.main"),
+		Fn:          mainFn,
+		Prog:        prog,
+		Visited:     make(map[*ssa.BasicBlock]int),
+		FuncDef:     migo.NewFunction("main.main"),
+		ChildBlocks: make(map[int]*Block),
 
 		arrays:    make(map[VarInstance]Elems),
 		commaok:   make(map[VarInstance]*CommaOk),
@@ -114,11 +116,12 @@ func NewMainFunction(prog *Program, mainFn *ssa.Function) *Function {
 // context as parameter.
 func NewFunction(caller *Function) *Function {
 	return &Function{
-		Caller:  caller,
-		Prog:    caller.Prog,
-		Visited: make(map[*ssa.BasicBlock]int),
-		FuncDef: migo.NewFunction("__uninitialised__"),
-		Level:   caller.Level + 1,
+		Caller:      caller,
+		Prog:        caller.Prog,
+		Visited:     make(map[*ssa.BasicBlock]int),
+		FuncDef:     migo.NewFunction("__uninitialised__"),
+		Level:       caller.Level + 1,
+		ChildBlocks: make(map[int]*Block),
 
 		arrays:    make(map[VarInstance]Elems),
 		commaok:   make(map[VarInstance]*CommaOk),
