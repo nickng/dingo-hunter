@@ -1,12 +1,21 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 var i int
 
-func worker(id int, jobQueue <-chan int) {
-	for jobID := range jobQueue {
-		fmt.Println(id, "Executing job", jobID)
+func worker(id int, jobQueue <-chan int, done <-chan struct{}) {
+	for {
+		select {
+		case jobID := <-jobQueue:
+			fmt.Println(id, "Executing job", jobID)
+		case <-done:
+			fmt.Println(id, "Quits")
+			return
+		}
 	}
 }
 
@@ -15,13 +24,18 @@ func morejob() bool {
 	return i < 20
 }
 
-func main() {
-	jobQueue := make(chan int, 10)
-	go worker(1, jobQueue)
-	go worker(2, jobQueue)
-
+func producer(q chan int, done chan struct{}) {
 	for morejob() {
-		jobQueue <- i
+		q <- i
 	}
-	close(jobQueue)
+	close(done)
+}
+
+func main() {
+	jobQueue := make(chan int)
+	done := make(chan struct{})
+	go worker(1, jobQueue, done)
+	go worker(2, jobQueue, done)
+	producer(jobQueue, done)
+	time.Sleep(1 * time.Second)
 }

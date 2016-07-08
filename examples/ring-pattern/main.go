@@ -2,15 +2,23 @@ package main
 
 import "fmt"
 
+func numprocs() int {
+	return 10
+}
+
+func adder(in <-chan int, out chan<- int) {
+	for {
+		out <- (<-in + 1)
+	}
+}
+
 func main() {
 	chOne := make(chan int)
-	var chIn, chOut chan int
-	chIn = chOne
-	for i := 0; i < 10; i++ {
+	chOut := chOne
+	chIn := chOne
+	for i := 0; i < numprocs(); i++ {
 		chOut = make(chan int)
-		go func(in, out chan int) {
-			out <- (<-in + 1)
-		}(chIn, chOut)
+		go adder(chIn, chOut)
 		chIn = chOut
 	}
 	chOne <- 0

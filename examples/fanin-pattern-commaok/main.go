@@ -16,7 +16,7 @@ func work(out chan<- int) {
 
 func fanin(ch1, ch2 <-chan int) <-chan int {
 	c := make(chan int)
-	go func() {
+	go func(ch1, ch2 <-chan int, c chan<- int) {
 		for {
 			select {
 			case s := <-ch1:
@@ -28,7 +28,7 @@ func fanin(ch1, ch2 <-chan int) <-chan int {
 				return
 			}
 		}
-	}()
+	}(ch1, ch2, c)
 	return c
 }
 

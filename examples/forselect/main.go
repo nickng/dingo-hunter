@@ -10,6 +10,7 @@ func sel1(ch1, ch2 chan int, done chan struct{}) {
 		case <-ch1:
 			fmt.Println("sel1: recv")
 			done <- struct{}{}
+			return
 		case ch2 <- 1:
 			fmt.Println("sel1: send")
 		}
@@ -24,6 +25,7 @@ func sel2(ch1, ch2 chan int, done chan struct{}) {
 		case ch1 <- 2:
 			fmt.Println("sel2: send")
 			done <- struct{}{}
+			return
 		}
 	}
 }

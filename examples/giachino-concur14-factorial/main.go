@@ -11,14 +11,14 @@ func fact(n int, r, s chan int) {
 		s <- m
 		return
 	}
-	t := make(chan int)
-	go fact(n-1, t, s)
+	t := make(chan int, 1)
+	fact(n-1, t, s)
 	m := <-r
 	t <- m * n
 }
 
 func main() {
-	accumulated, result := make(chan int), make(chan int)
+	accumulated, result := make(chan int, 1), make(chan int)
 	go fact(3, accumulated, result)
 	accumulated <- 1
 	fmt.Println(<-result)

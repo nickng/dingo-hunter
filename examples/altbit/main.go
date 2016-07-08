@@ -4,7 +4,6 @@ package main
 
 import (
 	"fmt"
-	"time"
 )
 
 func main() {
@@ -18,12 +17,12 @@ func flip(b int) int {
 	return (b + 1) % 2
 }
 
-func tx(send chan<- int, ack <-chan int) {
+func tx(snd chan<- int, ack <-chan int) {
 	b := 0
 	for {
 		fmt.Printf("tx[%d]: accept\n", b)
 		fmt.Printf("tx[%d]: send[%d]\n", b, b)
-		send <- b
+		snd <- b
 	SENDING:
 		for { // SENDING[b]
 			select {
@@ -37,10 +36,10 @@ func tx(send chan<- int, ack <-chan int) {
 					b = flip(b)
 					// SENDING b
 				}
-			case <-time.After(1 * time.Second):
+			default:
 				fmt.Printf("tx[%d]: timeout\n", b)
 				fmt.Printf("tx[%d]: send[%d]\n", b, b)
-				send <- b
+				snd <- b
 				// SENDING b
 			}
 		}
@@ -64,7 +63,7 @@ func rx(reply chan<- int, trans <-chan int) {
 					fmt.Printf("rx[%d]: trans[b]\n", b)
 					// REPLYING b
 				}
-			case <-time.After(1 * time.Second):
+			default:
 				fmt.Printf("rx[%d]: timeout\n", b)
 				fmt.Printf("rx[%d]: reply[%d]\n", b, b)
 				reply <- b
