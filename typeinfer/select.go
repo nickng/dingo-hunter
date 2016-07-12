@@ -9,5 +9,5 @@ import (
 type Select struct {
 	Instr    *ssa.Select           // Select SSA instruction.
 	MigoStmt *migo.SelectStatement // Select statement in MiGo.
-	Index    VarInstance           // Index (extracted from Select instruction).
+	Index    Instance              // Index (extracted from Select instruction).
 }

@@ -1,3 +1,4 @@
 package typeinfer
 
-type Captures []VarInstance
+// Captures are holders for closure capture variables.
+type Captures []Instance

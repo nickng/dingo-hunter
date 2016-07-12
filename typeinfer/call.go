@@ -39,7 +39,7 @@ func (caller *Function) Call(call *ssa.Call, infer *TypeInfer, b *Block, l *Loop
 				l.Bound, l.End = Static, len
 				return
 			}
-			caller.locals[call] = &Instance{call, caller.InstanceID(), l.Index}
+			caller.locals[call] = &Value{call, caller.InstanceID(), l.Index}
 			infer.Logger.Printf(caller.Sprintf("  builtin.%s", common.String()))
 		default:
 			infer.Logger.Printf(caller.Sprintf("  builtin.%s", common.String()))
@@ -68,9 +68,12 @@ func (caller *Function) Call(call *ssa.Call, infer *TypeInfer, b *Block, l *Loop
 			switch common.Signature().Results().Len() {
 			case 0:
 			case 1:
-				caller.locals[call.Value()] = &ExtInstance{}
+				caller.locals[call.Value()] = &External{
+					parent: caller.Fn,
+					typ:    call.Value().Type().Underlying(),
+				}
 			case 2:
-				caller.locals[call.Value()] = &ExtInstance{}
+				caller.locals[call.Value()] = &External{typ: call.Value().Type().Underlying()}
 				caller.tuples[caller.locals[call.Value()]] = make(Tuples, common.Signature().Results().Len())
 			}
 		}
@@ -120,10 +123,10 @@ func (caller *Function) storeRetvals(infer *TypeInfer, retval ssa.Value, callee 
 			// Nothing.
 		case 1:
 			// Creating external instance because return value may be used.
-			caller.locals[retval] = &ExtInstance{caller.Fn, caller.InstanceID(), int64(0)}
+			caller.locals[retval] = &External{caller.Fn, retval.Type().Underlying(), caller.InstanceID()}
 			infer.Logger.Print(caller.Sprintf(ExitSymbol + "external"))
 		default:
-			caller.locals[retval] = &ExtInstance{caller.Fn, caller.InstanceID(), int64(0)}
+			caller.locals[retval] = &External{caller.Fn, retval.Type().Underlying(), caller.InstanceID()}
 			caller.tuples[caller.locals[retval]] = make(Tuples, callee.Fn.Signature.Results().Len())
 			infer.Logger.Print(caller.Sprintf(ExitSymbol+"external len=%d", callee.Fn.Signature.Results().Len()))
 		}
@@ -153,20 +156,20 @@ func (caller *Function) storeRetvals(infer *TypeInfer, retval ssa.Value, callee 
 			caller.structs[caller.locals[retval]] = s
 		}
 		switch inst := caller.locals[retval].(type) {
-		case *Instance:
+		case *Value:
 			infer.Logger.Print(caller.Sprintf(ExitSymbol+"[1] %s", inst))
 			return
-		case *ConstInstance:
-			infer.Logger.Print(caller.Sprintf(ExitSymbol+"[1] constant %s", inst))
-			return
-		case *ExtInstance:
+		case *External:
 			infer.Logger.Print(caller.Sprintf(ExitSymbol+"[1] (ext) %s", inst))
+			return
+		case *Const:
+			infer.Logger.Print(caller.Sprintf(ExitSymbol+"[1] constant %s", inst))
 			return
 		default:
 			infer.Logger.Fatalf("return[1]: %s: not an instance %+v", ErrUnknownValue, retval)
 		}
 	default:
-		caller.locals[retval] = &Instance{retval, caller.InstanceID(), int64(0)}
+		caller.locals[retval] = &Value{retval, caller.InstanceID(), int64(0)}
 		if callee.Fn.Signature.Results().Len() == 1 {
 			caller.locals[retval] = callee.retvals[len(callee.retvals)-1]
 			if a, ok := callee.arrays[caller.locals[retval]]; ok {
@@ -238,28 +241,28 @@ func (caller *Function) invoke(common *ssa.CallCommon, infer *TypeInfer, b *Bloc
 		return nil
 	}
 	switch inst := ifaceInst.(type) {
-	case *Instance: // OK
-	case *ConstInstance:
+	case *Value: // OK
+	case *Const:
 		if inst.Const.IsNil() {
 			return nil
 		}
 		infer.Logger.Fatalf("invoke: %+v is not nil nor concrete", ifaceInst)
-	case *ExtInstance:
+	case *External:
 		infer.Logger.Printf(caller.Sprintf("invoke: %+v external", ifaceInst))
 		return nil
 	default:
 		infer.Logger.Printf(caller.Sprintf("invoke: %+v unknown", ifaceInst))
 		return nil
 	}
-	meth, _ := types.MissingMethod(ifaceInst.Var().Type(), iface, true) // static
+	meth, _ := types.MissingMethod(ifaceInst.(*Value).Type(), iface, true) // static
 	if meth != nil {
-		meth, _ = types.MissingMethod(ifaceInst.Var().Type(), iface, false) // non-static
+		meth, _ = types.MissingMethod(ifaceInst.(*Value).Type(), iface, false) // non-static
 		if meth != nil {
 			infer.Logger.Printf("invoke: missing method %s: %s", meth.String(), ErrIfaceIncomplete)
 			return nil
 		}
 	}
-	fn := findMethod(common.Value.Parent().Prog, common.Method, ifaceInst.Var().Type(), infer)
+	fn := findMethod(common.Value.Parent().Prog, common.Method, ifaceInst.(*Value).Type(), infer)
 	if fn == nil {
 		if meth == nil {
 			infer.Logger.Printf("invoke: cannot locate concrete method")

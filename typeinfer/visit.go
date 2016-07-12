@@ -53,363 +53,364 @@ func visitBasicBlock(blk *ssa.BasicBlock, infer *TypeInfer, f *Function, bPrev *
 	infer.Logger.Printf(f.Sprintf(BlockSymbol+"%s %d; %s", fmtBlock("block"), blk.Index, fmtLoopHL(blk.Comment)))
 	f.Visited[blk] = 0
 	for _, instr := range blk.Instrs {
-		visitInstr(instr, infer, f, bPrev, l)
+		visitInstr(instr, infer, &Context{f, bPrev, l})
 	}
 }
 
-func visitInstr(instr ssa.Instruction, infer *TypeInfer, f *Function, b *Block, l *Loop) {
+func visitInstr(instr ssa.Instruction, infer *TypeInfer, ctx *Context) {
 	switch instr := instr.(type) {
 	case *ssa.Alloc:
-		visitAlloc(instr, infer, f, b, l)
+		visitAlloc(instr, infer, ctx)
 	case *ssa.BinOp:
-		visitBinOp(instr, infer, f, b, l)
+		visitBinOp(instr, infer, ctx)
 	case *ssa.Call:
-		visitCall(instr, infer, f, b, l)
+		visitCall(instr, infer, ctx)
 	case *ssa.ChangeInterface:
-		visitChangeInterface(instr, infer, f, b, l)
+		visitChangeInterface(instr, infer, ctx)
 	case *ssa.ChangeType:
-		visitChangeType(instr, infer, f, b, l)
+		visitChangeType(instr, infer, ctx)
 	case *ssa.Convert:
-		visitConvert(instr, infer, f, b, l)
+		visitConvert(instr, infer, ctx)
 	case *ssa.DebugRef:
-		//infer.Logger.Printf(f.Sprintf(SkipSymbol+"debug\t\t%s", instr))
+		//infer.Logger.Printf(ctx.F.Sprintf(SkipSymbol+"debug\t\t%s", instr))
 	case *ssa.Defer:
-		visitDefer(instr, infer, f, b, l)
+		visitDefer(instr, infer, ctx)
 	case *ssa.Extract:
-		visitExtract(instr, infer, f, b, l)
+		visitExtract(instr, infer, ctx)
 	case *ssa.FieldAddr:
-		visitFieldAddr(instr, infer, f, b, l)
+		visitFieldAddr(instr, infer, ctx)
 	case *ssa.Go:
-		visitGo(instr, infer, f, b, l)
+		visitGo(instr, infer, ctx)
 	case *ssa.If:
-		visitIf(instr, infer, f, b, l)
+		visitIf(instr, infer, ctx)
 	case *ssa.Index:
-		visitIndex(instr, infer, f, b, l)
+		visitIndex(instr, infer, ctx)
 	case *ssa.IndexAddr:
-		visitIndexAddr(instr, infer, f, b, l)
+		visitIndexAddr(instr, infer, ctx)
 	case *ssa.Jump:
-		visitJump(instr, infer, f, b, l)
+		visitJump(instr, infer, ctx)
 	case *ssa.Lookup:
-		visitLookup(instr, infer, f, b, l)
+		visitLookup(instr, infer, ctx)
 	case *ssa.MakeChan:
-		visitMakeChan(instr, infer, f, b, l)
+		visitMakeChan(instr, infer, ctx)
 	case *ssa.MakeClosure:
-		visitMakeClosure(instr, infer, f, b, l)
+		visitMakeClosure(instr, infer, ctx)
 	case *ssa.MakeInterface:
-		visitMakeInterface(instr, infer, f, b, l)
+		visitMakeInterface(instr, infer, ctx)
 	case *ssa.MakeMap:
-		visitMakeMap(instr, infer, f, b, l)
+		visitMakeMap(instr, infer, ctx)
 	case *ssa.MakeSlice:
-		visitMakeSlice(instr, infer, f, b, l)
+		visitMakeSlice(instr, infer, ctx)
 	case *ssa.MapUpdate:
-		visitMapUpdate(instr, infer, f, b, l)
+		visitMapUpdate(instr, infer, ctx)
 	case *ssa.Next:
-		visitNext(instr, infer, f, b, l)
+		visitNext(instr, infer, ctx)
 	case *ssa.Phi:
-		visitPhi(instr, infer, f, b, l)
+		visitPhi(instr, infer, ctx)
 	case *ssa.Return:
-		visitReturn(instr, infer, f, b, l)
+		visitReturn(instr, infer, ctx)
 	case *ssa.RunDefers:
-		visitRunDefers(instr, infer, f, b, l)
+		visitRunDefers(instr, infer, ctx)
 	case *ssa.Send:
-		visitSend(instr, infer, f, b, l)
+		visitSend(instr, infer, ctx)
 	case *ssa.Select:
-		visitSelect(instr, infer, f, b, l)
+		visitSelect(instr, infer, ctx)
 	case *ssa.Slice:
-		visitSlice(instr, infer, f, b, l)
+		visitSlice(instr, infer, ctx)
 	case *ssa.Store:
-		visitStore(instr, infer, f, b, l)
+		visitStore(instr, infer, ctx)
 	case *ssa.TypeAssert:
-		visitTypeAssert(instr, infer, f, b, l)
+		visitTypeAssert(instr, infer, ctx)
 	case *ssa.UnOp:
 		switch instr.Op {
 		case token.ARROW:
-			visitRecv(instr, infer, f, b, l)
+			visitRecv(instr, infer, ctx)
 		case token.MUL:
-			visitDeref(instr, infer, f, b, l)
+			visitDeref(instr, infer, ctx)
 		default:
-			visitSkip(instr, infer, f, b, l)
+			visitSkip(instr, infer, ctx)
 		}
 	default:
-		visitSkip(instr, infer, f, b, l)
+		visitSkip(instr, infer, ctx)
 	}
 }
 
-func visitAlloc(instr *ssa.Alloc, infer *TypeInfer, f *Function, b *Block, l *Loop) {
+func visitAlloc(instr *ssa.Alloc, infer *TypeInfer, ctx *Context) {
 	allocType := instr.Type().(*types.Pointer).Elem()
 	switch t := allocType.Underlying().(type) {
 	case *types.Array: // Static size array
-		f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
+		ctx.F.locals[instr] = &Value{instr, ctx.F.InstanceID(), ctx.L.Index}
 		if instr.Heap {
-			f.Prog.arrays[f.locals[instr]] = make(Elems, t.Len())
-			infer.Logger.Print(f.Sprintf(NewSymbol+"%s = alloc (array@heap) of type %s (%d elems)", f.locals[instr], instr.Type(), t.Len()))
+			ctx.F.Prog.arrays[ctx.F.locals[instr]] = make(Elems, t.Len())
+			infer.Logger.Print(ctx.F.Sprintf(NewSymbol+"%s = alloc (array@heap) of type %s (%d elems)", ctx.F.locals[instr], instr.Type(), t.Len()))
 		} else {
-			f.arrays[f.locals[instr]] = make(Elems, t.Len())
-			infer.Logger.Print(f.Sprintf(NewSymbol+"%s = alloc (array@local) of type %s (%d elems)", f.locals[instr], instr.Type(), t.Len()))
+			ctx.F.arrays[ctx.F.locals[instr]] = make(Elems, t.Len())
+			infer.Logger.Print(ctx.F.Sprintf(NewSymbol+"%s = alloc (array@local) of type %s (%d elems)", ctx.F.locals[instr], instr.Type(), t.Len()))
 		}
 	case *types.Struct:
-		f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
+		ctx.F.locals[instr] = &Value{instr, ctx.F.InstanceID(), ctx.L.Index}
 		if instr.Heap {
-			f.Prog.structs[f.locals[instr]] = make(Fields, t.NumFields())
-			infer.Logger.Print(f.Sprintf(NewSymbol+"%s = alloc (struct@heap) of type %s (%d fields)", f.locals[instr], instr.Type(), t.NumFields()))
+			ctx.F.Prog.structs[ctx.F.locals[instr]] = make(Fields, t.NumFields())
+			infer.Logger.Print(ctx.F.Sprintf(NewSymbol+"%s = alloc (struct@heap) of type %s (%d fields)", ctx.F.locals[instr], instr.Type(), t.NumFields()))
 		} else {
-			f.structs[f.locals[instr]] = make(Fields, t.NumFields())
-			infer.Logger.Print(f.Sprintf(NewSymbol+"%s = alloc (struct@local) of type %s (%d fields)", f.locals[instr], instr.Type(), t.NumFields()))
+			ctx.F.structs[ctx.F.locals[instr]] = make(Fields, t.NumFields())
+			infer.Logger.Print(ctx.F.Sprintf(NewSymbol+"%s = alloc (struct@local) of type %s (%d fields)", ctx.F.locals[instr], instr.Type(), t.NumFields()))
 		}
 	case *types.Pointer:
 		switch pt := t.Elem().Underlying().(type) {
 		case *types.Array:
+			ctx.F.locals[instr] = &Value{instr, ctx.F.InstanceID(), ctx.L.Index}
 			if instr.Heap {
-				f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
-				f.Prog.arrays[f.locals[instr]] = make(Elems, pt.Len())
-				infer.Logger.Print(f.Sprintf(NewSymbol+"%s = alloc/indirect (array@heap) of type %s (%d elems)", f.locals[instr], instr.Type(), pt.Len()))
+				ctx.F.Prog.arrays[ctx.F.locals[instr]] = make(Elems, pt.Len())
+				infer.Logger.Print(ctx.F.Sprintf(NewSymbol+"%s = alloc/indirect (array@heap) of type %s (%d elems)", ctx.F.locals[instr], instr.Type(), pt.Len()))
 			} else {
-				f.arrays[f.locals[instr]] = make(Elems, pt.Len())
-				infer.Logger.Print(f.Sprintf(NewSymbol+"%s = alloc/indirect (array@local) of type %s (%d elems)", f.locals[instr], instr.Type(), pt.Len()))
+				ctx.F.locals[instr] = &Value{instr, ctx.F.InstanceID(), ctx.L.Index}
+				ctx.F.arrays[ctx.F.locals[instr]] = make(Elems, pt.Len())
+				infer.Logger.Print(ctx.F.Sprintf(NewSymbol+"%s = alloc/indirect (array@local) of type %s (%d elems)", ctx.F.locals[instr], instr.Type(), pt.Len()))
 			}
 		case *types.Struct:
-			f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
+			ctx.F.locals[instr] = &Value{instr, ctx.F.InstanceID(), ctx.L.Index}
 			if instr.Heap {
-				f.Prog.structs[f.locals[instr]] = make(Fields, pt.NumFields())
-				infer.Logger.Print(f.Sprintf(NewSymbol+"%s = alloc/indirect (struct@heap) of type %s (%d fields)", f.locals[instr], instr.Type(), pt.NumFields()))
+				ctx.F.Prog.structs[ctx.F.locals[instr]] = make(Fields, pt.NumFields())
+				infer.Logger.Print(ctx.F.Sprintf(NewSymbol+"%s = alloc/indirect (struct@heap) of type %s (%d fields)", ctx.F.locals[instr], instr.Type(), pt.NumFields()))
 			} else {
-				f.structs[f.locals[instr]] = make(Fields, pt.NumFields())
-				infer.Logger.Print(f.Sprintf(NewSymbol+"%s = alloc/indirect (struct@local) of type %s (%d fields)", f.locals[instr], instr.Type(), pt.NumFields()))
+				ctx.F.structs[ctx.F.locals[instr]] = make(Fields, pt.NumFields())
+				infer.Logger.Print(ctx.F.Sprintf(NewSymbol+"%s = alloc/indirect (struct@local) of type %s (%d fields)", ctx.F.locals[instr], instr.Type(), pt.NumFields()))
 			}
 		default:
-			f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
-			infer.Logger.Print(f.Sprintf(NewSymbol+"%s = alloc/indirect of type %s", f.locals[instr], instr.Type().Underlying()))
+			ctx.F.locals[instr] = &Value{instr, ctx.F.InstanceID(), ctx.L.Index}
+			infer.Logger.Print(ctx.F.Sprintf(NewSymbol+"%s = alloc/indirect of type %s", ctx.F.locals[instr], instr.Type().Underlying()))
 		}
 	default:
-		f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
-		infer.Logger.Print(f.Sprintf(NewSymbol+"%s = alloc of type %s", f.locals[instr], instr.Type().Underlying()))
+		ctx.F.locals[instr] = &Value{instr, ctx.F.InstanceID(), ctx.L.Index}
+		infer.Logger.Print(ctx.F.Sprintf(NewSymbol+"%s = alloc of type %s", ctx.F.locals[instr], instr.Type().Underlying()))
 	}
 }
 
-func visitBinOp(instr *ssa.BinOp, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	if l.State == Enter {
-		switch l.Bound {
+func visitBinOp(instr *ssa.BinOp, infer *TypeInfer, ctx *Context) {
+	if ctx.L.State == Enter {
+		switch ctx.L.Bound {
 		case Unknown:
 			switch instr.Op {
 			case token.LSS: // i < N
 				if i, ok := instr.Y.(*ssa.Const); ok && i.Value.Kind() == constant.Int {
-					l.SetCond(instr, i.Int64()-1)
-					if _, ok := instr.X.(*ssa.Phi); ok && l.Start < l.End {
-						l.Bound = Static
-						infer.Logger.Printf(f.Sprintf(LoopSymbol+"i <= %s", fmtLoopHL(l.End)))
+					ctx.L.SetCond(instr, i.Int64()-1)
+					if _, ok := instr.X.(*ssa.Phi); ok && ctx.L.Start < ctx.L.End {
+						ctx.L.Bound = Static
+						infer.Logger.Printf(ctx.F.Sprintf(LoopSymbol+"i <= %s", fmtLoopHL(ctx.L.End)))
 						return
 					}
-					l.Bound = Dynamic
+					ctx.L.Bound = Dynamic
 					return
 				}
 			case token.LEQ: // i <= N
 				if i, ok := instr.Y.(*ssa.Const); ok && i.Value.Kind() == constant.Int {
-					l.SetCond(instr, i.Int64())
-					if _, ok := instr.X.(*ssa.Phi); ok && l.Start < l.End {
-						l.Bound = Static
-						infer.Logger.Printf(f.Sprintf(LoopSymbol+"i <= %s", fmtLoopHL(l.End)))
+					ctx.L.SetCond(instr, i.Int64())
+					if _, ok := instr.X.(*ssa.Phi); ok && ctx.L.Start < ctx.L.End {
+						ctx.L.Bound = Static
+						infer.Logger.Printf(ctx.F.Sprintf(LoopSymbol+"i <= %s", fmtLoopHL(ctx.L.End)))
 						return
 					}
-					l.Bound = Dynamic
+					ctx.L.Bound = Dynamic
 					return
 				}
 			case token.GTR: // i > N
 				if i, ok := instr.Y.(*ssa.Const); ok && i.Value.Kind() == constant.Int {
-					l.SetCond(instr, i.Int64()+1)
-					if _, ok := instr.X.(*ssa.Phi); ok && l.Start > l.End {
-						l.Bound = Static
-						infer.Logger.Printf(f.Sprintf(LoopSymbol+"i > %s", fmtLoopHL(l.End)))
+					ctx.L.SetCond(instr, i.Int64()+1)
+					if _, ok := instr.X.(*ssa.Phi); ok && ctx.L.Start > ctx.L.End {
+						ctx.L.Bound = Static
+						infer.Logger.Printf(ctx.F.Sprintf(LoopSymbol+"i > %s", fmtLoopHL(ctx.L.End)))
 						return
 					}
-					l.Bound = Dynamic
+					ctx.L.Bound = Dynamic
 					return
 				}
 			case token.GEQ: // i >= N
 				if i, ok := instr.Y.(*ssa.Const); ok && i.Value.Kind() == constant.Int {
-					l.SetCond(instr, i.Int64())
-					if _, ok := instr.X.(*ssa.Phi); ok && l.Start > l.End {
-						l.Bound = Static
-						infer.Logger.Printf(f.Sprintf(LoopSymbol+"i >= %s", fmtLoopHL(l.End)))
+					ctx.L.SetCond(instr, i.Int64())
+					if _, ok := instr.X.(*ssa.Phi); ok && ctx.L.Start > ctx.L.End {
+						ctx.L.Bound = Static
+						infer.Logger.Printf(ctx.F.Sprintf(LoopSymbol+"i >= %s", fmtLoopHL(ctx.L.End)))
 						return
 					}
-					l.Bound = Dynamic
+					ctx.L.Bound = Dynamic
 					return
 				}
 			}
 		}
 	}
-	f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
-	visitSkip(instr, infer, f, b, l)
+	ctx.F.locals[instr] = &Value{instr, ctx.F.InstanceID(), ctx.L.Index}
+	visitSkip(instr, infer, ctx)
 }
 
-func visitCall(instr *ssa.Call, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	infer.Logger.Printf(f.Sprintf(CallSymbol+"%s = %s", instr.Name(), instr.String()))
-	f.Call(instr, infer, b, l)
+func visitCall(instr *ssa.Call, infer *TypeInfer, ctx *Context) {
+	infer.Logger.Printf(ctx.F.Sprintf(CallSymbol+"%s = %s", instr.Name(), instr.String()))
+	ctx.F.Call(instr, infer, ctx.B, ctx.L)
 }
 
-func visitChangeType(instr *ssa.ChangeType, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	inst, ok := f.locals[instr.X]
+func visitChangeType(instr *ssa.ChangeType, infer *TypeInfer, ctx *Context) {
+	inst, ok := ctx.F.locals[instr.X]
 	if !ok {
 		infer.Logger.Fatalf("changetype: %s: %v → %v", ErrUnknownValue, instr.X, instr)
 		return
 	}
-	f.locals[instr] = inst
-	if a, ok := f.arrays[f.locals[instr.X]]; ok {
-		f.arrays[f.locals[instr]] = a
+	ctx.F.locals[instr] = inst
+	if a, ok := ctx.F.arrays[ctx.F.locals[instr.X]]; ok {
+		ctx.F.arrays[ctx.F.locals[instr]] = a
 	}
-	if s, ok := f.structs[f.locals[instr.X]]; ok {
-		f.structs[f.locals[instr]] = s
+	if s, ok := ctx.F.structs[ctx.F.locals[instr.X]]; ok {
+		ctx.F.structs[ctx.F.locals[instr]] = s
 	}
-	if m, ok := f.maps[f.locals[instr.X]]; ok {
-		f.maps[f.locals[instr]] = m
+	if m, ok := ctx.F.maps[ctx.F.locals[instr.X]]; ok {
+		ctx.F.maps[ctx.F.locals[instr]] = m
 	}
-	infer.Logger.Print(f.Sprintf(ValSymbol+"%s = %s (type: %s ← %s)", instr.Name(), instr.X.Name(), fmtType(instr.Type()), fmtType(instr.X.Type().Underlying())))
+	infer.Logger.Print(ctx.F.Sprintf(ValSymbol+"%s = %s (type: %s ← %s)", instr.Name(), instr.X.Name(), fmtType(instr.Type()), fmtType(instr.X.Type().Underlying())))
 	return
 }
 
-func visitChangeInterface(instr *ssa.ChangeInterface, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	inst, ok := f.locals[instr.X]
+func visitChangeInterface(instr *ssa.ChangeInterface, infer *TypeInfer, ctx *Context) {
+	inst, ok := ctx.F.locals[instr.X]
 	if !ok {
 		infer.Logger.Fatalf("changeiface: %s: %v → %v", ErrUnknownValue, instr.X, instr)
 	}
-	f.locals[instr] = inst
+	ctx.F.locals[instr] = inst
 }
 
-func visitConvert(instr *ssa.Convert, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	_, ok := f.locals[instr.X]
+func visitConvert(instr *ssa.Convert, infer *TypeInfer, ctx *Context) {
+	_, ok := ctx.F.locals[instr.X]
 	if !ok {
 		if c, ok := instr.X.(*ssa.Const); ok {
-			f.locals[instr.X] = &ConstInstance{c}
+			ctx.F.locals[instr.X] = &Const{c}
 		} else if _, ok := instr.X.(*ssa.Global); ok {
-			inst, ok := f.Prog.globals[instr.X]
+			inst, ok := ctx.F.Prog.globals[instr.X]
 			if !ok {
 				infer.Logger.Fatalf("convert (global): %s: %+v", ErrUnknownValue, instr.X)
 			}
-			f.locals[instr.X] = inst
-			infer.Logger.Print(f.Sprintf(SkipSymbol+"%s convert= %s (global)", f.locals[instr], instr.X.Name()))
+			ctx.F.locals[instr.X] = inst
+			infer.Logger.Print(ctx.F.Sprintf(SkipSymbol+"%s convert= %s (global)", ctx.F.locals[instr], instr.X.Name()))
 			return
 		} else {
 			infer.Logger.Fatalf("convert: %s: %+v", ErrUnknownValue, instr.X)
 			return
 		}
 	}
-	f.locals[instr] = f.locals[instr.X]
-	infer.Logger.Print(f.Sprintf(SkipSymbol+"%s convert= %s", f.locals[instr], instr.X.Name()))
+	ctx.F.locals[instr] = ctx.F.locals[instr.X]
+	infer.Logger.Print(ctx.F.Sprintf(SkipSymbol+"%s convert= %s", ctx.F.locals[instr], instr.X.Name()))
 }
 
-func visitDefer(instr *ssa.Defer, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	f.defers = append(f.defers, instr)
+func visitDefer(instr *ssa.Defer, infer *TypeInfer, ctx *Context) {
+	ctx.F.defers = append(ctx.F.defers, instr)
 }
 
-func visitDeref(instr *ssa.UnOp, infer *TypeInfer, f *Function, b *Block, l *Loop) {
+func visitDeref(instr *ssa.UnOp, infer *TypeInfer, ctx *Context) {
 	ptr, val := instr.X, instr
-	// Global.
+	// Globactx.L.
 	if _, ok := ptr.(*ssa.Global); ok {
-		inst, ok := f.Prog.globals[ptr]
+		inst, ok := ctx.F.Prog.globals[ptr]
 		if !ok {
 			infer.Logger.Fatalf("deref (global): %s: %+v", ErrUnknownValue, ptr)
 			return
 		}
-		f.locals[ptr], f.locals[val] = inst, inst
-		infer.Logger.Print(f.Sprintf(ValSymbol+"%s deref= %s (global) of type %s", inst, ptr, ptr.Type()))
+		ctx.F.locals[ptr], ctx.F.locals[val] = inst, inst
+		infer.Logger.Print(ctx.F.Sprintf(ValSymbol+"%s deref= %s (global) of type %s", inst, ptr, ptr.Type()))
 		// Initialise global array/struct if needed.
-		initNestedRefVar(infer, f, b, l, f.locals[ptr], true)
+		initNestedRefVar(infer, ctx, ctx.F.locals[ptr], true)
 		return
 	}
 	if basic, ok := derefType(ptr.Type()).Underlying().(*types.Basic); ok && basic.Kind() == types.Byte {
-		infer.Logger.Print(f.Sprintf(SubSymbol+"deref: %+v is a byte", ptr))
+		infer.Logger.Print(ctx.F.Sprintf(SubSymbol+"deref: %+v is a byte", ptr))
 		// Create new byte instance here, bytes do no need explicit allocation.
-		f.locals[ptr] = &Instance{ptr, f.InstanceID(), l.Index}
+		ctx.F.locals[ptr] = &Value{ptr, ctx.F.InstanceID(), ctx.L.Index}
 	}
-	// Local.
-	inst, ok := f.locals[ptr]
+	// Locactx.L.
+	inst, ok := ctx.F.locals[ptr]
 	if !ok {
 		infer.Logger.Fatalf("deref: %s: %+v", ErrUnknownValue, ptr)
 		return
 	}
-	f.locals[ptr], f.locals[val] = inst, inst
-	infer.Logger.Print(f.Sprintf(ValSymbol+"%s deref= %s of type %s", val, ptr, ptr.Type()))
+	ctx.F.locals[ptr], ctx.F.locals[val] = inst, inst
+	infer.Logger.Print(ctx.F.Sprintf(ValSymbol+"%s deref= %s of type %s", val, ptr, ptr.Type()))
 	// Initialise array/struct if needed.
-	initNestedRefVar(infer, f, b, l, f.locals[ptr], false)
+	initNestedRefVar(infer, ctx, ctx.F.locals[ptr], false)
 	return
 }
 
-func visitExtract(instr *ssa.Extract, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	if tupleInst, ok := f.locals[instr.Tuple]; ok {
-		if _, ok := f.tuples[tupleInst]; !ok { // Tuple uninitialised
+func visitExtract(instr *ssa.Extract, infer *TypeInfer, ctx *Context) {
+	if tupleInst, ok := ctx.F.locals[instr.Tuple]; ok {
+		if _, ok := ctx.F.tuples[tupleInst]; !ok { // Tuple uninitialised
 			infer.Logger.Fatalf("extract: %s: Unexpected tuple: %+v", ErrUnknownValue, instr)
 			return
 		}
-		if inst := f.tuples[tupleInst][instr.Index]; inst == nil {
-			f.tuples[tupleInst][instr.Index] = &Instance{instr, f.InstanceID(), l.Index}
+		if inst := ctx.F.tuples[tupleInst][instr.Index]; inst == nil {
+			ctx.F.tuples[tupleInst][instr.Index] = &Value{instr, ctx.F.InstanceID(), ctx.L.Index}
 		}
-		f.locals[instr] = f.tuples[tupleInst][instr.Index]
-		initNestedRefVar(infer, f, b, l, f.locals[instr], false)
+		ctx.F.locals[instr] = ctx.F.tuples[tupleInst][instr.Index]
+		initNestedRefVar(infer, ctx, ctx.F.locals[instr], false)
 		// Detect select tuple.
-		if _, ok := f.selects[tupleInst]; ok {
+		if _, ok := ctx.F.selects[tupleInst]; ok {
 			switch instr.Index {
 			case 0:
-				f.selects[tupleInst].Index = f.locals[instr]
-				infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = extract select{%d} (select-index) for %s", f.locals[instr], instr.Index, instr))
+				ctx.F.selects[tupleInst].Index = ctx.F.locals[instr]
+				infer.Logger.Print(ctx.F.Sprintf(SkipSymbol+"%s = extract select{%d} (select-index) for %s", ctx.F.locals[instr], instr.Index, instr))
 				return
 			default:
-				infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = extract select{%d} for %s", f.locals[instr], instr.Index, instr))
+				infer.Logger.Print(ctx.F.Sprintf(SkipSymbol+"%s = extract select{%d} for %s", ctx.F.locals[instr], instr.Index, instr))
 				return
 			}
 		}
 		// Detect commaok tuple.
-		if commaOk, ok := f.commaok[tupleInst]; ok {
+		if commaOk, ok := ctx.F.commaok[tupleInst]; ok {
 			switch instr.Index {
 			case 0:
-				infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = extract commaOk{%d} for %s", f.locals[instr], instr.Index, instr))
+				infer.Logger.Print(ctx.F.Sprintf(SkipSymbol+"%s = extract commaOk{%d} for %s", ctx.F.locals[instr], instr.Index, instr))
 				return
 			case 1:
-				commaOk.OkCond = f.locals[instr]
-				infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = extract commaOk{%d} (ok-test) for %s", f.locals[instr], instr.Index, instr))
+				commaOk.OkCond = ctx.F.locals[instr]
+				infer.Logger.Print(ctx.F.Sprintf(SkipSymbol+"%s = extract commaOk{%d} (ok-test) for %s", ctx.F.locals[instr], instr.Index, instr))
 				return
 			}
 		}
-		infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = tuple %s[%d] of %d", f.locals[instr], tupleInst, instr.Index, len(f.tuples[tupleInst])))
+		infer.Logger.Print(ctx.F.Sprintf(SkipSymbol+"%s = tuple %s[%d] of %d", ctx.F.locals[instr], tupleInst, instr.Index, len(ctx.F.tuples[tupleInst])))
 		return
 	}
 }
 
-func visitField(instr *ssa.Field, infer *TypeInfer, f *Function, b *Block, l *Loop) {
+func visitField(instr *ssa.Field, infer *TypeInfer, ctx *Context) {
 	field, struc, index := instr, instr.X, instr.Field
 	if sType, ok := struc.Type().Underlying().(*types.Struct); ok {
-		sInst, ok := f.locals[struc]
+		sInst, ok := ctx.F.locals[struc]
 		if !ok {
 			infer.Logger.Fatalf("field: %s :%+v", ErrUnknownValue, struc)
 			return
 		}
-		fields, ok := f.structs[sInst]
+		fields, ok := ctx.F.structs[sInst]
 		if !ok {
-			fields, ok = f.Prog.structs[sInst]
+			fields, ok = ctx.F.Prog.structs[sInst]
 			if !ok {
 				infer.Logger.Fatalf("field: %s: struct uninitialised %+v", ErrUnknownValue, sInst)
 				return
 			}
 		}
-		infer.Logger.Print(f.Sprintf(ValSymbol+"%s = %s"+FieldSymbol+"{%d} of type %s", instr.Name(), sInst, index, sType.String()))
+		infer.Logger.Print(ctx.F.Sprintf(ValSymbol+"%s = %s"+FieldSymbol+"{%d} of type %s", instr.Name(), sInst, index, sType.String()))
 		if fields[index] != nil {
-			infer.Logger.Print(f.Sprintf(SubSymbol+"accessed as %s", fields[index]))
+			infer.Logger.Print(ctx.F.Sprintf(SubSymbol+"accessed as %s", fields[index]))
 		} else {
-			fields[index] = &Instance{field, f.InstanceID(), l.Index}
-			infer.Logger.Print(f.Sprintf(SubSymbol+"field uninitialised, set to %s", field.Name()))
+			fields[index] = &Value{field, ctx.F.InstanceID(), ctx.L.Index}
+			infer.Logger.Print(ctx.F.Sprintf(SubSymbol+"field uninitialised, set to %s", field.Name()))
 		}
-		initNestedRefVar(infer, f, b, l, f.locals[field], false)
-		f.locals[field] = fields[index]
+		initNestedRefVar(infer, ctx, ctx.F.locals[field], false)
+		ctx.F.locals[field] = fields[index]
 		return
 	}
 	infer.Logger.Fatalf("field: %s: field is not struct: %+v", ErrInvalidVarRead, struc)
 }
 
-func visitFieldAddr(instr *ssa.FieldAddr, infer *TypeInfer, f *Function, b *Block, l *Loop) {
+func visitFieldAddr(instr *ssa.FieldAddr, infer *TypeInfer, ctx *Context) {
 	field, struc, index := instr, instr.X, instr.Field
 	if sType, ok := derefType(struc.Type()).Underlying().(*types.Struct); ok {
-		sInst, ok := f.locals[struc]
+		sInst, ok := ctx.F.locals[struc]
 		if !ok {
-			sInst, ok = f.Prog.globals[struc]
+			sInst, ok = ctx.F.Prog.globals[struc]
 			if !ok {
 				infer.Logger.Fatalf("field-addr: %s: %+v", ErrUnknownValue, struc)
 				return
@@ -417,15 +418,15 @@ func visitFieldAddr(instr *ssa.FieldAddr, infer *TypeInfer, f *Function, b *Bloc
 		}
 		// Check status of instance.
 		switch inst := sInst.(type) {
-		case *Instance: // Continue
-		case *ExtInstance: // Continue
-			infer.Logger.Print(f.Sprintf(SubSymbol+"field-addr: %+v is external", sInst))
-			f.locals[field] = inst
+		case *Value: // Continue
+		case *External: // Continue
+			infer.Logger.Print(ctx.F.Sprintf(SubSymbol+"field-addr: %+v is external", sInst))
+			ctx.F.locals[field] = inst
 			return
-		case *ConstInstance:
-			infer.Logger.Print(f.Sprintf(SubSymbol+"field-addr: %+v is a constant", sInst))
+		case *Const:
+			infer.Logger.Print(ctx.F.Sprintf(SubSymbol+"field-addr: %+v is a constant", sInst))
 			if inst.Const.IsNil() {
-				f.locals[field] = inst
+				ctx.F.locals[field] = inst
 			}
 			return
 		default:
@@ -433,60 +434,60 @@ func visitFieldAddr(instr *ssa.FieldAddr, infer *TypeInfer, f *Function, b *Bloc
 			return
 		}
 		// Find the struct.
-		fields, ok := f.structs[sInst]
+		fields, ok := ctx.F.structs[sInst]
 		if !ok {
-			fields, ok = f.Prog.structs[sInst]
+			fields, ok = ctx.F.Prog.structs[sInst]
 			if !ok {
 				infer.Logger.Fatalf("field-addr: %s: struct uninitialised %+v", ErrUnknownValue, sInst)
 				return
 			}
 		}
-		infer.Logger.Print(f.Sprintf(ValSymbol+"%s = %s"+FieldSymbol+"{%d} of type %s", instr.Name(), sInst, index, sType.String()))
+		infer.Logger.Print(ctx.F.Sprintf(ValSymbol+"%s = %s"+FieldSymbol+"{%d} of type %s", instr.Name(), sInst, index, sType.String()))
 		if fields[index] != nil {
-			infer.Logger.Print(f.Sprintf(SubSymbol+"accessed as %s:%s", fields[index], fields[index].Var().Type()))
+			infer.Logger.Print(ctx.F.Sprintf(SubSymbol+"accessed as %s", fields[index]))
 		} else {
-			fields[index] = &Instance{field, f.InstanceID(), l.Index}
-			infer.Logger.Print(f.Sprintf(SubSymbol+"field uninitialised, set to %s", field.Name()))
+			fields[index] = &Value{field, ctx.F.InstanceID(), ctx.L.Index}
+			infer.Logger.Print(ctx.F.Sprintf(SubSymbol+"field uninitialised, set to %s", field.Name()))
 		}
-		initNestedRefVar(infer, f, b, l, fields[index], false)
-		f.locals[field] = fields[index]
+		initNestedRefVar(infer, ctx, fields[index], false)
+		ctx.F.locals[field] = fields[index]
 		return
 	}
 	infer.Logger.Fatalf("field-addr: %s: field is not struct: %+v", ErrInvalidVarRead, struc)
 }
 
-func visitGo(instr *ssa.Go, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	infer.Logger.Printf(f.Sprintf(SpawnSymbol+"%s %s", fmtSpawn("spawn"), instr))
-	f.Go(instr, infer)
+func visitGo(instr *ssa.Go, infer *TypeInfer, ctx *Context) {
+	infer.Logger.Printf(ctx.F.Sprintf(SpawnSymbol+"%s %s", fmtSpawn("spawn"), instr))
+	ctx.F.Go(instr, infer)
 }
 
-func visitIf(instr *ssa.If, infer *TypeInfer, f *Function, b *Block, l *Loop) {
+func visitIf(instr *ssa.If, infer *TypeInfer, ctx *Context) {
 	if len(instr.Block().Succs) != 2 {
 		infer.Logger.Fatal(ErrInvalidIfSucc)
 	}
-	// Detect and unroll l.
-	if l.State != NonLoop && l.Bound == Static && instr.Cond == l.CondVar {
-		if l.HasNext() {
-			infer.Logger.Printf(f.Sprintf(LoopSymbol+"loop continue %s", l))
-			visitBasicBlock(instr.Block().Succs[0], infer, f, NewBlock(f, instr.Block().Succs[0], b.Index), l)
+	// Detect and unroll ctx.L.
+	if ctx.L.State != NonLoop && ctx.L.Bound == Static && instr.Cond == ctx.L.CondVar {
+		if ctx.L.HasNext() {
+			infer.Logger.Printf(ctx.F.Sprintf(LoopSymbol+"loop continue %s", ctx.L))
+			visitBasicBlock(instr.Block().Succs[0], infer, ctx.F, NewBlock(ctx.F, instr.Block().Succs[0], ctx.B.Index), ctx.L)
 		} else {
-			infer.Logger.Printf(f.Sprintf(LoopSymbol+"loop exit %s", l))
-			//f.Visited[instr.Block()] = 0
-			visitBasicBlock(instr.Block().Succs[1], infer, f, NewBlock(f, instr.Block().Succs[1], b.Index), l)
+			infer.Logger.Printf(ctx.F.Sprintf(LoopSymbol+"loop exit %s", ctx.L))
+			//ctx.F.Visited[instr.Block()] = 0
+			visitBasicBlock(instr.Block().Succs[1], infer, ctx.F, NewBlock(ctx.F, instr.Block().Succs[1], ctx.B.Index), ctx.L)
 		}
 		return
 	}
 	// Detect Select branches.
 	if bin, ok := instr.Cond.(*ssa.BinOp); ok && bin.Op == token.EQL {
-		for _, sel := range f.selects {
-			if bin.X == sel.Index.Var() {
+		for _, sel := range ctx.F.selects {
+			if bin.X == sel.Index.(*Value).Value {
 				if i, ok := bin.Y.(*ssa.Const); ok && i.Value.Kind() == constant.Int {
-					//infer.Logger.Print(fmt.Sprintf("[select-%d]", i.Int64()), f.FuncDef.String())
-					parDef := f.FuncDef
+					//infer.Logger.Print(fmt.Sprintf("[select-%d]", i.Int64()), ctx.F.FuncDef.String())
+					parDef := ctx.F.FuncDef
 					parDef.PutAway() // Save select
-					visitBasicBlock(instr.Block().Succs[0], infer, f, NewBlock(f, instr.Block().Succs[0], b.Index), l)
-					f.FuncDef.PutAway() // Save case
-					selCase, err := f.FuncDef.Restore()
+					visitBasicBlock(instr.Block().Succs[0], infer, ctx.F, NewBlock(ctx.F, instr.Block().Succs[0], ctx.B.Index), ctx.L)
+					ctx.F.FuncDef.PutAway() // Save case
+					selCase, err := ctx.F.FuncDef.Restore()
 					if err != nil {
 						infer.Logger.Fatal("select-case:", err)
 					}
@@ -499,12 +500,12 @@ func visitIf(instr *ssa.If, infer *TypeInfer, f *Function, b *Block, l *Loop) {
 
 					// Test if select has default branch & if this is default
 					if !sel.Instr.Blocking && i.Int64() == int64(len(sel.Instr.States)-1) {
-						infer.Logger.Print(f.Sprintf(SelectSymbol + "default"))
-						parDef := f.FuncDef
+						infer.Logger.Print(ctx.F.Sprintf(SelectSymbol + "default"))
+						parDef := ctx.F.FuncDef
 						parDef.PutAway() // Save select
-						visitBasicBlock(instr.Block().Succs[1], infer, f, NewBlock(f, instr.Block().Succs[1], b.Index), l)
-						f.FuncDef.PutAway() // Save case
-						selDefault, err := f.FuncDef.Restore()
+						visitBasicBlock(instr.Block().Succs[1], infer, ctx.F, NewBlock(ctx.F, instr.Block().Succs[1], ctx.B.Index), ctx.L)
+						ctx.F.FuncDef.PutAway() // Save case
+						selDefault, err := ctx.F.FuncDef.Restore()
 						if err != nil {
 							infer.Logger.Fatal("select-default:", err)
 						}
@@ -515,8 +516,8 @@ func visitIf(instr *ssa.If, infer *TypeInfer, f *Function, b *Block, l *Loop) {
 						}
 						parDef.AddStmts(selParent...)
 					} else {
-						infer.Logger.Printf(f.Sprintf(IfSymbol+"select-else "+JumpSymbol+"%d", instr.Block().Succs[1].Index))
-						visitBasicBlock(instr.Block().Succs[1], infer, f, NewBlock(f, instr.Block().Succs[1], b.Index), l)
+						infer.Logger.Printf(ctx.F.Sprintf(IfSymbol+"select-else "+JumpSymbol+"%d", instr.Block().Succs[1].Index))
+						visitBasicBlock(instr.Block().Succs[1], infer, ctx.F, NewBlock(ctx.F, instr.Block().Succs[1], ctx.B.Index), ctx.L)
 					}
 					return // Select if-then-else handled
 				}
@@ -525,78 +526,78 @@ func visitIf(instr *ssa.If, infer *TypeInfer, f *Function, b *Block, l *Loop) {
 	}
 
 	var cond string
-	if inst, ok := f.locals[instr.Cond]; ok && isCommaOk(f, inst) {
+	if inst, ok := ctx.F.locals[instr.Cond]; ok && isCommaOk(ctx.F, inst) {
 		cond = fmt.Sprintf("comma-ok %s", instr.Cond.Name())
 	} else {
 		cond = fmt.Sprintf("%s", instr.Cond.Name())
 	}
 
 	// Save parent.
-	f.FuncDef.PutAway()
-	infer.Logger.Printf(f.Sprintf(IfSymbol+"if %s then"+JumpSymbol+"%d", cond, instr.Block().Succs[0].Index))
-	visitBasicBlock(instr.Block().Succs[0], infer, f, NewBlock(f, instr.Block().Succs[0], b.Index), l)
+	ctx.F.FuncDef.PutAway()
+	infer.Logger.Printf(ctx.F.Sprintf(IfSymbol+"if %s then"+JumpSymbol+"%d", cond, instr.Block().Succs[0].Index))
+	visitBasicBlock(instr.Block().Succs[0], infer, ctx.F, NewBlock(ctx.F, instr.Block().Succs[0], ctx.B.Index), ctx.L)
 	// Save then.
-	f.FuncDef.PutAway()
-	infer.Logger.Printf(f.Sprintf(IfSymbol+"if %s else"+JumpSymbol+"%d", cond, instr.Block().Succs[1].Index))
-	visitBasicBlock(instr.Block().Succs[1], infer, f, NewBlock(f, instr.Block().Succs[1], b.Index), l)
+	ctx.F.FuncDef.PutAway()
+	infer.Logger.Printf(ctx.F.Sprintf(IfSymbol+"if %s else"+JumpSymbol+"%d", cond, instr.Block().Succs[1].Index))
+	visitBasicBlock(instr.Block().Succs[1], infer, ctx.F, NewBlock(ctx.F, instr.Block().Succs[1], ctx.B.Index), ctx.L)
 	// Save else.
-	f.FuncDef.PutAway()
-	elseStmts, err := f.FuncDef.Restore() // Else
+	ctx.F.FuncDef.PutAway()
+	elseStmts, err := ctx.F.FuncDef.Restore() // Else
 	if err != nil {
 		infer.Logger.Fatal("restore else:", err)
 	}
-	thenStmts, err := f.FuncDef.Restore() // Then
+	thenStmts, err := ctx.F.FuncDef.Restore() // Then
 	if err != nil {
 		infer.Logger.Fatal("restore then:", err)
 	}
-	parentStmts, err := f.FuncDef.Restore() // Parent
+	parentStmts, err := ctx.F.FuncDef.Restore() // Parent
 	if err != nil {
 		infer.Logger.Fatal("restore if-then-else parent:", err)
 	}
-	f.FuncDef.AddStmts(parentStmts...)
-	f.FuncDef.AddStmts(&migo.IfStatement{Then: thenStmts, Else: elseStmts})
+	ctx.F.FuncDef.AddStmts(parentStmts...)
+	ctx.F.FuncDef.AddStmts(&migo.IfStatement{Then: thenStmts, Else: elseStmts})
 }
 
-func visitIndex(instr *ssa.Index, infer *TypeInfer, f *Function, b *Block, l *Loop) {
+func visitIndex(instr *ssa.Index, infer *TypeInfer, ctx *Context) {
 	elem, array, index := instr, instr.X, instr.Index
 	// Array.
 	if aType, ok := array.Type().Underlying().(*types.Array); ok {
-		aInst, ok := f.locals[array]
+		aInst, ok := ctx.F.locals[array]
 		if !ok {
-			aInst, ok = f.Prog.globals[array]
+			aInst, ok = ctx.F.Prog.globals[array]
 			if !ok {
 				infer.Logger.Fatalf("index: %s: array %+v", ErrUnknownValue, array)
 				return
 			}
 		}
-		elems, ok := f.arrays[aInst]
+		elems, ok := ctx.F.arrays[aInst]
 		if !ok {
-			elems, ok = f.Prog.arrays[aInst]
+			elems, ok = ctx.F.Prog.arrays[aInst]
 			if !ok {
 				infer.Logger.Fatalf("index: %s: not an array %+v", ErrUnknownValue, aInst)
 				return
 			}
 		}
-		infer.Logger.Print(f.Sprintf(ValSymbol+"%s = %s"+FieldSymbol+"[%s] of type %s", instr.Name(), aInst, index, aType.String()))
+		infer.Logger.Print(ctx.F.Sprintf(ValSymbol+"%s = %s"+FieldSymbol+"[%s] of type %s", instr.Name(), aInst, index, aType.String()))
 		if elems[index] != nil {
-			infer.Logger.Print(f.Sprintf(SubSymbol+"accessed as %s", elems[index]))
+			infer.Logger.Print(ctx.F.Sprintf(SubSymbol+"accessed as %s", elems[index]))
 		} else {
-			elems[index] = &Instance{elem, f.InstanceID(), l.Index}
-			infer.Logger.Printf(f.Sprintf(SubSymbol+"elem uninitialised, set to %s", elem.Name()))
+			elems[index] = &Value{elem, ctx.F.InstanceID(), ctx.L.Index}
+			infer.Logger.Printf(ctx.F.Sprintf(SubSymbol+"elem uninitialised, set to %s", elem.Name()))
 		}
-		initNestedRefVar(infer, f, b, l, elems[index], false)
-		f.locals[elem] = elems[index]
+		initNestedRefVar(infer, ctx, elems[index], false)
+		ctx.F.locals[elem] = elems[index]
 		return
 	}
 }
 
-func visitIndexAddr(instr *ssa.IndexAddr, infer *TypeInfer, f *Function, b *Block, l *Loop) {
+func visitIndexAddr(instr *ssa.IndexAddr, infer *TypeInfer, ctx *Context) {
 	elem, array, index := instr, instr.X, instr.Index
 	// Array.
 	if aType, ok := derefType(array.Type()).Underlying().(*types.Array); ok {
-		aInst, ok := f.locals[array]
+		aInst, ok := ctx.F.locals[array]
 		if !ok {
-			aInst, ok = f.Prog.globals[array]
+			aInst, ok = ctx.F.Prog.globals[array]
 			if !ok {
 				infer.Logger.Fatalf("index-addr: %s: array %+v", ErrUnknownValue, array)
 				return
@@ -604,14 +605,14 @@ func visitIndexAddr(instr *ssa.IndexAddr, infer *TypeInfer, f *Function, b *Bloc
 		}
 		// Check status of instance.
 		switch inst := aInst.(type) {
-		case *Instance: // Continue
-		case *ExtInstance: // External
-			infer.Logger.Print(f.Sprintf(SubSymbol+"index-addr: array %+v is external", aInst))
-			f.locals[elem] = inst
-		case *ConstInstance:
-			infer.Logger.Print(f.Sprintf(SubSymbol+"index-addr: array %+v is a constant", aInst))
+		case *Value: // Continue
+		case *External: // External
+			infer.Logger.Print(ctx.F.Sprintf(SubSymbol+"index-addr: array %+v is external", aInst))
+			ctx.F.locals[elem] = inst
+		case *Const:
+			infer.Logger.Print(ctx.F.Sprintf(SubSymbol+"index-addr: array %+v is a constant", aInst))
 			if inst.Const.IsNil() {
-				f.locals[elem] = inst
+				ctx.F.locals[elem] = inst
 			}
 			return
 		default:
@@ -619,30 +620,30 @@ func visitIndexAddr(instr *ssa.IndexAddr, infer *TypeInfer, f *Function, b *Bloc
 			return
 		}
 		// Find the array.
-		elems, ok := f.arrays[aInst]
+		elems, ok := ctx.F.arrays[aInst]
 		if !ok {
-			elems, ok = f.Prog.arrays[aInst]
+			elems, ok = ctx.F.Prog.arrays[aInst]
 			if !ok {
 				infer.Logger.Fatalf("index-addr: %s: array uninitialised %s", ErrUnknownValue, aInst)
 				return
 			}
 		}
-		infer.Logger.Print(f.Sprintf(ValSymbol+"%s = %s"+FieldSymbol+"[%s] of type %s", instr.Name(), aInst, index, aType.String()))
+		infer.Logger.Print(ctx.F.Sprintf(ValSymbol+"%s = %s"+FieldSymbol+"[%s] of type %s", instr.Name(), aInst, index, aType.String()))
 		if elems[index] != nil {
-			infer.Logger.Print(f.Sprintf(SubSymbol+"accessed as %s", elems[index]))
+			infer.Logger.Print(ctx.F.Sprintf(SubSymbol+"accessed as %s", elems[index]))
 		} else {
-			elems[index] = &Instance{elem, f.InstanceID(), l.Index}
-			infer.Logger.Printf(f.Sprintf(SubSymbol+"elem uninitialised, set to %s", elem.Name()))
+			elems[index] = &Value{elem, ctx.F.InstanceID(), ctx.L.Index}
+			infer.Logger.Printf(ctx.F.Sprintf(SubSymbol+"elem uninitialised, set to %s", elem.Name()))
 		}
-		initNestedRefVar(infer, f, b, l, elems[index], false)
-		f.locals[elem] = elems[index]
+		initNestedRefVar(infer, ctx, elems[index], false)
+		ctx.F.locals[elem] = elems[index]
 		return
 	}
 	// Slices.
 	if sType, ok := derefType(array.Type()).Underlying().(*types.Slice); ok {
-		sInst, ok := f.locals[array]
+		sInst, ok := ctx.F.locals[array]
 		if !ok {
-			sInst, ok = f.Prog.globals[array]
+			sInst, ok = ctx.F.Prog.globals[array]
 			if !ok {
 				infer.Logger.Fatalf("index-addr: %s: slice %+v", ErrUnknownValue, array)
 				return
@@ -650,19 +651,19 @@ func visitIndexAddr(instr *ssa.IndexAddr, infer *TypeInfer, f *Function, b *Bloc
 		}
 		// Check status of instance.
 		switch inst := sInst.(type) {
-		case *Instance: // Continue
+		case *Value: // Continue
 			if basic, ok := sType.Elem().(*types.Basic); ok && basic.Kind() == types.Byte {
-				f.locals[elem] = inst
+				ctx.F.locals[elem] = inst
 				return
 			}
-		case *ExtInstance: // External
-			infer.Logger.Print(f.Sprintf(SubSymbol+"index-addr: slice %+v is external", sInst))
-			f.locals[elem] = inst
+		case *External: // External
+			infer.Logger.Print(ctx.F.Sprintf(SubSymbol+"index-addr: slice %+v is external", sInst))
+			ctx.F.locals[elem] = inst
 			return
-		case *ConstInstance:
-			infer.Logger.Print(f.Sprintf(SubSymbol+"index-addr: slice %+v is a constant", sInst))
+		case *Const:
+			infer.Logger.Print(ctx.F.Sprintf(SubSymbol+"index-addr: slice %+v is a constant", sInst))
 			if inst.Const.IsNil() {
-				f.locals[elem] = inst
+				ctx.F.locals[elem] = inst
 			}
 			return
 		default:
@@ -670,110 +671,110 @@ func visitIndexAddr(instr *ssa.IndexAddr, infer *TypeInfer, f *Function, b *Bloc
 			return
 		}
 		// Find the slice.
-		elems, ok := f.arrays[sInst]
+		elems, ok := ctx.F.arrays[sInst]
 		if !ok {
-			elems, ok = f.Prog.arrays[sInst]
+			elems, ok = ctx.F.Prog.arrays[sInst]
 			if !ok {
 				infer.Logger.Fatalf("index-addr: %s: slice uninitialised %+v", ErrUnknownValue, sInst)
 				return
 			}
 		}
-		infer.Logger.Print(f.Sprintf(ValSymbol+"%s = %s"+FieldSymbol+"[%s] (slice) of type %s", instr.Name(), sInst, index, sType.String()))
+		infer.Logger.Print(ctx.F.Sprintf(ValSymbol+"%s = %s"+FieldSymbol+"[%s] (slice) of type %s", instr.Name(), sInst, index, sType.String()))
 		if elems[index] != nil {
-			infer.Logger.Print(f.Sprintf(SubSymbol+"accessed as %s", elems[index]))
+			infer.Logger.Print(ctx.F.Sprintf(SubSymbol+"accessed as %s", elems[index]))
 		} else {
-			elems[index] = &Instance{elem, f.InstanceID(), l.Index}
-			infer.Logger.Printf(f.Sprintf(SubSymbol+"elem uninitialised, set to %s", elem.Name()))
+			elems[index] = &Value{elem, ctx.F.InstanceID(), ctx.L.Index}
+			infer.Logger.Printf(ctx.F.Sprintf(SubSymbol+"elem uninitialised, set to %s", elem.Name()))
 		}
-		initNestedRefVar(infer, f, b, l, elems[index], false)
-		f.locals[elem] = elems[index]
+		initNestedRefVar(infer, ctx, elems[index], false)
+		ctx.F.locals[elem] = elems[index]
 		return
 	}
 	infer.Logger.Fatalf("index-addr: %s: not array/slice %+v", ErrInvalidVarRead, array)
 }
 
-func visitJump(jump *ssa.Jump, infer *TypeInfer, f *Function, b *Block, l *Loop) {
+func visitJump(jump *ssa.Jump, infer *TypeInfer, ctx *Context) {
 	if len(jump.Block().Succs) != 1 {
 		infer.Logger.Fatal(ErrInvalidJumpSucc)
 	}
 	curr, next := jump.Block(), jump.Block().Succs[0]
-	infer.Logger.Printf(f.Sprintf(SkipSymbol+"block %d%s%d", curr.Index, fmtLoopHL(JumpSymbol), next.Index))
-	switch l.State {
+	infer.Logger.Printf(ctx.F.Sprintf(SkipSymbol+"block %d%s%d", curr.Index, fmtLoopHL(JumpSymbol), next.Index))
+	switch ctx.L.State {
 	case Exit:
-		l.State = NonLoop
+		ctx.L.State = NonLoop
 	}
 	if len(next.Preds) > 1 {
-		infer.Logger.Printf(f.Sprintf(SplitSymbol+"Jump (%d ⇾ %d) %s", curr.Index, next.Index, l.String()))
+		infer.Logger.Printf(ctx.F.Sprintf(SplitSymbol+"Jump (%d ⇾ %d) %s", curr.Index, next.Index, ctx.L.String()))
 		var stmt *migo.CallStatement
-		if l.Bound == Static && l.HasNext() {
-			stmt = &migo.CallStatement{Name: fmt.Sprintf("%s#%d_loop%d", f.Fn.String(), next.Index, l.Index), Params: []*migo.Parameter{}}
+		if ctx.L.Bound == Static && ctx.L.HasNext() {
+			stmt = &migo.CallStatement{Name: fmt.Sprintf("%s#%d_loop%d", ctx.F.Fn.String(), next.Index, ctx.L.Index), Params: []*migo.Parameter{}}
 		} else {
-			stmt = &migo.CallStatement{Name: fmt.Sprintf("%s#%d", f.Fn.String(), next.Index)}
-			for _, p := range f.FuncDef.Params {
+			stmt = &migo.CallStatement{Name: fmt.Sprintf("%s#%d", ctx.F.Fn.String(), next.Index)}
+			for _, p := range ctx.F.FuncDef.Params {
 				stmt.AddParams(&migo.Parameter{Caller: p.Callee, Callee: p.Callee})
 			}
 		}
-		//for _, s := range f.FuncDef.Stmts {
+		//for _, s := range ctx.F.FuncDef.Stmts {
 		//	if nc, ok := s.(*migo.NewChanStatement); ok {
 		//		stmt.AddParams(&migo.Parameter{Caller: nc.Name, Callee: nc.Name})
 		//	}
 		//}
-		//for _, p := range f.FuncDef.Params {
+		//for _, p := range ctx.F.FuncDef.Params {
 		//	stmt.AddParams(&migo.Parameter{Caller: p.Callee, Callee: p.Callee})
 		//}
-		f.FuncDef.AddStmts(stmt)
-		if _, visited := f.Visited[next]; !visited {
-			newBlock := NewBlock(f, next, b.Index)
-			oldFunc, newFunc := f.FuncDef, newBlock.MigoDef
-			if l.Bound == Static && l.HasNext() {
-				newFunc = migo.NewFunction(fmt.Sprintf("%s#%d_loop%d", f.Fn.String(), next.Index, l.Index))
+		ctx.F.FuncDef.AddStmts(stmt)
+		if _, visited := ctx.F.Visited[next]; !visited {
+			newBlock := NewBlock(ctx.F, next, ctx.B.Index)
+			oldFunc, newFunc := ctx.F.FuncDef, newBlock.MigoDef
+			if ctx.L.Bound == Static && ctx.L.HasNext() {
+				newFunc = migo.NewFunction(fmt.Sprintf("%s#%d_loop%d", ctx.F.Fn.String(), next.Index, ctx.L.Index))
 			}
 			for _, p := range stmt.Params {
 				newFunc.AddParams(&migo.Parameter{Caller: p.Callee, Callee: p.Callee})
 			}
-			f.FuncDef = newFunc
+			ctx.F.FuncDef = newFunc
 			infer.Env.MigoProg.AddFunction(newFunc)
-			visitBasicBlock(next, infer, f, newBlock, l)
-			f.FuncDef = oldFunc
+			visitBasicBlock(next, infer, ctx.F, newBlock, ctx.L)
+			ctx.F.FuncDef = oldFunc
 			return
 		}
 	}
-	visitBasicBlock(next, infer, f, NewBlock(f, next, b.Index), l)
+	visitBasicBlock(next, infer, ctx.F, NewBlock(ctx.F, next, ctx.B.Index), ctx.L)
 }
 
-func visitLookup(instr *ssa.Lookup, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	v, ok := f.locals[instr.X]
+func visitLookup(instr *ssa.Lookup, infer *TypeInfer, ctx *Context) {
+	v, ok := ctx.F.locals[instr.X]
 	if !ok {
 		if c, ok := instr.X.(*ssa.Const); ok {
-			f.locals[instr.X] = &ConstInstance{c}
-			v = f.locals[instr.X]
+			ctx.F.locals[instr.X] = &Const{c}
+			v = ctx.F.locals[instr.X]
 		} else {
 			infer.Logger.Fatalf("lookup: %s: %+v", ErrUnknownValue, instr.X)
 			return
 		}
 	}
 	// Lookup test.
-	idx, ok := f.locals[instr.Index]
+	idx, ok := ctx.F.locals[instr.Index]
 	if !ok {
 		if c, ok := instr.Index.(*ssa.Const); ok {
-			idx = &ConstInstance{c}
+			idx = &Const{c}
 		} else {
-			idx = &Instance{instr.Index, f.InstanceID(), l.Index}
+			idx = &Value{instr.Index, ctx.F.InstanceID(), ctx.L.Index}
 		}
-		f.locals[instr.Index] = idx
+		ctx.F.locals[instr.Index] = idx
 	}
-	f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
-	initNestedRefVar(infer, f, b, l, f.locals[instr], false)
+	ctx.F.locals[instr] = &Value{instr, ctx.F.InstanceID(), ctx.L.Index}
+	initNestedRefVar(infer, ctx, ctx.F.locals[instr], false)
 	if instr.CommaOk {
-		f.commaok[f.locals[instr]] = &CommaOk{Instr: instr, Result: f.locals[instr]}
-		f.tuples[f.locals[instr]] = make(Tuples, 2) // { elem, lookupOk }
+		ctx.F.commaok[ctx.F.locals[instr]] = &CommaOk{Instr: instr, Result: ctx.F.locals[instr]}
+		ctx.F.tuples[ctx.F.locals[instr]] = make(Tuples, 2) // { elem, lookupOk }
 	}
-	infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = lookup %s[%s]", f.locals[instr], v, idx))
+	infer.Logger.Print(ctx.F.Sprintf(SkipSymbol+"%s = lookup %s[%s]", ctx.F.locals[instr], v, idx))
 }
 
-func visitMakeChan(instr *ssa.MakeChan, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	newch := &Instance{instr, f.InstanceID(), l.Index}
-	f.locals[instr] = newch
+func visitMakeChan(instr *ssa.MakeChan, infer *TypeInfer, ctx *Context) {
+	newch := &Value{instr, ctx.F.InstanceID(), ctx.L.Index}
+	ctx.F.locals[instr] = newch
 	chType, ok := instr.Type().(*types.Chan)
 	if !ok {
 		infer.Logger.Fatal(ErrMakeChanNonChan)
@@ -782,141 +783,141 @@ func visitMakeChan(instr *ssa.MakeChan, infer *TypeInfer, f *Function, b *Block,
 	if !ok {
 		infer.Logger.Fatal(ErrNonConstChanBuf)
 	}
-	infer.Logger.Printf(f.Sprintf(ChanSymbol+"%s = %s {t:%s, buf:%d} @ %s",
+	infer.Logger.Printf(ctx.F.Sprintf(ChanSymbol+"%s = %s {t:%s, buf:%d} @ %s",
 		newch,
 		fmtChan("chan"),
 		chType.Elem(),
 		bufSz.Int64(),
 		fmtPos(infer.SSA.FSet.Position(instr.Pos()).String())))
-	f.FuncDef.AddStmts(&migo.NewChanStatement{Name: instr, Chan: newch.String(), Size: bufSz.Int64()})
+	ctx.F.FuncDef.AddStmts(&migo.NewChanStatement{Name: instr, Chan: newch.String(), Size: bufSz.Int64()})
 }
 
-func visitMakeClosure(instr *ssa.MakeClosure, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
-	f.Prog.closures[f.locals[instr]] = make(Captures, len(instr.Bindings))
+func visitMakeClosure(instr *ssa.MakeClosure, infer *TypeInfer, ctx *Context) {
+	ctx.F.locals[instr] = &Value{instr, ctx.F.InstanceID(), ctx.L.Index}
+	ctx.F.Prog.closures[ctx.F.locals[instr]] = make(Captures, len(instr.Bindings))
 	for i, binding := range instr.Bindings {
-		f.Prog.closures[f.locals[instr]][i] = f.locals[binding]
+		ctx.F.Prog.closures[ctx.F.locals[instr]][i] = ctx.F.locals[binding]
 	}
-	infer.Logger.Print(f.Sprintf(NewSymbol+"%s = make closure", f.locals[instr]))
+	infer.Logger.Print(ctx.F.Sprintf(NewSymbol+"%s = make closure", ctx.F.locals[instr]))
 }
 
-func visitMakeInterface(instr *ssa.MakeInterface, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	iface, ok := f.locals[instr.X]
+func visitMakeInterface(instr *ssa.MakeInterface, infer *TypeInfer, ctx *Context) {
+	iface, ok := ctx.F.locals[instr.X]
 	if !ok {
 		if c, ok := instr.X.(*ssa.Const); ok {
-			f.locals[instr.X] = &ConstInstance{c}
+			ctx.F.locals[instr.X] = &Const{c}
 		} else {
 			infer.Logger.Fatalf("make-iface: %s: %s", ErrUnknownValue, instr.X)
 			return
 		}
 	}
-	f.locals[instr] = iface
-	infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = make-iface %s", f.locals[instr], instr.String()))
+	ctx.F.locals[instr] = iface
+	infer.Logger.Print(ctx.F.Sprintf(SkipSymbol+"%s = make-iface %s", ctx.F.locals[instr], instr.String()))
 }
 
-func visitMakeMap(instr *ssa.MakeMap, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
-	f.maps[f.locals[instr]] = make(map[VarInstance]VarInstance)
-	infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = make-map", f.locals[instr]))
+func visitMakeMap(instr *ssa.MakeMap, infer *TypeInfer, ctx *Context) {
+	ctx.F.locals[instr] = &Value{instr, ctx.F.InstanceID(), ctx.L.Index}
+	ctx.F.maps[ctx.F.locals[instr]] = make(map[Instance]Instance)
+	infer.Logger.Print(ctx.F.Sprintf(SkipSymbol+"%s = make-map", ctx.F.locals[instr]))
 }
 
-func visitMakeSlice(instr *ssa.MakeSlice, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
-	f.arrays[f.locals[instr]] = make(Elems)
-	infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = make-slice", f.locals[instr]))
+func visitMakeSlice(instr *ssa.MakeSlice, infer *TypeInfer, ctx *Context) {
+	ctx.F.locals[instr] = &Value{instr, ctx.F.InstanceID(), ctx.L.Index}
+	ctx.F.arrays[ctx.F.locals[instr]] = make(Elems)
+	infer.Logger.Print(ctx.F.Sprintf(SkipSymbol+"%s = make-slice", ctx.F.locals[instr]))
 }
 
-func visitMapUpdate(instr *ssa.MapUpdate, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	inst, ok := f.locals[instr.Map]
+func visitMapUpdate(instr *ssa.MapUpdate, infer *TypeInfer, ctx *Context) {
+	inst, ok := ctx.F.locals[instr.Map]
 	if !ok {
 		infer.Logger.Fatalf("map-update: %s: %s", ErrUnknownValue, instr.Map)
 		return
 	}
-	m, ok := f.maps[inst]
+	m, ok := ctx.F.maps[inst]
 	if !ok {
-		f.maps[inst] = make(map[VarInstance]VarInstance) // XXX This shouldn't happen
-		m = f.maps[inst]                                 // The map must be defined somewhere we skipped
+		ctx.F.maps[inst] = make(map[Instance]Instance) // XXX This shouldn't happen
+		m = ctx.F.maps[inst]                           // The map must be defined somewhere we skipped
 		infer.Logger.Printf("map-update: uninitialised map: %+v %s", instr.Map, instr.Map.String())
 	}
-	k, ok := f.locals[instr.Key]
+	k, ok := ctx.F.locals[instr.Key]
 	if !ok {
-		k = &Instance{instr.Key, f.InstanceID(), l.Index}
-		f.locals[instr.Key] = k
+		k = &Value{instr.Key, ctx.F.InstanceID(), ctx.L.Index}
+		ctx.F.locals[instr.Key] = k
 	}
-	v, ok := f.locals[instr.Value]
+	v, ok := ctx.F.locals[instr.Value]
 	if !ok {
 		if c, ok := instr.Value.(*ssa.Const); ok {
-			v = &ConstInstance{c}
+			v = &Const{c}
 		} else {
-			v = &Instance{instr.Value, f.InstanceID(), l.Index}
+			v = &Value{instr.Value, ctx.F.InstanceID(), ctx.L.Index}
 		}
-		f.locals[instr.Value] = v
+		ctx.F.locals[instr.Value] = v
 	}
 	m[k] = v
-	infer.Logger.Printf(f.Sprintf(SkipSymbol+"%s[%s] = %s", inst, k, v))
+	infer.Logger.Printf(ctx.F.Sprintf(SkipSymbol+"%s[%s] = %s", inst, k, v))
 }
 
-func visitNext(instr *ssa.Next, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
-	f.tuples[f.locals[instr]] = make(Tuples, 3) // { ok, k, v}
-	infer.Logger.Print(f.Sprintf(SkipSymbol+"%s (ok, k, v) = next", f.locals[instr]))
+func visitNext(instr *ssa.Next, infer *TypeInfer, ctx *Context) {
+	ctx.F.locals[instr] = &Value{instr, ctx.F.InstanceID(), ctx.L.Index}
+	ctx.F.tuples[ctx.F.locals[instr]] = make(Tuples, 3) // { ok, k, v}
+	infer.Logger.Print(ctx.F.Sprintf(SkipSymbol+"%s (ok, k, v) = next", ctx.F.locals[instr]))
 }
 
-func visitPhi(instr *ssa.Phi, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	loopDetectBounds(instr, infer, f, b, l)
+func visitPhi(instr *ssa.Phi, infer *TypeInfer, ctx *Context) {
+	loopDetectBounds(instr, infer, ctx)
 }
 
-func visitRecv(instr *ssa.UnOp, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index} // received value
-	ch, ok := f.locals[instr.X]
+func visitRecv(instr *ssa.UnOp, infer *TypeInfer, ctx *Context) {
+	ctx.F.locals[instr] = &Value{instr, ctx.F.InstanceID(), ctx.L.Index} // received value
+	ch, ok := ctx.F.locals[instr.X]
 	if !ok { // Channel does not exist
 		infer.Logger.Fatalf("recv: %s: %+v", ErrUnknownValue, instr.X)
 		return
 	}
 	// Receive test.
 	if instr.CommaOk {
-		f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
-		f.commaok[f.locals[instr]] = &CommaOk{Instr: instr, Result: f.locals[instr]}
-		f.tuples[f.locals[instr]] = make(Tuples, 2) // { recvVal, recvOk }
+		ctx.F.locals[instr] = &Value{instr, ctx.F.InstanceID(), ctx.L.Index}
+		ctx.F.commaok[ctx.F.locals[instr]] = &CommaOk{Instr: instr, Result: ctx.F.locals[instr]}
+		ctx.F.tuples[ctx.F.locals[instr]] = make(Tuples, 2) // { recvVal, recvOk }
 	}
 	infer.Logger.Println(ch)
-	pos := infer.SSA.DecodePos(ch.(*Instance).Pos())
-	infer.Logger.Print(f.Sprintf(RecvSymbol+"%s = %s @ %s", f.locals[instr], ch, fmtPos(pos)))
-	f.FuncDef.AddStmts(&migo.RecvStatement{Chan: ch.Var().Name()})
-	f.FuncDef.HasComm = true
+	pos := infer.SSA.DecodePos(ch.(*Value).Pos())
+	infer.Logger.Print(ctx.F.Sprintf(RecvSymbol+"%s = %s @ %s", ctx.F.locals[instr], ch, fmtPos(pos)))
+	ctx.F.FuncDef.AddStmts(&migo.RecvStatement{Chan: ch.(*Value).Name()})
+	ctx.F.FuncDef.HasComm = true
 
 	// Initialise received value if needed.
-	initNestedRefVar(infer, f, b, l, f.locals[instr], false)
+	initNestedRefVar(infer, ctx, ctx.F.locals[instr], false)
 }
 
-func visitReturn(ret *ssa.Return, infer *TypeInfer, f *Function, b *Block, l *Loop) {
+func visitReturn(ret *ssa.Return, infer *TypeInfer, ctx *Context) {
 	switch len(ret.Results) {
 	case 0:
-		infer.Logger.Printf(f.Sprintf(ReturnSymbol))
+		infer.Logger.Printf(ctx.F.Sprintf(ReturnSymbol))
 	case 1:
 		if c, ok := ret.Results[0].(*ssa.Const); ok {
-			f.locals[ret.Results[0]] = &ConstInstance{c}
+			ctx.F.locals[ret.Results[0]] = &Const{c}
 		}
-		res, ok := f.locals[ret.Results[0]]
+		res, ok := ctx.F.locals[ret.Results[0]]
 		if !ok {
-			infer.Logger.Printf("Returning uninitialised value %s/%s", ret.Results[0].Name(), f.locals[ret.Results[0]])
+			infer.Logger.Printf("Returning uninitialised value %s/%s", ret.Results[0].Name(), ctx.F.locals[ret.Results[0]])
 			return
 		}
-		f.retvals = append(f.retvals, f.locals[ret.Results[0]])
-		infer.Logger.Printf(f.Sprintf(ReturnSymbol+"return[1] %s %v", res, f.retvals))
+		ctx.F.retvals = append(ctx.F.retvals, ctx.F.locals[ret.Results[0]])
+		infer.Logger.Printf(ctx.F.Sprintf(ReturnSymbol+"return[1] %s %v", res, ctx.F.retvals))
 	default:
 		for _, res := range ret.Results {
-			f.retvals = append(f.retvals, f.locals[res])
+			ctx.F.retvals = append(ctx.F.retvals, ctx.F.locals[res])
 		}
-		infer.Logger.Printf(f.Sprintf(ReturnSymbol+"return[%d] %v", len(ret.Results), f.retvals))
+		infer.Logger.Printf(ctx.F.Sprintf(ReturnSymbol+"return[%d] %v", len(ret.Results), ctx.F.retvals))
 	}
 }
 
-func visitRunDefers(instr *ssa.RunDefers, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	for i := len(f.defers) - 1; i >= 0; i-- {
-		common := f.defers[i].Common()
+func visitRunDefers(instr *ssa.RunDefers, infer *TypeInfer, ctx *Context) {
+	for i := len(ctx.F.defers) - 1; i >= 0; i-- {
+		common := ctx.F.defers[i].Common()
 		if common.StaticCallee() != nil {
-			callee := f.prepareCallFn(common, common.StaticCallee(), nil)
+			callee := ctx.F.prepareCallFn(common, common.StaticCallee(), nil)
 			visitFunc(callee.Fn, infer, callee)
 			if callee.HasBody() {
 				callStmt := &migo.CallStatement{Name: callee.Fn.String(), Params: []*migo.Parameter{}}
@@ -931,15 +932,15 @@ func visitRunDefers(instr *ssa.RunDefers, infer *TypeInfer, f *Function, b *Bloc
 	}
 }
 
-func visitSelect(instr *ssa.Select, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
-	f.selects[f.locals[instr]] = &Select{
+func visitSelect(instr *ssa.Select, infer *TypeInfer, ctx *Context) {
+	ctx.F.locals[instr] = &Value{instr, ctx.F.InstanceID(), ctx.L.Index}
+	ctx.F.selects[ctx.F.locals[instr]] = &Select{
 		Instr:    instr,
 		MigoStmt: &migo.SelectStatement{Cases: [][]migo.Statement{}},
 	}
-	selStmt := f.selects[f.locals[instr]].MigoStmt
+	selStmt := ctx.F.selects[ctx.F.locals[instr]].MigoStmt
 	for _, sel := range instr.States {
-		ch, ok := f.locals[sel.Chan]
+		ch, ok := ctx.F.locals[sel.Chan]
 		if !ok {
 			infer.Logger.Print("Select found an unknown channel", sel.Chan.String())
 		}
@@ -947,9 +948,9 @@ func visitSelect(instr *ssa.Select, infer *TypeInfer, f *Function, b *Block, l *
 		//c := getChan(ch.Var(), infer)
 		switch sel.Dir {
 		case types.SendOnly:
-			stmt = &migo.SendStatement{Chan: ch.Var().Name()}
+			stmt = &migo.SendStatement{Chan: ch.(*Value).Name()}
 		case types.RecvOnly:
-			stmt = &migo.RecvStatement{Chan: ch.Var().Name()}
+			stmt = &migo.RecvStatement{Chan: ch.(*Value).Name()}
 		}
 		selStmt.Cases = append(selStmt.Cases, []migo.Statement{stmt})
 	}
@@ -957,175 +958,175 @@ func visitSelect(instr *ssa.Select, infer *TypeInfer, f *Function, b *Block, l *
 	if !instr.Blocking {
 		selStmt.Cases = append(selStmt.Cases, []migo.Statement{&migo.TauStatement{}})
 	}
-	f.tuples[f.locals[instr]] = make(Tuples, 2+len(selStmt.Cases)) // index + recvok + cases
-	f.FuncDef.AddStmts(selStmt)
-	f.FuncDef.HasComm = true
-	infer.Logger.Print(f.Sprintf(SelectSymbol+" %d cases %s = %s", 2+len(selStmt.Cases), instr.Name(), instr.String()))
+	ctx.F.tuples[ctx.F.locals[instr]] = make(Tuples, 2+len(selStmt.Cases)) // index + recvok + cases
+	ctx.F.FuncDef.AddStmts(selStmt)
+	ctx.F.FuncDef.HasComm = true
+	infer.Logger.Print(ctx.F.Sprintf(SelectSymbol+" %d cases %s = %s", 2+len(selStmt.Cases), instr.Name(), instr.String()))
 }
 
-func visitSend(instr *ssa.Send, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	ch, ok := f.locals[instr.Chan]
+func visitSend(instr *ssa.Send, infer *TypeInfer, ctx *Context) {
+	ch, ok := ctx.F.locals[instr.Chan]
 	if !ok {
 		infer.Logger.Fatalf("send: %s: %+v", ErrUnknownValue, instr.Chan)
 	}
-	pos := infer.SSA.DecodePos(ch.(*Instance).Pos())
-	infer.Logger.Printf(f.Sprintf(SendSymbol+"%s @ %s", ch, fmtPos(pos)))
-	f.FuncDef.AddStmts(&migo.SendStatement{Chan: ch.Var().Name()})
-	f.FuncDef.HasComm = true
+	pos := infer.SSA.DecodePos(ch.(*Value).Pos())
+	infer.Logger.Printf(ctx.F.Sprintf(SendSymbol+"%s @ %s", ch, fmtPos(pos)))
+	ctx.F.FuncDef.AddStmts(&migo.SendStatement{Chan: ch.(*Value).Name()})
+	ctx.F.FuncDef.HasComm = true
 }
 
-func visitSkip(instr ssa.Instruction, infer *TypeInfer, f *Function, b *Block, loop *Loop) {
+func visitSkip(instr ssa.Instruction, infer *TypeInfer, ctx *Context) {
 	if v, isVal := instr.(ssa.Value); isVal {
-		infer.Logger.Printf(f.Sprintf(SkipSymbol+"%T\t%s = %s", v, v.Name(), v.String()))
+		infer.Logger.Printf(ctx.F.Sprintf(SkipSymbol+"%T\t%s = %s", v, v.Name(), v.String()))
 		return
 	}
-	infer.Logger.Printf(f.Sprintf(SkipSymbol+"%T\t%s", instr, instr))
+	infer.Logger.Printf(ctx.F.Sprintf(SkipSymbol+"%T\t%s", instr, instr))
 }
 
-func visitSlice(instr *ssa.Slice, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
-	if _, ok := f.locals[instr.X]; !ok {
+func visitSlice(instr *ssa.Slice, infer *TypeInfer, ctx *Context) {
+	ctx.F.locals[instr] = &Value{instr, ctx.F.InstanceID(), ctx.L.Index}
+	if _, ok := ctx.F.locals[instr.X]; !ok {
 		infer.Logger.Fatalf("slice: %s: %+v", ErrUnknownValue, instr.X)
 		return
 	}
 	if basic, ok := instr.Type().Underlying().(*types.Basic); ok && basic.Kind() == types.String {
-		infer.Logger.Printf(f.Sprintf(SkipSymbol+"%s = slice on string, skipping", f.locals[instr]))
+		infer.Logger.Printf(ctx.F.Sprintf(SkipSymbol+"%s = slice on string, skipping", ctx.F.locals[instr]))
 		return
 	}
 	if slice, ok := instr.Type().Underlying().(*types.Slice); ok {
 		if basic, ok := slice.Elem().Underlying().(*types.Basic); ok && basic.Kind() == types.Byte {
-			infer.Logger.Printf(f.Sprintf(SkipSymbol+"%s = slice on byte, skipping", f.locals[instr]))
+			infer.Logger.Printf(ctx.F.Sprintf(SkipSymbol+"%s = slice on byte, skipping", ctx.F.locals[instr]))
 			return
 		}
 	}
-	aInst, ok := f.arrays[f.locals[instr.X]]
+	aInst, ok := ctx.F.arrays[ctx.F.locals[instr.X]]
 	if !ok {
-		aInst, ok = f.Prog.arrays[f.locals[instr.X]]
+		aInst, ok = ctx.F.Prog.arrays[ctx.F.locals[instr.X]]
 		if !ok {
-			switch f.locals[instr.X].(type) {
-			case *Instance: // Continue
+			switch ctx.F.locals[instr.X].(type) {
+			case *Value: // Continue
 				infer.Logger.Fatalf("slice: %s: non-slice %+v", ErrUnknownValue, instr.X)
 				return
-			case *ConstInstance:
-				f.arrays[f.locals[instr.X]] = make(Elems)
-				aInst = f.arrays[f.locals[instr.X]]
-				infer.Logger.Print(f.Sprintf("slice: const %s %s", instr.X.Name(), f.locals[instr.X]))
+			case *Const:
+				ctx.F.arrays[ctx.F.locals[instr.X]] = make(Elems)
+				aInst = ctx.F.arrays[ctx.F.locals[instr.X]]
+				infer.Logger.Print(ctx.F.Sprintf("slice: const %s %s", instr.X.Name(), ctx.F.locals[instr.X]))
 				return
 			}
 		}
-		f.Prog.arrays[f.locals[instr]] = aInst
-		infer.Logger.Print(f.Sprintf(ValSymbol+"%s = slice %s", f.locals[instr], f.locals[instr.X]))
+		ctx.F.Prog.arrays[ctx.F.locals[instr]] = aInst
+		infer.Logger.Print(ctx.F.Sprintf(ValSymbol+"%s = slice %s", ctx.F.locals[instr], ctx.F.locals[instr.X]))
 		return
 	}
-	f.arrays[f.locals[instr]] = aInst
-	infer.Logger.Print(f.Sprintf(ValSymbol+"%s = slice %s", f.locals[instr], f.locals[instr.X]))
+	ctx.F.arrays[ctx.F.locals[instr]] = aInst
+	infer.Logger.Print(ctx.F.Sprintf(ValSymbol+"%s = slice %s", ctx.F.locals[instr], ctx.F.locals[instr.X]))
 }
 
-func visitStore(instr *ssa.Store, infer *TypeInfer, f *Function, b *Block, l *Loop) {
+func visitStore(instr *ssa.Store, infer *TypeInfer, ctx *Context) {
 	source, dstPtr := instr.Val, instr.Addr
-	// Global.
+	// Globactx.L.
 	if _, ok := dstPtr.(*ssa.Global); ok {
-		dstInst, ok := f.Prog.globals[dstPtr]
+		dstInst, ok := ctx.F.Prog.globals[dstPtr]
 		if !ok {
 			infer.Logger.Fatalf("store (global): %s: %+v", ErrUnknownValue, dstPtr)
 		}
-		inst, ok := f.locals[source]
+		inst, ok := ctx.F.locals[source]
 		if !ok {
-			inst, ok = f.Prog.globals[source]
+			inst, ok = ctx.F.Prog.globals[source]
 			if !ok {
 				if c, ok := source.(*ssa.Const); ok {
-					inst = &ConstInstance{c}
+					inst = &Const{c}
 				} else {
 					infer.Logger.Fatalf("store (global): %s: %+v", ErrUnknownValue, source)
 				}
 			}
 		}
-		f.Prog.globals[dstPtr] = inst
+		ctx.F.Prog.globals[dstPtr] = inst
 		switch source.Type().Underlying().(type) {
 		case *types.Array:
-			f.updateInstances(dstInst, inst)
+			ctx.F.updateInstances(dstInst, inst)
 		case *types.Slice:
-			f.updateInstances(dstInst, inst)
+			ctx.F.updateInstances(dstInst, inst)
 		case *types.Struct:
-			f.updateInstances(dstInst, inst)
+			ctx.F.updateInstances(dstInst, inst)
 		case *types.Map:
-			f.updateInstances(dstInst, inst)
+			ctx.F.updateInstances(dstInst, inst)
 		default:
 			// Nothing to update.
 		}
-		infer.Logger.Print(f.Sprintf(ValSymbol+"%s = %s (global)", dstPtr.Name(), f.locals[source]))
+		infer.Logger.Print(ctx.F.Sprintf(ValSymbol+"%s = %s (global)", dstPtr.Name(), ctx.F.locals[source]))
 		return
 	}
 	if basic, ok := derefType(dstPtr.Type()).Underlying().(*types.Basic); ok && basic.Kind() == types.Byte {
-		infer.Logger.Print(f.Sprintf(SubSymbol+"store: %+v is a byte", dstPtr))
-		f.locals[dstPtr] = &Instance{dstPtr, f.InstanceID(), l.Index}
+		infer.Logger.Print(ctx.F.Sprintf(SubSymbol+"store: %+v is a byte", dstPtr))
+		ctx.F.locals[dstPtr] = &Value{dstPtr, ctx.F.InstanceID(), ctx.L.Index}
 	}
-	// Local.
-	dstInst, ok := f.locals[dstPtr]
+	// Locactx.L.
+	dstInst, ok := ctx.F.locals[dstPtr]
 	if !ok {
 		infer.Logger.Fatalf("store: addr %s: %+v", ErrUnknownValue, dstPtr)
 	}
-	inst, ok := f.locals[source]
+	inst, ok := ctx.F.locals[source]
 	if !ok {
 		if c, ok := source.(*ssa.Const); ok {
-			inst = &ConstInstance{c}
+			inst = &Const{c}
 		} else {
 			infer.Logger.Printf("store: val %s%s: %s", source.Name(), source.Type(), ErrUnknownValue)
 		}
 	}
-	f.locals[dstPtr] = inst
+	ctx.F.locals[dstPtr] = inst
 	switch source.Type().Underlying().(type) {
 	case *types.Array:
-		f.updateInstances(dstInst, inst)
+		ctx.F.updateInstances(dstInst, inst)
 	case *types.Slice:
-		f.updateInstances(dstInst, inst)
+		ctx.F.updateInstances(dstInst, inst)
 	case *types.Struct:
-		f.updateInstances(dstInst, inst)
+		ctx.F.updateInstances(dstInst, inst)
 	case *types.Map:
-		f.updateInstances(dstInst, inst)
+		ctx.F.updateInstances(dstInst, inst)
 	default:
 		// Nothing to update.
 	}
-	infer.Logger.Print(f.Sprintf(ValSymbol+"*%s store= %s/%s", dstPtr.Name(), source.Name(), f.locals[source]))
+	infer.Logger.Print(ctx.F.Sprintf(ValSymbol+"*%s store= %s/%s", dstPtr.Name(), source.Name(), ctx.F.locals[source]))
 	return
 }
 
-func visitTypeAssert(instr *ssa.TypeAssert, infer *TypeInfer, f *Function, b *Block, l *Loop) {
+func visitTypeAssert(instr *ssa.TypeAssert, infer *TypeInfer, ctx *Context) {
 	if iface, ok := instr.AssertedType.(*types.Interface); ok {
 		if meth, _ := types.MissingMethod(instr.X.Type(), iface, true); meth == nil { // No missing methods
-			inst, ok := f.locals[instr.X]
+			inst, ok := ctx.F.locals[instr.X]
 			if !ok {
 				infer.Logger.Fatalf("typeassert: %s: iface X %+v", ErrUnknownValue, instr.X.Name())
 				return
 			}
 			if instr.CommaOk {
-				f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
-				f.commaok[f.locals[instr]] = &CommaOk{Instr: instr, Result: f.locals[instr]}
-				f.tuples[f.locals[instr]] = make(Tuples, 2)
-				infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = typeassert iface %s commaok", f.locals[instr], inst))
+				ctx.F.locals[instr] = &Value{instr, ctx.F.InstanceID(), ctx.L.Index}
+				ctx.F.commaok[ctx.F.locals[instr]] = &CommaOk{Instr: instr, Result: ctx.F.locals[instr]}
+				ctx.F.tuples[ctx.F.locals[instr]] = make(Tuples, 2)
+				infer.Logger.Print(ctx.F.Sprintf(SkipSymbol+"%s = typeassert iface %s commaok", ctx.F.locals[instr], inst))
 				return
 			}
-			f.locals[instr] = inst
-			infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = typeassert iface %s", f.locals[instr], inst))
+			ctx.F.locals[instr] = inst
+			infer.Logger.Print(ctx.F.Sprintf(SkipSymbol+"%s = typeassert iface %s", ctx.F.locals[instr], inst))
 			return
 		}
 		infer.Logger.Fatalf("typeassert: %s: %+v", ErrMethodNotFound, instr)
 		return
 	}
-	inst, ok := f.locals[instr.X]
+	inst, ok := ctx.F.locals[instr.X]
 	if !ok {
 		infer.Logger.Fatalf("typeassert: %s: assert from %+v", ErrUnknownValue, instr.X)
 		return
 	}
 	if instr.CommaOk {
-		f.locals[instr] = &Instance{instr, f.InstanceID(), l.Index}
-		f.commaok[f.locals[instr]] = &CommaOk{Instr: instr, Result: f.locals[instr]}
-		f.tuples[f.locals[instr]] = make(Tuples, 2)
-		infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = typeassert %s commaok", f.locals[instr], inst))
+		ctx.F.locals[instr] = &Value{instr, ctx.F.InstanceID(), ctx.L.Index}
+		ctx.F.commaok[ctx.F.locals[instr]] = &CommaOk{Instr: instr, Result: ctx.F.locals[instr]}
+		ctx.F.tuples[ctx.F.locals[instr]] = make(Tuples, 2)
+		infer.Logger.Print(ctx.F.Sprintf(SkipSymbol+"%s = typeassert %s commaok", ctx.F.locals[instr], inst))
 		return
 	}
-	f.locals[instr] = inst
-	infer.Logger.Print(f.Sprintf(SkipSymbol+"%s = typeassert %s", f.locals[instr], f.locals[instr.X]))
+	ctx.F.locals[instr] = inst
+	infer.Logger.Print(ctx.F.Sprintf(SkipSymbol+"%s = typeassert %s", ctx.F.locals[instr], ctx.F.locals[instr.X]))
 	return
 	//infer.Logger.Fatalf("typeassert: %s: %+v", ErrIncompatType, instr)
 }

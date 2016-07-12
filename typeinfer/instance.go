@@ -1,103 +1,107 @@
 package typeinfer
 
+// Wrapper of values and constants in an SSA program.
+// Designed for tracking usage and instances of values used in SSA program.
+
 import (
+	"bytes"
 	"fmt"
 	"go/constant"
+	"go/types"
 
 	"golang.org/x/tools/go/ssa"
 )
 
-// VarInstance is an interface for an instance of a defined value.
-type VarInstance interface {
-	Var() ssa.Value
-	IsConcrete() bool
-	GetInstance() int
-	GetIndex() int64
+// Instance is an interface for an instance of a defined value.
+type Instance interface {
+	Instance() (int, int)
 	String() string
 }
 
-// Instance captures a specific instance of a SSA value by counting the
-// number of instantiations.
-type Instance struct {
-	ssa.Value
-	Instance int   // Instance number (default: 0)
-	Index    int64 // Loop index associated with var (default: 0)
-}
-
-// Var returns the SSA value.
-func (i *Instance) Var() ssa.Value { return i.Value }
-
-func (i *Instance) IsConcrete() bool { return true }
-
-// GetInstance() returns the instance number.
-func (i *Instance) GetInstance() int { return i.Instance }
-
-// GetIndex() returns the loop index.
-func (i *Instance) GetIndex() int64 { return i.Index }
-func (i *Instance) String() string {
-	var parent string
-	if i.Parent() != nil {
-		parent = i.Parent().String()
-	} else {
-		parent = "__main__"
-	}
-	return fmt.Sprintf("%s.%s_%d_%d", parent, i.Name(), i.Instance, i.Index)
-}
-
-// ExtInstance captures an external instance of a SSA value by counting the
+// Value captures a specific instance of a SSA value by counting the number of
 // instantiations.
+type Value struct {
+	ssa.Value       // Storing the ssa.Value this instance is for.
+	instID    int   // Instance number (default: 0).
+	loopIdx   int64 // Loop index associated with var (default: 0).
+}
+
+// Instance returns the instance identifier pair.
+func (i *Value) Instance() (int, int) {
+	return i.instID, int(i.loopIdx)
+}
+
+func (i *Value) String() string {
+	var prefix bytes.Buffer
+	if i.Parent() != nil {
+		prefix.WriteString(i.Parent().String())
+	} else {
+		prefix.WriteString("__main__")
+	}
+	return fmt.Sprintf("%s.%s_%d_%d", prefix.String(), i.Name(), i.instID, i.loopIdx)
+}
+
+// Placeholder is a temporary stand in for actual SSA Value.
+type Placeholder struct {
+}
+
+// Instance returns the instance number.
+func (i *Placeholder) Instance() (int, int) {
+	return -1, -1
+}
+
+func (i *Placeholder) String() string {
+	return fmt.Sprintf("placeholder instance")
+}
+
+// External captures an external instance of an SSA value.
 //
 // An external instance is one without ssa.Value, usually if the creating body
 // is in runtime or not built as SSA.
-type ExtInstance struct {
-	parent   *ssa.Function
-	Instance int
-	Index    int64
+type External struct {
+	parent *ssa.Function // Parent (enclosing) function.
+	typ    types.Type    // Type of returned instance.
+	instID int           // Instance number (default: 0).
 }
 
-// Var returns the SSA value (always nil).
-func (i *ExtInstance) Var() ssa.Value { return nil }
-
-func (i *ExtInstance) IsConcrete() bool { return false }
-
-// GetInstance() returns the instance number.
-func (i *ExtInstance) GetInstance() int { return i.Instance }
-
-// GetIndex() returns the loop index.
-func (i *ExtInstance) GetIndex() int64 { return i.Index }
-
-func (i *ExtInstance) String() string {
-	return fmt.Sprintf("%s.%s_%d_%d", i.parent, "_retval_", i.Instance, i.Index)
+// Instance returns the instance number.
+func (i *External) Instance() (int, int) {
+	return i.instID, 0
 }
 
-// ConstInstance captures a constant value.
+func (i *External) String() string {
+	var prefix bytes.Buffer
+	if i.parent != nil {
+		prefix.WriteString(i.parent.String())
+	} else {
+		prefix.WriteString("__unknown__")
+	}
+	return fmt.Sprintf("%b.%s_%d:%s", prefix, "__ext", i.instID, i.typ.String())
+}
+
+// Const captures a constant value.
 //
 // This is just a wrapper.
-type ConstInstance struct {
-	Const *ssa.Const
+type Const struct {
+	*ssa.Const
 }
 
-// Var returns the SSA value (always nil).
-func (i *ConstInstance) Var() ssa.Value { return i.Const }
+// Instance returns the instance identifier pair.
+func (c *Const) Instance() (int, int) { return 0, 0 }
 
-// IsConcrete always return true.
-func (i *ConstInstance) IsConcrete() bool { return true }
-
-// GetInstance returns the instance number.
-func (i *ConstInstance) GetInstance() int { return 0 }
-
-// GetIndex returns the loop index.
-func (i *ConstInstance) GetIndex() int64 { return 0 }
-
-func (i *ConstInstance) String() string {
-	switch i.Const.Value.Kind() {
-	case constant.Int:
-		return fmt.Sprintf("%d", i.Const.Int64())
+func (c *Const) String() string {
+	switch c.Const.Value.Kind() {
 	case constant.Bool:
-		return fmt.Sprintf("%s", i.Const.String())
+		return fmt.Sprintf("%s", c.Const.String())
+	case constant.Complex:
+		return fmt.Sprintf("%v", c.Const.Complex128())
+	case constant.Float:
+		return fmt.Sprintf("%f", c.Const.Float64())
+	case constant.Int:
+		return fmt.Sprintf("%d", c.Const.Int64())
 	case constant.String:
-		return fmt.Sprintf("%s", i.Const.String())
+		return fmt.Sprintf("%s", c.Const.String())
 	default:
-		return fmt.Sprintf("__unimplemented__ %s", i.Const.Type())
+		panic("unknown constant type")
 	}
 }

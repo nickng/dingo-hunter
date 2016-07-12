@@ -44,10 +44,10 @@ type Program struct {
 	Infer        *TypeInfer            // Reference to inference.
 	MigoProg     *migo.Program         // Core calculus of program.
 
-	arrays   map[VarInstance]Elems     // Array elements.
-	closures map[VarInstance]Captures  // Closures.
-	globals  map[ssa.Value]VarInstance // Global variables.
-	structs  map[VarInstance]Fields    // Heap allocated struct fields.
+	arrays   map[Instance]Elems     // Array elements.
+	closures map[Instance]Captures  // Closures.
+	globals  map[ssa.Value]Instance // Global variables.
+	structs  map[Instance]Fields    // Heap allocated struct fields.
 }
 
 // NewProgram creates a program for a type inference.
@@ -56,10 +56,10 @@ func NewProgram(infer *TypeInfer) *Program {
 		FuncInstance: make(map[*ssa.Function]int),
 		InitPkgs:     make(map[*ssa.Package]bool),
 		Infer:        infer,
-		arrays:       make(map[VarInstance]Elems),
-		closures:     make(map[VarInstance]Captures),
-		globals:      make(map[ssa.Value]VarInstance),
-		structs:      make(map[VarInstance]Fields),
+		arrays:       make(map[Instance]Elems),
+		closures:     make(map[Instance]Captures),
+		globals:      make(map[ssa.Value]Instance),
+		structs:      make(map[Instance]Fields),
 	}
 }
 
@@ -76,18 +76,18 @@ type Function struct {
 	FuncDef     *migo.Function          // Function definition.
 	ChildBlocks map[int]*Block          // Map from index -> child SSA blocks.
 
-	id        int                                         // Instance identifier.
-	hasBody   bool                                        // True if function has body.
-	arrays    map[VarInstance]Elems                       // Array elements.
-	commaok   map[VarInstance]*CommaOk                    // CommaOK statements.
-	defers    []*ssa.Defer                                // Deferred calls.
-	locals    map[ssa.Value]VarInstance                   // Local variable instances.
-	maps      map[VarInstance]map[VarInstance]VarInstance // Map instances (just an approximate).
-	retvals   []VarInstance                               // Return value instances.
-	selects   map[VarInstance]*Select                     // Select cases mapping.
-	structs   map[VarInstance]Fields                      // Stack allocated struct fields.
-	tuples    map[VarInstance]Tuples                      // Tuples.
-	loopstack *LoopStack                                  // Stack of Loop.
+	id        int                                // Instance identifier.
+	hasBody   bool                               // True if function has body.
+	arrays    map[Instance]Elems                 // Array elements.
+	commaok   map[Instance]*CommaOk              // CommaOK statements.
+	defers    []*ssa.Defer                       // Deferred calls.
+	locals    map[ssa.Value]Instance             // Local variable instances.
+	maps      map[Instance]map[Instance]Instance // Map instances (just an approximate).
+	retvals   []Instance                         // Return value instances.
+	selects   map[Instance]*Select               // Select cases mapping.
+	structs   map[Instance]Fields                // Stack allocated struct fields.
+	tuples    map[Instance]Tuples                // Tuples.
+	loopstack *LoopStack                         // Stack of Loop.
 }
 
 // NewMainFunction returns a new main() call context.
@@ -99,15 +99,15 @@ func NewMainFunction(prog *Program, mainFn *ssa.Function) *Function {
 		FuncDef:     migo.NewFunction("main.main"),
 		ChildBlocks: make(map[int]*Block),
 
-		arrays:    make(map[VarInstance]Elems),
-		commaok:   make(map[VarInstance]*CommaOk),
+		arrays:    make(map[Instance]Elems),
+		commaok:   make(map[Instance]*CommaOk),
 		defers:    []*ssa.Defer{},
-		locals:    make(map[ssa.Value]VarInstance),
-		maps:      make(map[VarInstance]map[VarInstance]VarInstance),
-		retvals:   []VarInstance{},
-		selects:   make(map[VarInstance]*Select),
-		structs:   make(map[VarInstance]Fields),
-		tuples:    make(map[VarInstance]Tuples),
+		locals:    make(map[ssa.Value]Instance),
+		maps:      make(map[Instance]map[Instance]Instance),
+		retvals:   []Instance{},
+		selects:   make(map[Instance]*Select),
+		structs:   make(map[Instance]Fields),
+		tuples:    make(map[Instance]Tuples),
 		loopstack: NewLoopStack(),
 	}
 }
@@ -123,15 +123,15 @@ func NewFunction(caller *Function) *Function {
 		Level:       caller.Level + 1,
 		ChildBlocks: make(map[int]*Block),
 
-		arrays:    make(map[VarInstance]Elems),
-		commaok:   make(map[VarInstance]*CommaOk),
+		arrays:    make(map[Instance]Elems),
+		commaok:   make(map[Instance]*CommaOk),
 		defers:    []*ssa.Defer{},
-		locals:    make(map[ssa.Value]VarInstance),
-		maps:      make(map[VarInstance]map[VarInstance]VarInstance),
-		retvals:   []VarInstance{},
-		selects:   make(map[VarInstance]*Select),
-		structs:   make(map[VarInstance]Fields),
-		tuples:    make(map[VarInstance]Tuples),
+		locals:    make(map[ssa.Value]Instance),
+		maps:      make(map[Instance]map[Instance]Instance),
+		retvals:   []Instance{},
+		selects:   make(map[Instance]*Select),
+		structs:   make(map[Instance]Fields),
+		tuples:    make(map[Instance]Tuples),
 		loopstack: NewLoopStack(),
 	}
 }
@@ -181,7 +181,7 @@ func (caller *Function) prepareCallFn(common *ssa.CallCommon, fn *ssa.Function, 
 				callee.maps[inst] = maps
 			}
 		} else if c, ok := argCaller.(*ssa.Const); ok {
-			callee.locals[param] = &ConstInstance{c}
+			callee.locals[param] = &Const{c}
 		}
 	}
 
@@ -223,7 +223,7 @@ func (caller *Function) String() string {
 	return buf.String()
 }
 
-func (caller *Function) updateInstances(old, new VarInstance) {
+func (caller *Function) updateInstances(old, new Instance) {
 	for inst, array := range caller.arrays {
 		for k, v := range array {
 			if v == old {
@@ -279,4 +279,11 @@ func NewBlock(parent *Function, block *ssa.BasicBlock, curr int) *Block {
 		Index:    block.Index,
 	}
 	return parent.ChildBlocks[block.Index]
+}
+
+// Context is a grouping of different levels of context.
+type Context struct {
+	F *Function // Function context.
+	B *Block    // Block context.
+	L *Loop     // Loop context.
 }

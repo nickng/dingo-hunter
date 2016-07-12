@@ -69,23 +69,23 @@ func (l *Loop) String() string {
 }
 
 // loopSetIndex handles loop indices (initial value and increment)
-func loopSetIndex(instr *ssa.Phi, infer *TypeInfer, f *Function, b *Block, l *Loop) {
+func loopSetIndex(instr *ssa.Phi, infer *TypeInfer, ctx *Context) {
 	if i, ok := instr.Edges[0].(*ssa.Const); ok && !i.IsNil() && i.Value.Kind() == constant.Int {
-		l.SetInit(instr, i.Int64())
-		infer.Logger.Printf(f.Sprintf(LoopSymbol+"%s <= i", fmtLoopHL(l.Start)))
+		ctx.L.SetInit(instr, i.Int64())
+		infer.Logger.Printf(ctx.F.Sprintf(LoopSymbol+"%s <= i", fmtLoopHL(ctx.L.Start)))
 	}
 	if bin, ok := instr.Edges[1].(*ssa.BinOp); ok {
 		switch bin.Op {
 		case token.ADD:
 			if i, ok := bin.Y.(*ssa.Const); ok && i.Value.Kind() == constant.Int {
-				l.SetStep(i.Int64())
+				ctx.L.SetStep(i.Int64())
 			}
-			infer.Logger.Printf(f.Sprintf(LoopSymbol+"i += %s", fmtLoopHL(l.Step)))
+			infer.Logger.Printf(ctx.F.Sprintf(LoopSymbol+"i += %s", fmtLoopHL(ctx.L.Step)))
 		case token.SUB:
 			if i, ok := bin.Y.(*ssa.Const); ok && i.Value.Kind() == constant.Int {
-				l.SetStep(-i.Int64())
+				ctx.L.SetStep(-i.Int64())
 			}
-			infer.Logger.Printf(f.Sprintf(LoopSymbol+"i -= %s", fmtLoopHL(l.Step)))
+			infer.Logger.Printf(ctx.F.Sprintf(LoopSymbol+"i -= %s", fmtLoopHL(ctx.L.Step)))
 		default:
 			infer.Logger.Printf("loop index expression not supported %s", bin)
 		}
@@ -94,30 +94,30 @@ func loopSetIndex(instr *ssa.Phi, infer *TypeInfer, f *Function, b *Block, l *Lo
 
 // loopDetectBounds detects static bounds (or set as dynamic bounds) from based
 // on loop state machine.
-func loopDetectBounds(instr *ssa.Phi, infer *TypeInfer, f *Function, b *Block, l *Loop) {
-	switch l.State {
+func loopDetectBounds(instr *ssa.Phi, infer *TypeInfer, ctx *Context) {
+	switch ctx.L.State {
 	case Enter:
-		switch l.Bound {
+		switch ctx.L.Bound {
 		case Unknown:
-			phiSelectEdge(instr, infer, f, b, l)
-			loopSetIndex(instr, infer, f, b, l)
+			phiSelectEdge(instr, infer, ctx)
+			loopSetIndex(instr, infer, ctx)
 		case Static:
-			switch l.Bound {
+			switch ctx.L.Bound {
 			case Static:
-				phiSelectEdge(instr, infer, f, b, l)
-				if instr == l.IndexVar {
-					l.Next()
-					infer.Logger.Printf(f.Sprintf(LoopSymbol+"Increment %s by %s to %s", l.IndexVar.Name(), fmtLoopHL(l.Step), fmtLoopHL(l.Index)))
+				phiSelectEdge(instr, infer, ctx)
+				if instr == ctx.L.IndexVar {
+					ctx.L.Next()
+					infer.Logger.Printf(ctx.F.Sprintf(LoopSymbol+"Increment %s by %s to %s", ctx.L.IndexVar.Name(), fmtLoopHL(ctx.L.Step), fmtLoopHL(ctx.L.Index)))
 				}
 			default:
-				visitSkip(instr, infer, f, b, l)
+				visitSkip(instr, infer, ctx)
 			}
 		case Dynamic:
-			phiSelectEdge(instr, infer, f, b, l)
-			infer.Logger.Printf(f.Sprintf(PhiSymbol+"(dynamic bound) %s", instr.String()))
+			phiSelectEdge(instr, infer, ctx)
+			infer.Logger.Printf(ctx.F.Sprintf(PhiSymbol+"(dynamic bound) %s", instr.String()))
 		}
 	default:
-		phiSelectEdge(instr, infer, f, b, l)
+		phiSelectEdge(instr, infer, ctx)
 	}
 }
 

@@ -59,20 +59,17 @@ func (infer *TypeInfer) Run() {
 	// TODO(nickng): inline initialisation of var declarations
 	for _, pkg := range infer.SSA.Prog.AllPackages() {
 		for _, memb := range pkg.Members {
-			switch val := memb.(type) {
+			switch value := memb.(type) {
 			case *ssa.Global:
-				switch t := derefAllType(val.Type()).Underlying().(type) {
+				ctx.Prog.globals[value] = &Value{Value: value}
+				switch t := derefAllType(value.Type()).Underlying().(type) {
 				case *types.Array:
-					ctx.Prog.globals[val] = &Instance{Value: val}
-					ctx.Prog.arrays[ctx.Prog.globals[val]] = make(Elems, t.Len())
+					ctx.Prog.arrays[ctx.Prog.globals[value]] = make(Elems, t.Len())
 				case *types.Slice:
-					ctx.Prog.globals[val] = &Instance{Value: val}
-					ctx.Prog.arrays[ctx.Prog.globals[val]] = make(Elems, 0)
+					ctx.Prog.arrays[ctx.Prog.globals[value]] = make(Elems, 0)
 				case *types.Struct:
-					ctx.Prog.globals[val] = &Instance{Value: val}
-					ctx.Prog.structs[ctx.Prog.globals[val]] = make(Fields, t.NumFields())
+					ctx.Prog.structs[ctx.Prog.globals[value]] = make(Fields, t.NumFields())
 				default:
-					ctx.Prog.globals[val] = &Instance{Value: val}
 				}
 			}
 		}
