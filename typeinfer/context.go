@@ -39,15 +39,13 @@ const (
 // A single inference has exactly one Program, and it contains all global
 // data (and metadata) in the program.
 type Program struct {
-	FuncInstance map[*ssa.Function]int // Count number of function instances.
-	InitPkgs     map[*ssa.Package]bool // Initialised packages.
-	Infer        *TypeInfer            // Reference to inference.
-	MigoProg     *migo.Program         // Core calculus of program.
-
-	arrays   map[Instance]Elems     // Array elements.
-	closures map[Instance]Captures  // Closures.
-	globals  map[ssa.Value]Instance // Global variables.
-	structs  map[Instance]Fields    // Heap allocated struct fields.
+	FuncInstance map[*ssa.Function]int  // Count number of function instances.
+	InitPkgs     map[*ssa.Package]bool  // Initialised packages.
+	Infer        *TypeInfer             // Reference to inference.
+	MigoProg     *migo.Program          // Core calculus of program.
+	closures     map[Instance]Captures  // Closures.
+	globals      map[ssa.Value]Instance // Global variables.
+	*Storage                            // Storage.
 }
 
 // NewProgram creates a program for a type inference.
@@ -56,10 +54,9 @@ func NewProgram(infer *TypeInfer) *Program {
 		FuncInstance: make(map[*ssa.Function]int),
 		InitPkgs:     make(map[*ssa.Package]bool),
 		Infer:        infer,
-		arrays:       make(map[Instance]Elems),
 		closures:     make(map[Instance]Captures),
 		globals:      make(map[ssa.Value]Instance),
-		structs:      make(map[Instance]Fields),
+		Storage:      NewStorage(),
 	}
 }
 
@@ -76,18 +73,16 @@ type Function struct {
 	FuncDef     *migo.Function          // Function definition.
 	ChildBlocks map[int]*Block          // Map from index -> child SSA blocks.
 
-	id        int                                // Instance identifier.
-	hasBody   bool                               // True if function has body.
-	arrays    map[Instance]Elems                 // Array elements.
-	commaok   map[Instance]*CommaOk              // CommaOK statements.
-	defers    []*ssa.Defer                       // Deferred calls.
-	locals    map[ssa.Value]Instance             // Local variable instances.
-	maps      map[Instance]map[Instance]Instance // Map instances (just an approximate).
-	retvals   []Instance                         // Return value instances.
-	selects   map[Instance]*Select               // Select cases mapping.
-	structs   map[Instance]Fields                // Stack allocated struct fields.
-	tuples    map[Instance]Tuples                // Tuples.
-	loopstack *LoopStack                         // Stack of Loop.
+	id        int                    // Instance identifier.
+	hasBody   bool                   // True if function has body.
+	commaok   map[Instance]*CommaOk  // CommaOK statements.
+	defers    []*ssa.Defer           // Deferred calls.
+	locals    map[ssa.Value]Instance // Local variable instances.
+	retvals   []Instance             // Return value instances.
+	selects   map[Instance]*Select   // Select cases mapping.
+	tuples    map[Instance]Tuples    // Tuples.
+	loopstack *LoopStack             // Stack of Loop.
+	*Storage                         // Storage.
 }
 
 // NewMainFunction returns a new main() call context.
@@ -99,16 +94,14 @@ func NewMainFunction(prog *Program, mainFn *ssa.Function) *Function {
 		FuncDef:     migo.NewFunction("main.main"),
 		ChildBlocks: make(map[int]*Block),
 
-		arrays:    make(map[Instance]Elems),
 		commaok:   make(map[Instance]*CommaOk),
 		defers:    []*ssa.Defer{},
 		locals:    make(map[ssa.Value]Instance),
-		maps:      make(map[Instance]map[Instance]Instance),
 		retvals:   []Instance{},
 		selects:   make(map[Instance]*Select),
-		structs:   make(map[Instance]Fields),
 		tuples:    make(map[Instance]Tuples),
 		loopstack: NewLoopStack(),
+		Storage:   NewStorage(),
 	}
 }
 
@@ -123,16 +116,14 @@ func NewFunction(caller *Function) *Function {
 		Level:       caller.Level + 1,
 		ChildBlocks: make(map[int]*Block),
 
-		arrays:    make(map[Instance]Elems),
 		commaok:   make(map[Instance]*CommaOk),
 		defers:    []*ssa.Defer{},
 		locals:    make(map[ssa.Value]Instance),
-		maps:      make(map[Instance]map[Instance]Instance),
 		retvals:   []Instance{},
 		selects:   make(map[Instance]*Select),
-		structs:   make(map[Instance]Fields),
 		tuples:    make(map[Instance]Tuples),
 		loopstack: NewLoopStack(),
+		Storage:   NewStorage(),
 	}
 }
 

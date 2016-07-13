@@ -1,6 +1,6 @@
 package typeinfer
 
-// Data structue utilities.
+// Data structure utilities.
 
 import (
 	"go/types"
@@ -40,12 +40,11 @@ func (caller *Function) setStructField(struc ssa.Value, idx int, instance Instan
 // initNestedRefVar initialises empty reference data structures {array,slice,struct} not used
 // before
 func initNestedRefVar(infer *TypeInfer, ctx *Context, inst Instance, heap bool) {
-	var Arrays map[Instance]Elems
-	var Structs map[Instance]Fields
+	var s *Storage
 	if heap {
-		Arrays, Structs = ctx.F.Prog.arrays, ctx.F.Prog.structs
+		s = ctx.F.Prog.Storage
 	} else {
-		Arrays, Structs = ctx.F.arrays, ctx.F.structs
+		s = ctx.F.Storage
 	}
 	v, ok := inst.(*Value)
 	if !ok {
@@ -53,18 +52,18 @@ func initNestedRefVar(infer *TypeInfer, ctx *Context, inst Instance, heap bool) 
 	}
 	switch t := derefAllType(v.Type()).Underlying().(type) {
 	case *types.Array:
-		if _, ok := Arrays[inst]; !ok {
-			Arrays[inst] = make(Elems, t.Len())
+		if _, ok := s.arrays[inst]; !ok {
+			s.arrays[inst] = make(Elems, t.Len())
 			infer.Logger.Print(ctx.F.Sprintf(SubSymbol+"initialised %s as array (type: %s)", inst, v.Type()))
 		}
 	case *types.Slice:
-		if _, ok := Arrays[inst]; !ok {
-			Arrays[inst] = make(Elems, 0)
+		if _, ok := s.arrays[inst]; !ok {
+			s.arrays[inst] = make(Elems, 0)
 			infer.Logger.Print(ctx.F.Sprintf(SubSymbol+"initialised %s as slice (type: %s)", inst, v.Type()))
 		}
 	case *types.Struct:
-		if _, ok := Structs[inst]; !ok {
-			Structs[inst] = make(Fields, t.NumFields())
+		if _, ok := s.structs[inst]; !ok {
+			s.structs[inst] = make(Fields, t.NumFields())
 			infer.Logger.Print(ctx.F.Sprintf(SubSymbol+"initialised %s as struct (type: %s)", inst, v.Type()))
 		}
 	default:
