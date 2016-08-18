@@ -1,0 +1,22 @@
+<div>
+<div class="code" contenteditable="true" spellcheck="false" style='display: inline-block; vertical-align: middle'>
+<pre><span num="26">func main() {</span>
+<span num="27">    ch := make(chan int)</span>
+<span num="28">    done := make(chan int)</span>
+<span num="29"></span>
+<span num="30">    go Sender(ch)</span>
+<span num="31">    go Receiver(ch, done)</span>
+<span num="32">    go Receiver(ch, done) // Who is ch receiving from?</span>
+<span num="33">    go Work() // Just an infinite loop</span>
+<span num="34"></span>
+<span num="35">    fmt.Println("Done 1:", &lt;-done)</span>
+<span num="36">    fmt.Println("Done 2:", &lt;-done)</span>
+<span num="37">}</span>
+</pre>
+</div>
+<div style='display: inline-block; width: 10%'></div>
+<div style='display: inline-block; vertical-align: middle'>
+<div class="image"><img src="talk-golanguk-2016/main-type.svg"></div>
+<figcaption>Session types for main()</figcaption>
+</div >
+</div>

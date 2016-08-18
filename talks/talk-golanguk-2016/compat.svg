@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="84.029541mm"
+   height="47.383041mm"
+   viewBox="0 0 297.74247 167.89267"
+   id="svg5157"
+   version="1.1"
+   inkscape:version="0.91 r13725"
+   sodipodi:docname="compat.svg">
+  <defs
+     id="defs5159" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="1.4"
+     inkscape:cx="68.813763"
+     inkscape:cy="40.321566"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0"
+     inkscape:window-width="1916"
+     inkscape:window-height="1041"
+     inkscape:window-x="0"
+     inkscape:window-y="16"
+     inkscape:window-maximized="0" />
+  <metadata
+     id="metadata5162">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(483.15695,137.29842)">
+    <rect
+       id="rect4055"
+       width="111.62186"
+       height="150.00766"
+       x="-483.15695"
+       y="-119.66597"
+       style="fill:#a7ffaf;fill-opacity:0.39215686;stroke:none;stroke-opacity:1" />
+    <rect
+       id="rect4055-3"
+       width="111.62186"
+       height="150.00766"
+       x="-297.03635"
+       y="-119.41341"
+       style="fill:#a7ffaf;fill-opacity:0.39215686;stroke:none;stroke-opacity:0.39215686" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       x="-480.90024"
+       y="-122.88435"
+       id="text3867"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan3869"
+         x="-480.90024"
+         y="-122.88435">Goroutine A</tspan></text>
+    <text
+       x="-478.73798"
+       y="-78.926109"
+       style="font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start"
+       id="text3458"
+       sodipodi:linespacing="125%">receive</text>
+    <text
+       x="-414.44247"
+       y="-78.926109"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Normal';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start"
+       id="text3460"
+       sodipodi:linespacing="125%">
+      <tspan
+         y="-78.926109"
+         x="-414.44247"
+         sodipodi:role="line"
+         id="tspan5965">ch1</tspan>
+    </text>
+    <text
+       x="-478.30829"
+       y="-51.587448"
+       style="font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start"
+       id="text3462"
+       sodipodi:linespacing="125%">send</text>
+    <text
+       x="-433.10995"
+       y="-51.587448"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Normal';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start"
+       id="text3464"
+       sodipodi:linespacing="125%">
+      <tspan
+         y="-51.587448"
+         x="-433.10995"
+         sodipodi:role="line"
+         id="tspan5975">ch2</tspan>
+    </text>
+    <text
+       x="-286.21356"
+       y="-49.185623"
+       style="font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start"
+       id="text3458-5"
+       sodipodi:linespacing="125%">receive</text>
+    <text
+       x="-222.3477"
+       y="-49.185623"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Normal';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start"
+       id="text3460-1"
+       sodipodi:linespacing="125%">
+      <tspan
+         y="-49.185623"
+         x="-222.3477"
+         sodipodi:role="line"
+         id="tspan5973">ch2</tspan>
+    </text>
+    <text
+       x="-285.78387"
+       y="-78.926109"
+       style="font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start"
+       id="text3462-7"
+       sodipodi:linespacing="125%">send</text>
+    <text
+       x="-240.58551"
+       y="-78.926109"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Normal';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start"
+       id="text3464-4"
+       sodipodi:linespacing="125%">
+      <tspan
+         y="-78.926109"
+         x="-240.58551"
+         sodipodi:role="line"
+         id="tspan5971">ch1</tspan>
+    </text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       x="-292.27121"
+       y="-122.88435"
+       id="text3867-5"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan4053"
+         x="-292.27121"
+         y="-122.88435">Goroutine B</tspan></text>
+    <g
+       id="g5026"
+       transform="translate(-508.76144,-206.17856)">
+      <path
+         transform="matrix(0.66519869,0,0,0.53608568,25.659063,84.37453)"
+         inkscape:transform-center-x="1.6725148"
+         d="m 166.40049,78.446133 -15.08585,-8.709821 15.08585,-8.709819 z"
+         inkscape:randomized="0"
+         inkscape:rounded="0"
+         inkscape:flatsided="true"
+         sodipodi:arg2="2.0943951"
+         sodipodi:arg1="1.0471976"
+         sodipodi:r2="5.0286169"
+         sodipodi:r1="10.057234"
+         sodipodi:cy="69.736313"
+         sodipodi:cx="161.37187"
+         sodipodi:sides="3"
+         id="path5022"
+         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:1;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:0.39215686"
+         sodipodi:type="star" />
+      <path
+         inkscape:connector-curvature="0"
+         id="path5024"
+         d="m 134.60282,121.6329 83.84267,0"
+         style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    </g>
+    <g
+       transform="matrix(-1,0,0,1,-162.48123,-177.0104)"
+       id="g5026-3">
+      <path
+         transform="matrix(0.66519869,0,0,0.53608568,25.659063,84.37453)"
+         inkscape:transform-center-x="1.6725148"
+         d="m 166.40049,78.446133 -15.08585,-8.709821 15.08585,-8.709819 z"
+         inkscape:randomized="0"
+         inkscape:rounded="0"
+         inkscape:flatsided="true"
+         sodipodi:arg2="2.0943951"
+         sodipodi:arg1="1.0471976"
+         sodipodi:r2="5.0286169"
+         sodipodi:r1="10.057234"
+         sodipodi:cy="69.736313"
+         sodipodi:cx="161.37187"
+         sodipodi:sides="3"
+         id="path5022-8"
+         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:1;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:0.39215686"
+         sodipodi:type="star" />
+      <path
+         inkscape:connector-curvature="0"
+         id="path5024-0"
+         d="m 134.60282,121.6329 83.84267,0"
+         style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    </g>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;font-size:32.5px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#0b622f;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;"
+       x="-431.0141"
+       y="20.594248"
+       id="text5797"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan5801"
+         x="-431.0141"
+         y="20.594248">Compatible ✓</tspan></text>
+  </g>
+</svg>

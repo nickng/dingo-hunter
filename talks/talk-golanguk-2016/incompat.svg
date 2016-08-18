@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="84.029533mm"
+   height="47.383041mm"
+   viewBox="0 0 297.74244 167.89267"
+   id="svg4305"
+   version="1.1"
+   inkscape:version="0.91 r13725"
+   sodipodi:docname="incompat.svg">
+  <defs
+     id="defs4307" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="1.4"
+     inkscape:cx="1.1105471"
+     inkscape:cy="21.163241"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0"
+     inkscape:window-width="1916"
+     inkscape:window-height="1041"
+     inkscape:window-x="0"
+     inkscape:window-y="16"
+     inkscape:window-maximized="0" />
+  <metadata
+     id="metadata4310">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-426.28641,-71.737297)">
+    <rect
+       id="rect4055-1"
+       width="111.62186"
+       height="150.00766"
+       x="426.28641"
+       y="89.369743"
+       style="fill:#ffb5a7;fill-opacity:0.39215686;stroke:none;stroke-opacity:1" />
+    <rect
+       id="rect4055-3-2"
+       width="111.62186"
+       height="150.00766"
+       x="612.40698"
+       y="89.622307"
+       style="fill:#ffb5a7;fill-opacity:0.39215686;stroke:none;stroke-opacity:1" />
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       x="428.54312"
+       y="86.15136"
+       id="text3867-9"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan3869-4"
+         x="428.54312"
+         y="86.15136">Goroutine A</tspan></text>
+    <text
+       x="430.38031"
+       y="130.1096"
+       style="font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start"
+       id="text3458-3"
+       sodipodi:linespacing="125%">receive</text>
+    <text
+       x="495.00089"
+       y="130.1096"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Normal';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start"
+       id="text3460-5"
+       sodipodi:linespacing="125%">
+      <tspan
+         y="130.1096"
+         x="495.00089"
+         sodipodi:role="line"
+         id="tspan5965-1">ch1</tspan>
+    </text>
+    <text
+       x="627.80121"
+       y="130.1096"
+       style="font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start"
+       id="text3462-7-4"
+       sodipodi:linespacing="125%">send</text>
+    <text
+       x="675.1424"
+       y="130.1096"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Normal';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start"
+       id="text3464-4-2"
+       sodipodi:linespacing="125%">
+      <tspan
+         y="130.1096"
+         x="675.1424"
+         sodipodi:role="line"
+         id="tspan5971-2">ch1</tspan>
+    </text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       x="617.17212"
+       y="86.15136"
+       id="text3867-5-6"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan4053-4"
+         x="617.17212"
+         y="86.15136">Goroutine B</tspan></text>
+    <g
+       id="g8650">
+      <path
+         transform="matrix(0.66519869,0,0,0.53608568,426.63495,87.152452)"
+         inkscape:transform-center-x="1.6725148"
+         d="m 166.40049,78.446133 -15.08585,-8.709821 15.08585,-8.709819 z"
+         inkscape:randomized="0"
+         inkscape:rounded="0"
+         inkscape:flatsided="true"
+         sodipodi:arg2="2.0943951"
+         sodipodi:arg1="1.0471976"
+         sodipodi:r2="5.0286169"
+         sodipodi:r1="10.057234"
+         sodipodi:cy="69.736313"
+         sodipodi:cx="161.37187"
+         sodipodi:sides="3"
+         id="path5022-7"
+         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:1;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:0.39215686"
+         sodipodi:type="star" />
+      <path
+         inkscape:connector-curvature="0"
+         id="path5024-6"
+         d="m 535.57871,124.41082 83.84267,0"
+         style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    </g>
+    <text
+       x="430.81"
+       y="157.22801"
+       style="font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start"
+       id="text3462-8"
+       sodipodi:linespacing="125%">send</text>
+    <text
+       x="478.00839"
+       y="157.22801"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Normal';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start"
+       id="text3464-9"
+       sodipodi:linespacing="125%">
+      <tspan
+         y="157.22801"
+         x="478.00839"
+         sodipodi:role="line"
+         id="tspan5975-0">ch2</tspan>
+    </text>
+    <g
+       id="g8646">
+      <path
+         transform="matrix(-0.66519869,0,0,0.53608568,679.98283,114.6559)"
+         inkscape:transform-center-x="1.6725148"
+         d="m 166.40049,78.446133 -15.08585,-8.709821 15.08585,-8.709819 z"
+         inkscape:randomized="0"
+         inkscape:rounded="0"
+         inkscape:flatsided="true"
+         sodipodi:arg2="2.0943951"
+         sodipodi:arg1="1.0471976"
+         sodipodi:r2="5.0286169"
+         sodipodi:r1="10.057234"
+         sodipodi:cy="69.736313"
+         sodipodi:cx="161.37187"
+         sodipodi:sides="3"
+         id="path5022-8-8"
+         style="fill:#000000;fill-opacity:1;stroke:none;stroke-width:1;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:0.39215686"
+         sodipodi:type="star" />
+      <path
+         inkscape:connector-curvature="0"
+         id="path5024-0-7"
+         d="m 571.77311,151.91427 -43.38942,0"
+         style="fill:none;fill-rule:evenodd;stroke:#000000;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1" />
+    </g>
+    <text
+       xml:space="preserve"
+       style="font-style:italic;font-variant:normal;font-weight:300;font-stretch:normal;font-size:17.5px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light Italic';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;"
+       x="582.43872"
+       y="156.49998"
+       id="text5120"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan5122"
+         x="582.43872"
+         y="156.49998"
+         style="font-style:italic;font-variant:normal;font-weight:300;font-stretch:normal;font-size:17.5px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light Italic';text-align:start;writing-mode:lr;text-anchor:start;fill:#ff0000;fill-opacity:1;">blocks</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;font-size:32.5px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#b50005;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;"
+       x="471.62766"
+       y="232.8024"
+       id="text5797"
+       sodipodi:linespacing="125%"><tspan
+         sodipodi:role="line"
+         id="tspan5839"
+         x="471.62766"
+         y="232.8024">Incompatible ✘</tspan></text>
+  </g>
+</svg>

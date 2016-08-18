@@ -1,0 +1,256 @@
+Static Deadlock Detection for Go
+
+Nicholas Ng
+
+Imperial College London
+nickng@imperial.ac.uk
+
+http://mrg.doc.ic.ac.uk
+
+* Go and concurrency
+
+*Don't*communicate*by*sharing*memory,*share*memory*by*communicating.*
+
+Avoid locks for high-level concurrency
+
+- *Message-passing* over channels
+- Coordinate and synchronise goroutines
+
+Inspired by Hoare's Communicating Sequential Processes (CSP)
+
+Expressive message-passing concurrency model
+
+* Concurrency
+
+Concurrency is complicated
+
+Concurrency bugs are hard to find and fix (write perfect code if you can!)
+
+Our research aims to help _avoid_ concurrency bugs as much as possible
+
+* Concurrency problems: deadlocks
+
+*fatal*error:*all*goroutines*are*asleep*-*deadlock!*
+
+.play talk-golanguk-2016/deadlock.go /START OMIT/,/END OMIT/ HLoops
+
+* What causes a deadlock in Go?
+
+- Sender sends message, Receiver not ready
+- Sender blocks goroutine and wait until Receiver ready
+- Blocked goroutine goes to sleep
+
+Deadlock
+
+- Goroutine blocks waiting for something impossible (e.g. wait for each other)
+- Whole program gets stuck
+
+.image talk-golanguk-2016/deadlock.svg
+.caption A classic deadlock
+
+* Avoiding deadlocks
+
+Rule of thumb: *Make*sure*sender/receiver*are*matching*and*compatible*
+
+.image talk-golanguk-2016/nodeadlock.svg
+
+- e.g. Send vs. Receive
+- e.g. Range over channel vs. `close`
+
+Sounds simple, so why is it difficult in practice?
+
+- Communication intertwined with non-communicating code (hint: model)
+- Program control flow is not a single path from top to bottom
+
+* Go runtime deadlock detector
+
+- Builtin detector in Go runtime
+- Count non-blocked goroutines, deadlock if count == 0
+- Panic when deadlock is encountered
+
+.code talk-golanguk-2016/proc.txt
+.link https://golang.org/src/runtime/proc.go#L3358
+
+* Go runtime deadlock detector
+
+If we add a benign, long-running goroutine to the mix..
+
+.play talk-golanguk-2016/deadlock-notdetected.go /^func main/,/^}/ HLwork
+
+_local_deadlock_: some (but not all) goroutines are stuck
+
+* Building a better deadlock detector
+
+What if we can...
+
+- Detect deadlock in program without executing (avoid deadlock)
+- Find local deadlocks too
+- Go specific: deadlocks in communication (message passing)
+
+* Static deadlock detector
+
+Tool developed based on our research
+
+.link https://github.com/nickng/dingo-hunter
+
+- Static (compile-time) detection of deadlock
+- Help _prevent_ deadlocks
+- Ongoing research
+
+.image talk-golanguk-2016/qrcode.png
+
+Analysed common concurrency patterns & open source projects
+
+* Static deadlock detector
+
+- Analyse Go *source*code*
+- Infer model representing communication only
+- Check if model could get stuck (deadlock)
+- Safe model, safe code
+
+.image talk-golanguk-2016/workflow.svg
+.caption Under the hood: Workflow of our static deadlock detector
+
+* Modelling concurrency
+
+To find deadlocks in communication
+
+- Accurate representation of communication
+- Established ideas
+
+Who better to ask than pioneers of concurrency?
+
+* Models of concurrency: Process calculi
+
+Process calculi: canonical models for communication
+
+.html talk-golanguk-2016/calculi.html
+
+* Models of concurrency: Process calculi
+
+Process calculi: canonical models for communication
+
+- Formal model of how processes (i.e. goroutines) interact
+- This is where Go's concurrency model come from
+- Also what our deadlock detection technique built on
+
+.image talk-golanguk-2016/pi.png
+.caption Essence of communication: asynchronous π-calculus and Go
+
+* Models of concurrency: Process calculi
+
+Process calculi: canonical models for communication
+
+- Does not stop _bad_ interactions (e.g. deadlocks)
+- Succinct abstractions for communication/concurrency
+- All we need is a way to check if model is compatible
+
+* Types
+
+- Go, a typed programming language
+- Compile-time, static type checking
+- Is variable _compatible_ with value? (i.e. same type)
+
+.play talk-golanguk-2016/datatype.go /^func main/,/^}/
+.image talk-golanguk-2016/datatype.svg
+.caption Type checking: are the types compatible?
+
+* Types for communication (1/2)
+
+- *Session*Types* - Honda, Vasconcelos, Kubo (1998)
+- _Multiparty_ Session Types - Honda, Yoshida, Carbone (2008)
+- Originates from types for π-calculus
+- Is sender _compatible_ with receiver?
+.html talk-golanguk-2016/compat.html
+.caption Compatibility of communication
+
+* Types for communication (2/2)
+
+- Is sender _compatible_ with receiver?
+.html talk-golanguk-2016/compat.html
+.caption Compatibility of communication
+
+- Compatible in terms of *communication*structure*
+- Also take into account _loops_, _if-then-else_ and other control flow elements
+- So we can _type-check_ process calculi model similarly as ordinary types
+
+* How to Go from code to model?
+
+- Extract model (session types) from source code
+- Take into consideration program control flow
+- Go's amazing tooling ecosystem to the rescue!
+
+.link https://www.youtube.com/watch?v=oorX84tBMqo Program Analysis by Francesc Campoy (GolangUK 2015)
+
+* Extracting session types from code (1/2)
+
+*Static*analysis*: Look for `make(chan`T)`, `ch`<-`x`, `<-ch`, `select`, `close`
+
+- Analyse source code using `go/ssa` without executing (flow sensitive)
+- `go/ssa` makes it easier to understand program control flow
+
+main
+.html talk-golanguk-2016/main-type.html
+
+* Extracting session types from code (2/2)
+
+Sender
+.html talk-golanguk-2016/sender-type.html
+
+Receiver _x_2_
+.html talk-golanguk-2016/receiver-type.html
+
+Worker (Non-communicating)
+.html talk-golanguk-2016/work-type.html
+
+* Compose the model
+
+- One session type per goroutine
+- Collect all session types from each goroutine
+- Are they compatible?
+
+.image talk-golanguk-2016/all-local.svg
+.caption Session types obtained from all goroutines in program
+
+Next: compose and check compatibility
+
+* Global graph
+
+- Combine all session types: a bird's eye view (_global_graph_) of messages
+- e.g. find matching Send and Receive
+- Global graph must be well-formed (i.e. satisfy side conditions)
+
+.image talk-golanguk-2016/global-graph.svg
+.caption Incompatible: this is not a well formed global graph
+
+Note: the actual analysis is much more involved
+
+* Conclusion
+
+- Process calculi influenced design of concurrency in Go
+- Applied current research on process calculi deadlock detection to Go
+- Hope to inspire more concurrency research
+
+*References*
+
+📄 From Communicating Machines to Graphical Choreographies
+_J._Lange,_E._Tuosto,_N._Yoshida_, POPL 2015
+
+📄 Static Deadlock Detection for Go by Global Session Graph Synthesis
+_N._Ng,_N._Yoshida_, CC 2016
+
+.caption Thanks to my colleagues behind this work - Nobuko, Julien, Bernardo
+
+* Conclusion
+
+More to come soon: more comprehensive theory and updated tool
+
+.link https://github.com/nickng/dingo-hunter
+
+- Unbuffered channels
+- Limited support for 'dynamic' patterns (e.g. spawn new goroutines while running)
+
+*Demo*
+
+.html talk-golanguk-2016/video.html
+

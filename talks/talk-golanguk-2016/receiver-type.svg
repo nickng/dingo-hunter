@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="39.755966mm"
+   height="26.341812mm"
+   viewBox="0 0 140.8676 93.337129"
+   id="svg3706"
+   version="1.1"
+   inkscape:version="0.91 r13725"
+   sodipodi:docname="receiver-type.svg">
+  <defs
+     id="defs3708" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="1.979899"
+     inkscape:cx="193.06608"
+     inkscape:cy="-83.01888"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0"
+     inkscape:window-width="1916"
+     inkscape:window-height="1041"
+     inkscape:window-x="0"
+     inkscape:window-y="16"
+     inkscape:window-maximized="0" />
+  <metadata
+     id="metadata3711">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(-387.50128,9.0922661)">
+    <text
+       x="417.01471"
+       y="35.0476"
+       style="font-weight:300;font-size:16px;font-family:Roboto;word-spacing:0px"
+       id="text3458">receive</text>
+    <text
+       x="470.88058"
+       y="35.025604"
+       style="font-size:16px;font-family:Roboto;word-spacing:0px"
+       id="text3460">ch</text>
+    <text
+       x="417.01471"
+       y="62.364265"
+       style="font-weight:300;font-size:16px;font-family:Roboto;word-spacing:0px"
+       id="text3462">send</text>
+    <text
+       x="454.21307"
+       y="62.364265"
+       style="font-size:16px;font-family:Roboto;word-spacing:0px"
+       id="text3464">done</text>
+    <rect
+       x="387.78867"
+       y="5.5262046"
+       width="140.29283"
+       height="78.431274"
+       style="fill:none;stroke:#888888;stroke-width:1;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none;stroke-linejoin:round"
+       id="rect3466" />
+    <text
+       x="441.258"
+       y="2.8217964"
+       style="font-size:16px;font-family:Roboto;word-spacing:0px"
+       id="text3468">Receiver</text>
+    <text
+       x="390.45929"
+       y="2.8608608"
+       style="font-size:12px;font-family:Roboto;fill:#888888"
+       id="text3470">func</text>
+  </g>
+</svg>

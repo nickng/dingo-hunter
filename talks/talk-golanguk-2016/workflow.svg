@@ -1,0 +1,287 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:xhtml="http://www.w3.org/1999/xhtml"
+   xmlns:bx="https://boxy-svg.com"
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   viewBox="0 0 876.80406 131.88122"
+   id="svg4149"
+   version="1.1"
+   inkscape:version="0.91 r13725"
+   sodipodi:docname="workflow.svg"
+   width="876.80408"
+   height="131.88123">
+  <metadata
+     id="metadata4207">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="2556"
+     inkscape:window-height="1392"
+     id="namedview4205"
+     showgrid="false"
+     fit-margin-top="10"
+     fit-margin-left="5"
+     fit-margin-right="5"
+     fit-margin-bottom="5"
+     inkscape:zoom="3.776"
+     inkscape:cx="645.48563"
+     inkscape:cy="11.160115"
+     inkscape:window-x="0"
+     inkscape:window-y="20"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="svg4149" />
+  <defs
+     id="defs4151">
+    <style
+       id="bx-google-fonts">@import url(https://fonts.googleapis.com/css?family=Roboto:100,300,500,700,900,100italic,300italic,400,400italic,500italic,700italic,900italic);</style>
+    <symbol
+       id="arrowhead"
+       viewBox="0 0 13.9051 17.177">
+      <path
+         d="m 341.494,355.808 6.952,17.177 -13.905,0 6.953,-17.177 z"
+         style="fill:#000000"
+         transform="matrix(1.000003,0,0,0.99999899,-334.54198,-355.80765)"
+         bx:shape="triangle 334.541 355.808 13.905 17.177 0.5 0 1@f2610600"
+         id="path4155"
+         inkscape:connector-curvature="0" />
+    </symbol>
+  </defs>
+  <text
+     x="3.5839844"
+     y="88.697472"
+     style="font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start"
+     id="text4157"
+     sodipodi:linespacing="125%">Go source code</text>
+  <text
+     x="558.70844"
+     y="92.039078"
+     style="font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start"
+     id="text4165"
+     sodipodi:linespacing="125%">Global graph</text>
+  <g
+     id="g4250"
+     transform="translate(26.443968,38.931994)">
+    <use
+       id="use4167"
+       xlink:href="#arrowhead"
+       y="429.41153"
+       x="417.04745"
+       transform="matrix(0,0.81794912,-0.81794912,0,616.56223,-303.26481)"
+       height="17.177"
+       width="13.9051" />
+    <path
+       inkscape:connector-curvature="0"
+       id="path4169"
+       bx:origin="-Infinity 0.5"
+       style="fill:none;stroke:#000000;stroke-width:3.5293963;stroke-linecap:round"
+       d="m 251.09367,43.490994 -128.05701,0" />
+  </g>
+  <g
+     id="g4258"
+     transform="translate(54.533488,40.430098)">
+    <use
+       id="use4171"
+       xlink:href="#arrowhead"
+       y="377.41153"
+       x="569.04749"
+       transform="matrix(0,0.81517345,-0.81517345,0,806.75344,-424.24035)"
+       height="17.177"
+       width="13.9051" />
+    <path
+       inkscape:connector-curvature="0"
+       id="path4173"
+       bx:origin="0.5 -Infinity"
+       style="fill:none;stroke:#000000;stroke-width:3;stroke-linecap:round"
+       d="m 485.89355,45.256989 -96.594,0" />
+  </g>
+  <text
+     x="705.44794"
+     y="45.946655"
+     style="font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;font-size:17.5px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#053e00"
+     id="text4183"
+     sodipodi:linespacing="125%">
+    <tspan
+       sodipodi:role="line"
+       id="tspan4426"
+       x="705.44794"
+       y="45.946655">Model</tspan>
+    <tspan
+       sodipodi:role="line"
+       id="tspan4428"
+       x="705.44794"
+       y="67.821655">valid</tspan>
+  </text>
+  <text
+     id="text4187"
+     style="font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;font-size:17.5px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#670000"
+     y="99.81752"
+     x="703.59412"
+     sodipodi:linespacing="125%">
+    <tspan
+       sodipodi:role="line"
+       id="tspan4422"
+       x="703.59412"
+       y="99.81752">Model</tspan>
+    <tspan
+       sodipodi:role="line"
+       id="tspan4424"
+       x="703.59412"
+       y="121.69252">invalid</tspan>
+  </text>
+  <text
+     x="145.27173"
+     y="50.066917"
+     style="font-style:italic;font-variant:normal;font-weight:300;font-stretch:normal;font-size:17.5px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light Italic';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start"
+     id="text4191"
+     sodipodi:linespacing="125%">
+    <tspan
+       sodipodi:role="line"
+       id="tspan4254"
+       x="145.27173"
+       y="50.066917">Analyse goroutines</tspan>
+    <tspan
+       sodipodi:role="line"
+       id="tspan4256"
+       x="145.27173"
+       y="71.941917">and build model</tspan>
+  </text>
+  <text
+     x="369.90933"
+     y="-132.35512"
+     id="text4193">
+    <xhtml:br />
+  </text>
+  <text
+     x="455.95621"
+     y="76.483421"
+     style="font-style:italic;font-variant:normal;font-weight:300;font-stretch:normal;font-size:17.5px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light Italic';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start"
+     id="text4197"
+     sodipodi:linespacing="125%">
+    <tspan
+       sodipodi:role="line"
+       id="tspan4262"
+       x="455.95621"
+       y="76.483421">compose</tspan>
+  </text>
+  <rect
+     style="fill:none;fill-opacity:0.55859375;stroke:#001268;stroke-width:1.84239209;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
+     id="rect3434"
+     width="385.43832"
+     height="93.307381"
+     x="295.39291"
+     y="32.652641" />
+  <text
+     xml:space="preserve"
+     style="font-style:normal;font-weight:normal;font-size:17.5px;line-height:125%;font-family:'Bitstream Vera Sans';letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+     x="462.26974"
+     y="25"
+     id="text4236"
+     sodipodi:linespacing="125%"><tspan
+       sodipodi:role="line"
+       id="tspan4238"
+       x="462.26974"
+       y="25"
+       style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:20px;font-family:Roboto;-inkscape-font-specification:Roboto;fill:#001268;fill-opacity:1">Model</tspan></text>
+  <text
+     xml:space="preserve"
+     style="font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+     x="792.82874"
+     y="56.752975"
+     id="text4312"
+     sodipodi:linespacing="125%"><tspan
+       sodipodi:role="line"
+       id="tspan4314"
+       x="792.82874"
+       y="56.752975">likely OK</tspan></text>
+  <text
+     xml:space="preserve"
+     style="font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light';text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+     x="792.76111"
+     y="100.27791"
+     id="text4312-2"
+     sodipodi:linespacing="125%"><tspan
+       sodipodi:role="line"
+       id="tspan4418"
+       x="792.76111"
+       y="100.27791">Potential</tspan><tspan
+       sodipodi:role="line"
+       id="tspan4420"
+       x="792.76111"
+       y="125.27791">deadlock</tspan></text>
+  <text
+     x="303.51852"
+     y="76.950829"
+     style="font-style:normal;font-variant:normal;font-weight:300;font-stretch:normal;font-size:20px;line-height:125%;font-family:Roboto;-inkscape-font-specification:'Roboto, Light';text-align:start;word-spacing:0px;writing-mode:lr-tb;text-anchor:start"
+     id="text4165-1"
+     sodipodi:linespacing="125%">
+    <tspan
+       sodipodi:role="line"
+       id="tspan4351"
+       x="303.51852"
+       y="76.950829">Goroutines as</tspan>
+    <tspan
+       sodipodi:role="line"
+       id="tspan4353"
+       x="303.51852"
+       y="101.95083">state machines</tspan>
+  </text>
+  <g
+     id="g4258-8"
+     transform="translate(292.79093,5.0888866)">
+    <use
+       id="use4171-9"
+       xlink:href="#arrowhead"
+       y="377.41153"
+       x="569.04749"
+       transform="matrix(0,0.81517345,-0.81517345,0,806.75344,-424.24035)"
+       height="17.177"
+       width="13.9051" />
+    <path
+       inkscape:connector-curvature="0"
+       id="path4173-8"
+       bx:origin="0.5 -Infinity"
+       style="fill:none;stroke:#000000;stroke-width:3;stroke-linecap:round"
+       d="m 485.89355,45.256989 -96.594,0" />
+  </g>
+  <g
+     id="g4258-8-2"
+     transform="translate(292.79093,60.052911)">
+    <use
+       id="use4171-9-9"
+       xlink:href="#arrowhead"
+       y="377.41153"
+       x="569.04749"
+       transform="matrix(0,0.81517345,-0.81517345,0,806.75344,-424.24035)"
+       height="17.177"
+       width="13.9051" />
+    <path
+       inkscape:connector-curvature="0"
+       id="path4173-8-6"
+       bx:origin="0.5 -Infinity"
+       style="fill:none;stroke:#000000;stroke-width:3;stroke-linecap:round"
+       d="m 485.89355,45.256989 -96.594,0" />
+  </g>
+</svg>
