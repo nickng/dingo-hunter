@@ -12,7 +12,7 @@ to look for potential communication mismatches to preempt potential deadlocks.
 ## Install
 
     $ go get -u github.com/nickng/dingo-hunter
-    $ cd $GOPATH/nickng/dingo-hunter
+    $ cd $GOPATH/src/github.com/nickng/dingo-hunter
     $ git submodule init; git submodule update
     $ cd third_party/gmc-synthesis
 
