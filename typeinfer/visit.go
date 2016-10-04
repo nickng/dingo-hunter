@@ -25,6 +25,7 @@ func visitFunc(fn *ssa.Function, infer *TypeInfer, f *Function) {
 	}
 	for val, instance := range f.locals {
 		infer.Logger.Printf(f.Sprintf(ParamSymbol+"%s = %s", val.Name(), instance))
+		f.revlookup[instance.String()] = val.Name() // If it comes from params..
 	}
 
 	if fn.Blocks == nil {
@@ -265,6 +266,10 @@ func visitChangeType(instr *ssa.ChangeType, infer *TypeInfer, ctx *Context) {
 		ctx.F.maps[ctx.F.locals[instr]] = m
 	}
 	infer.Logger.Print(ctx.F.Sprintf(ValSymbol+"%s = %s (type: %s ← %s)", instr.Name(), instr.X.Name(), fmtType(instr.Type()), fmtType(instr.X.Type().Underlying())))
+	ctx.F.revlookup[instr.Name()] = instr.X.Name()
+	if indirect, ok := ctx.F.revlookup[instr.X.Name()]; ok {
+		ctx.F.revlookup[instr.Name()] = indirect
+	}
 	return
 }
 
@@ -880,10 +885,13 @@ func visitRecv(instr *ssa.UnOp, infer *TypeInfer, ctx *Context) {
 		ctx.F.commaok[ctx.F.locals[instr]] = &CommaOk{Instr: instr, Result: ctx.F.locals[instr]}
 		ctx.F.tuples[ctx.F.locals[instr]] = make(Tuples, 2) // { recvVal, recvOk }
 	}
-	infer.Logger.Println(ch)
 	pos := infer.SSA.DecodePos(ch.(*Value).Pos())
 	infer.Logger.Print(ctx.F.Sprintf(RecvSymbol+"%s = %s @ %s", ctx.F.locals[instr], ch, fmtPos(pos)))
-	ctx.F.FuncDef.AddStmts(&migo.RecvStatement{Chan: ch.(*Value).Name()})
+	if paramName, ok := ctx.F.revlookup[ch.String()]; ok {
+		ctx.F.FuncDef.AddStmts(&migo.RecvStatement{Chan: paramName})
+	} else {
+		ctx.F.FuncDef.AddStmts(&migo.RecvStatement{Chan: ch.(*Value).Name()})
+	}
 	ctx.F.FuncDef.HasComm = true
 
 	// Initialise received value if needed.
@@ -971,7 +979,11 @@ func visitSend(instr *ssa.Send, infer *TypeInfer, ctx *Context) {
 	}
 	pos := infer.SSA.DecodePos(ch.(*Value).Pos())
 	infer.Logger.Printf(ctx.F.Sprintf(SendSymbol+"%s @ %s", ch, fmtPos(pos)))
-	ctx.F.FuncDef.AddStmts(&migo.SendStatement{Chan: ch.(*Value).Name()})
+	if paramName, ok := ctx.F.revlookup[ch.String()]; ok {
+		ctx.F.FuncDef.AddStmts(&migo.SendStatement{Chan: paramName})
+	} else {
+		ctx.F.FuncDef.AddStmts(&migo.SendStatement{Chan: ch.(*Value).Name()})
+	}
 	ctx.F.FuncDef.HasComm = true
 }
 

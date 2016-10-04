@@ -78,6 +78,7 @@ type Function struct {
 	commaok   map[Instance]*CommaOk  // CommaOK statements.
 	defers    []*ssa.Defer           // Deferred calls.
 	locals    map[ssa.Value]Instance // Local variable instances.
+	revlookup map[string]string      // Reverse lookup names.
 	retvals   []Instance             // Return value instances.
 	selects   map[Instance]*Select   // Select cases mapping.
 	tuples    map[Instance]Tuples    // Tuples.
@@ -98,6 +99,7 @@ func NewMainFunction(prog *Program, mainFn *ssa.Function) *Function {
 		defers:    []*ssa.Defer{},
 		locals:    make(map[ssa.Value]Instance),
 		retvals:   []Instance{},
+		revlookup: make(map[string]string),
 		selects:   make(map[Instance]*Select),
 		tuples:    make(map[Instance]Tuples),
 		loopstack: NewLoopStack(),
@@ -119,6 +121,7 @@ func NewFunction(caller *Function) *Function {
 		commaok:   make(map[Instance]*CommaOk),
 		defers:    []*ssa.Defer{},
 		locals:    make(map[ssa.Value]Instance),
+		revlookup: make(map[string]string),
 		retvals:   []Instance{},
 		selects:   make(map[Instance]*Select),
 		tuples:    make(map[Instance]Tuples),
@@ -160,6 +163,7 @@ func (caller *Function) prepareCallFn(common *ssa.CallCommon, fn *ssa.Function, 
 		}
 		if inst, ok := caller.locals[argCaller]; ok {
 			callee.locals[param] = inst
+			callee.revlookup[argCaller.Name()] = param.Name()
 
 			// Copy array and struct from parent.
 			if elems, ok := caller.arrays[inst]; ok {

@@ -18,8 +18,7 @@ func getChan(val ssa.Value, infer *TypeInfer) ssa.Value {
 		case *ssa.MakeChan:
 			return val
 		case *ssa.Phi:
-			infer.Logger.Print("Phi:", val.String())
-			return val //
+			return val
 		}
 	}
 	infer.Logger.Print("Don't know where this chan comes from:", val.String())

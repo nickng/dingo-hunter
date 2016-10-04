@@ -36,6 +36,7 @@ func phiSelectEdge(instr *ssa.Phi, infer *TypeInfer, ctx *Context) (edge int) {
 			}
 			ctx.F.locals[instr], edge = e, pred.Index
 			infer.Logger.Printf(ctx.F.Sprintf(PhiSymbol+"%s/%s = %s, selected from block %d", instr.Name(), e, instr.String(), edge))
+			ctx.F.revlookup[instr.Name()] = instr.Edges[i].Name()
 			if a, ok := ctx.F.arrays[e]; ok {
 				ctx.F.arrays[ctx.F.locals[instr]] = a
 			}
