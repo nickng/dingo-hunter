@@ -184,6 +184,9 @@ func (caller *Function) prepareCallFn(common *ssa.CallCommon, fn *ssa.Function, 
 		if cap, ok := caller.Prog.closures[inst]; ok {
 			for i, fv := range callee.Fn.FreeVars {
 				callee.locals[fv] = cap[i]
+				if _, ok := derefType(fv.Type()).(*types.Chan); ok {
+					callee.FuncDef.AddParams(&migo.Parameter{Caller: fv, Callee: fv})
+				}
 			}
 		}
 	}
