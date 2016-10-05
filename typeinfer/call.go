@@ -91,6 +91,17 @@ func (caller *Function) Go(instr *ssa.Go, infer *TypeInfer) {
 			spawnStmt.AddParams(&migo.Parameter{Caller: ch, Callee: callee.Fn.Params[i]})
 		}
 	}
+	if inst, ok := caller.locals[common.Value]; ok {
+		if bindings, ok := caller.Prog.closures[inst]; ok {
+			for _, b := range bindings {
+				if v, ok := b.(*Value); ok {
+					if _, ok := derefType(v.Type()).(*types.Chan); ok {
+						spawnStmt.AddParams(&migo.Parameter{Caller: v, Callee: v})
+					}
+				}
+			}
+		}
+	}
 	caller.FuncDef.AddStmts(spawnStmt)
 	caller.FuncDef.HasComm = true
 	// Don't actually call/visit the function but enqueue it.
@@ -290,6 +301,17 @@ func (caller *Function) call(common *ssa.CallCommon, fn *ssa.Function, rcvr ssa.
 			if _, ok := c.Type().(*types.Chan); ok {
 				ch := getChan(c, infer)
 				callStmt.AddParams(&migo.Parameter{Caller: ch, Callee: callee.Fn.Params[i]})
+			}
+		}
+		if inst, ok := caller.locals[common.Value]; ok {
+			if bindings, ok := caller.Prog.closures[inst]; ok {
+				for _, b := range bindings {
+					if v, ok := b.(*Value); ok {
+						if _, ok := derefType(v.Type()).(*types.Chan); ok {
+							callStmt.AddParams(&migo.Parameter{Caller: v, Callee: v})
+						}
+					}
+				}
 			}
 		}
 		caller.FuncDef.AddStmts(callStmt)
