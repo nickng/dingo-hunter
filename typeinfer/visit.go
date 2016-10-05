@@ -958,7 +958,12 @@ func visitSelect(instr *ssa.Select, infer *TypeInfer, ctx *Context) {
 		case types.SendOnly:
 			stmt = &migo.SendStatement{Chan: ch.(*Value).Name()}
 		case types.RecvOnly:
-			stmt = &migo.RecvStatement{Chan: ch.(*Value).Name()}
+			if _, ok := ch.(*Value); ok {
+				stmt = &migo.RecvStatement{Chan: ch.(*Value).Name()}
+			} else {
+				// Warning: receiving from external channels (e.g. cgo)
+				// will cause problems
+			}
 		}
 		selStmt.Cases = append(selStmt.Cases, []migo.Statement{stmt})
 	}
