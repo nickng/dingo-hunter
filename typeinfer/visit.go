@@ -956,13 +956,21 @@ func visitSelect(instr *ssa.Select, infer *TypeInfer, ctx *Context) {
 		//c := getChan(ch.Var(), infer)
 		switch sel.Dir {
 		case types.SendOnly:
-			stmt = &migo.SendStatement{Chan: ch.(*Value).Name()}
-		case types.RecvOnly:
-			if _, ok := ch.(*Value); ok {
-				stmt = &migo.RecvStatement{Chan: ch.(*Value).Name()}
+			if paramName, ok := ctx.F.revlookup[ch.String()]; ok {
+				stmt = &migo.SendStatement{Chan: paramName}
 			} else {
-				// Warning: receiving from external channels (e.g. cgo)
-				// will cause problems
+				stmt = &migo.SendStatement{Chan: ch.(*Value).Name()}
+			}
+		case types.RecvOnly:
+			if paramName, ok := ctx.F.revlookup[ch.String()]; ok {
+				stmt = &migo.RecvStatement{Chan: paramName}
+			} else {
+				if _, ok := ch.(*Value); ok {
+					stmt = &migo.RecvStatement{Chan: ch.(*Value).Name()}
+				} else {
+					// Warning: receiving from external channels (e.g. cgo)
+					// will cause problems
+				}
 			}
 		}
 		selStmt.Cases = append(selStmt.Cases, []migo.Statement{stmt})
