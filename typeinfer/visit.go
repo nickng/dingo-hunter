@@ -544,7 +544,17 @@ func visitIf(instr *ssa.If, infer *TypeInfer, ctx *Context) {
 	// Save then.
 	ctx.F.FuncDef.PutAway()
 	infer.Logger.Printf(ctx.F.Sprintf(IfSymbol+"if %s else"+JumpSymbol+"%d", cond, instr.Block().Succs[1].Index))
-	visitBasicBlock(instr.Block().Succs[1], infer, ctx.F, NewBlock(ctx.F, instr.Block().Succs[1], ctx.B.Index), ctx.L)
+	if ctx.L.State == Body && ctx.L.LoopBlock == ctx.B.Index {
+		// Infinite loop.
+		infer.Logger.Printf(ctx.F.Sprintf(LoopSymbol + " infinite loop"))
+		stmt := &migo.CallStatement{Name: fmt.Sprintf("%s#%d", ctx.F.Fn.String(), ctx.B.Index)}
+		for _, p := range ctx.F.FuncDef.Params {
+			stmt.AddParams(&migo.Parameter{Caller: p.Callee, Callee: p.Callee})
+		}
+		ctx.F.FuncDef.AddStmts(stmt)
+	} else {
+		visitBasicBlock(instr.Block().Succs[1], infer, ctx.F, NewBlock(ctx.F, instr.Block().Succs[1], ctx.B.Index), ctx.L)
+	}
 	// Save else.
 	ctx.F.FuncDef.PutAway()
 	elseStmts, err := ctx.F.FuncDef.Restore() // Else

@@ -133,6 +133,11 @@ func loopStateTransition(blk *ssa.BasicBlock, infer *TypeInfer, f *Function, l *
 			(*l).Bound = Unknown
 			(*l).LoopBlock = blk.Index
 		}
+		if blk.Comment == "for.body" {
+			(*l).State = Body
+			(*l).Bound = Unknown
+			(*l).LoopBlock = blk.Index
+		}
 	case Enter:
 		if blk.Comment == "for.body" {
 			(*l).State = Body
