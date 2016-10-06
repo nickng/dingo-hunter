@@ -1,9 +1,11 @@
 package main
 
 // Alternating bit - from Milner's Communication and Concurrency
+// with (meaningless) timing
 
 import (
 	"fmt"
+	"time"
 )
 
 func main() {
@@ -36,7 +38,7 @@ func tx(snd chan<- int, ack <-chan int) {
 					b = flip(b)
 					// SENDING b
 				}
-			default:
+			case <-time.After(1 * time.Second):
 				fmt.Printf("tx[%d]: timeout\n", b)
 				fmt.Printf("tx[%d]: send[%d]\n", b, b)
 				snd <- b
@@ -63,7 +65,7 @@ func rx(reply chan<- int, trans <-chan int) {
 					fmt.Printf("rx[%d]: trans[b]\n", b)
 					// REPLYING b
 				}
-			default:
+			case <-time.After(1 * time.Second):
 				fmt.Printf("rx[%d]: timeout\n", b)
 				fmt.Printf("rx[%d]: reply[%d]\n", b, b)
 				reply <- b
