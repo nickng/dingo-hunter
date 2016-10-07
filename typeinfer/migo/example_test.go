@@ -19,17 +19,17 @@ func ExampleStmtsStack() {
 
 // The example demonstrates the usage of the migo API for building MiGo programs.
 func ExampleProgram() {
-	p := migo.NewProgram()
-	f := migo.NewFunction("F")
-	SendXStmt := &migo.SendStatement{Chan: "x"}                              // send x
-	callGStmt := &migo.CallStatement{Name: "G", Params: []*migo.Parameter{}} // call G()
-	f.AddStmts(SendXStmt, callGStmt)                                         // F()
-	g := migo.NewFunction("G")
-	g.AddParams()                    // G()
-	g.AddStmts(&migo.TauStatement{}) // tau
-	p.AddFunction(f)
-	p.AddFunction(g)
-	fmt.Print(p.String())
+	//p := migo.NewProgram()
+	//f := migo.NewFunction("F")
+	//SendXStmt := &migo.SendStatement{Chan: "x"}                              // send x
+	//callGStmt := &migo.CallStatement{Name: "G", Params: []*migo.Parameter{}} // call G()
+	//f.AddStmts(SendXStmt, callGStmt)                                         // F()
+	//g := migo.NewFunction("G")
+	//g.AddParams()                    // G()
+	//g.AddStmts(&migo.TauStatement{}) // tau
+	//p.AddFunction(f)
+	//p.AddFunction(g)
+	//fmt.Print(p.String())
 	// Output:
 	// def F():
 	//  send x;
