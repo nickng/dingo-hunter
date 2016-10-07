@@ -1,0 +1,79 @@
+pre.src, pre.log {
+  margin: 10px;
+}
+
+pre.src {
+  border-radius: 5px;
+  /*line-height: 0;*/
+  counter-reset: line;
+}
+
+pre code,
+pre .line-number {
+  display: block;
+}
+
+pre .line-number {
+  float: left;
+  text-align: right;
+  padding-top: 0.5em;
+}
+
+pre .line-number span {
+  color: #555;
+  display: block;
+  padding:0 .5em 0 1em;
+}
+
+pre .cl {
+  padding-bottom: 0.5em;
+  display: block;
+  clear: both;
+}
+
+header {
+  margin: 10px;
+  background: url('/static/logo.png') no-repeat left center;
+  padding-left: 110px;
+}
+
+.tabs {
+  background: #fff;
+  position: relative;
+  height: 100%;
+  min-height: 200px; /* This part sucks */
+  clear: both;
+}
+.tab {
+  float: left;
+}
+.tab label {
+  background: #eee;
+  padding: 10px;
+  border: 1px solid #ccc;
+  margin-left: -1px;
+  position: relative;
+  left: 1px;
+}
+.tab [type=radio] {
+  display: none;
+}
+.content {
+  position: absolute;
+  top: 28px;
+  left: 0;
+  background: #fff;
+  right: 0;
+  bottom: 0;
+  border-top: 1px solid #ccc;
+  display: none;
+}
+input[type=radio]:checked ~ label {
+  background: white;
+  border-bottom: 1px solid white;
+  z-index: 2;
+}
+input[type=radio]:checked ~ label ~ .content {
+  z-index: 1;
+  display: block;
+}

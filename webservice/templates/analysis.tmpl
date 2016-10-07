@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.6.0/pure-min.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.3.0/styles/default.min.css">
+  <link href="/static/style.css" rel="stylesheet" />
+</head>
+<body>
+  <header>
+    <h1>Type inference demo</h1>
+    <h3>Example: {{ .Title }}/main.go <small>({{.Time}})</small></h3>
+    <div><a href="/">Back to list</a></div>
+  </header>
+  <div class="pure-g">
+  <div class="pure-u-1-2">
+    <div class="tabs">
+      <div class="tab">
+        <input type="radio" id="tab-ssa" name="tab-group" checked>
+        <label for="tab-ssa">SSA</label>
+        <div class="content"><pre>{{ .SSA }}</pre></div>
+      </div>
+      <div class="tab">
+        <input type="radio" id="tab-code" name="tab-group" checked>
+        <label for="tab-code">source</label>
+        <div class="content"><pre class="src"><code class="go">{{ .Code }}</code></pre></div>
+      </div>
+    </div>
+  </div>
+  <div class="pure-u-1-2"><pre class="log">{{ .Log }}</pre></div>
+  </div>
+  <script src="//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.3.0/highlight.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script>
+  <script src="/static/script.js"></script>
+</body>
+</html>

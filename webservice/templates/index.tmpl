@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.6.0/pure-min.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="/static/style.css" rel="stylesheet" />
+</head>
+<body>
+  <header>
+    <h1>Type inference demo</h1>
+    <h3>Examples</h3>
+  </header>
+  {{ if .Examples }}
+      <ul>
+      {{ range .Examples }}<li><a href="/example/{{ . }}">{{ . }}</a>{{ end }}
+      </ul>
+  {{ else }}
+      No examples.
+  {{ end }}
+</body>
+</html>

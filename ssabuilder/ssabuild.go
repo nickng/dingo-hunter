@@ -47,6 +47,8 @@ var (
 		"runtime": "Runtime contains threads that are not user related",
 		"strings": "Strings function does not have communication",
 		"sync":    "Atomics confuse analyser",
+		"time":    "Time not supported",
+		"rand":    "Math does not use channels",
 	}
 )
 
