@@ -278,6 +278,7 @@ type CallStatement struct {
 	Params []*Parameter
 }
 
+// SimpleName returns a filtered name.
 func (s *CallStatement) SimpleName() string {
 	return nameFilter.Replace(s.Name)
 }
@@ -316,6 +317,7 @@ type SpawnStatement struct {
 	Params []*Parameter
 }
 
+// SimpleName returns a filtered name.
 func (s *SpawnStatement) SimpleName() string {
 	return nameFilter.Replace(s.Name)
 }
