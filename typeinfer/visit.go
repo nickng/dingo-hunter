@@ -902,7 +902,6 @@ func visitRecv(instr *ssa.UnOp, infer *TypeInfer, ctx *Context) {
 	} else {
 		ctx.F.FuncDef.AddStmts(&migo.RecvStatement{Chan: ch.(*Value).Name()})
 	}
-	ctx.F.FuncDef.HasComm = true
 
 	// Initialise received value if needed.
 	initNestedRefVar(infer, ctx, ctx.F.locals[instr], false)
@@ -991,7 +990,6 @@ func visitSelect(instr *ssa.Select, infer *TypeInfer, ctx *Context) {
 	}
 	ctx.F.tuples[ctx.F.locals[instr]] = make(Tuples, 2+len(selStmt.Cases)) // index + recvok + cases
 	ctx.F.FuncDef.AddStmts(selStmt)
-	ctx.F.FuncDef.HasComm = true
 	infer.Logger.Print(ctx.F.Sprintf(SelectSymbol+" %d cases %s = %s", 2+len(selStmt.Cases), instr.Name(), instr.String()))
 }
 
@@ -1007,7 +1005,6 @@ func visitSend(instr *ssa.Send, infer *TypeInfer, ctx *Context) {
 	} else {
 		ctx.F.FuncDef.AddStmts(&migo.SendStatement{Chan: ch.(*Value).Name()})
 	}
-	ctx.F.FuncDef.HasComm = true
 }
 
 func visitSkip(instr ssa.Instruction, infer *TypeInfer, ctx *Context) {

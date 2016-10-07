@@ -51,54 +51,89 @@ func (p *Program) Function(name string) (*Function, bool) {
 	return nil, false
 }
 
-func (p *Program) String() string {
-	var buf bytes.Buffer
-	/*
-		if fn, ok := p.Function("main.main"); ok {
-			p.visited = make(map[*Function]int)
-			MarkComm(p, fn, fn.Stmts)
-		}
-		for _, f := range p.Funcs {
-			if matched, _ := regexp.MatchString("main.main.*", f.Name); matched {
-				buf.WriteString(f.String())
-			} else if f.HasComm && !f.IsEmpty() {
-				buf.WriteString(f.String())
+func (p *Program) findEmptyFuncMain(f *Function) {
+	known := make(map[string]bool)
+	p.findEmptyFunc(f, known)
+	f.HasComm = true
+}
+
+func (p *Program) findEmptyFunc(f *Function, known map[string]bool) {
+	if _, ok := known[f.Name]; ok {
+		return
+	}
+	known[f.Name] = f.HasComm
+	for _, stmt := range f.Stmts {
+		switch stmt := stmt.(type) {
+		case *CallStatement:
+			if child, ok := p.Function(stmt.Name); ok {
+				if hasComm, ok := known[child.Name]; ok {
+					f.HasComm = hasComm
+				} else {
+					p.findEmptyFunc(child, known)
+					f.HasComm = child.HasComm
+				}
+				known[f.Name] = f.HasComm
+			}
+		case *SpawnStatement:
+			if child, ok := p.Function(stmt.Name); ok {
+				if hasComm, ok := known[child.Name]; ok {
+					f.HasComm = hasComm
+				} else {
+					p.findEmptyFunc(child, known)
+					f.HasComm = child.HasComm
+				}
+				known[f.Name] = f.HasComm
 			}
 		}
-	*/
+	}
+}
+
+// CleanUp removes empty functions.
+func (p *Program) CleanUp() {
+	// First remove all empty functions
+	fns := []*Function{}
+	validFns := make(map[string]bool) // Stores what functions are valid
+	for i, f := range p.Funcs {
+		if f.HasComm {
+			fns = append(fns, p.Funcs[i])
+			validFns[f.Name] = true
+		}
+	}
+	p.Funcs = fns
+	for _, f := range p.Funcs {
+		stmts := []Statement{}
+		for i, s := range f.Stmts {
+			switch stmt := s.(type) {
+			case *CallStatement:
+				if _, ok := validFns[stmt.Name]; ok {
+					stmts = append(stmts, f.Stmts[i])
+				}
+			case *SpawnStatement:
+				if _, ok := validFns[stmt.Name]; ok {
+					stmts = append(stmts, f.Stmts[i])
+				}
+			default:
+				stmts = append(stmts, f.Stmts[i])
+			}
+		}
+		f.Stmts = stmts
+	}
+}
+
+func (p *Program) String() string {
+	for _, f := range p.Funcs {
+		if f.Name == "main.main" {
+			p.findEmptyFuncMain(f)
+		}
+	}
+	p.CleanUp()
+	var buf bytes.Buffer
 	for _, f := range p.Funcs {
 		if !f.IsEmpty() {
 			buf.WriteString(f.String())
 		}
 	}
 	return buf.String()
-}
-
-func MarkComm(p *Program, f *Function, ss []Statement) bool {
-	if _, ok := p.visited[f]; !ok {
-		p.visited[f] = 1
-		for _, s := range ss {
-			switch stmt := s.(type) {
-			case *NewChanStatement:
-				f.HasComm = true
-			case *CallStatement:
-				if fn, ok := p.Function(stmt.SimpleName()); ok {
-					f.HasComm = f.HasComm || MarkComm(p, fn, fn.Stmts)
-				}
-			case *SpawnStatement:
-				if fn, ok := p.Function(stmt.SimpleName()); ok {
-					fn.HasComm = true
-					MarkComm(p, fn, fn.Stmts)
-				}
-				f.HasComm = true
-			case *IfStatement:
-				f.HasComm = f.HasComm || MarkComm(p, f, stmt.Then) || MarkComm(p, f, stmt.Else)
-			case *SendStatement, *RecvStatement, *SelectStatement:
-				f.HasComm = true
-			}
-		}
-	}
-	return f.HasComm
 }
 
 // Parameter is a translation from caller environment to callee.
@@ -186,6 +221,7 @@ func (f *Function) GetParamByCalleeValue(v ssa.Value) (*Parameter, error) {
 	return nil, fmt.Errorf("Parameter not found")
 }
 
+// SimpleName returns a filtered name of a function.
 func (f *Function) SimpleName() string {
 	return nameFilter.Replace(f.Name)
 }
@@ -197,6 +233,14 @@ func (f *Function) AddStmts(stmts ...Statement) {
 		if _, ok := f.Stmts[numStmts-1].(*TauStatement); ok {
 			f.Stmts = append(f.Stmts[:numStmts], stmts...)
 			return
+		}
+	}
+SET_HASCOMM:
+	for _, s := range stmts {
+		switch s.(type) {
+		case *SendStatement, *RecvStatement, *CloseStatement, *SelectStatement, *NewChanStatement:
+			f.HasComm = true
+			break SET_HASCOMM
 		}
 	}
 	f.Stmts = append(f.Stmts, stmts...)

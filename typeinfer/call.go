@@ -107,7 +107,6 @@ func (caller *Function) Go(instr *ssa.Go, infer *TypeInfer) {
 		}
 	}
 	caller.FuncDef.AddStmts(spawnStmt)
-	caller.FuncDef.HasComm = true
 	// Don't actually call/visit the function but enqueue it.
 	infer.GQueue = append(infer.GQueue, callee)
 }
