@@ -70,7 +70,7 @@ func (p *Program) findEmptyFunc(f *Function, known map[string]bool) {
 					f.HasComm = hasComm
 				} else {
 					p.findEmptyFunc(child, known)
-					f.HasComm = child.HasComm
+					f.HasComm = f.HasComm || child.HasComm
 				}
 				known[f.Name] = f.HasComm
 			}
@@ -80,7 +80,7 @@ func (p *Program) findEmptyFunc(f *Function, known map[string]bool) {
 					f.HasComm = hasComm
 				} else {
 					p.findEmptyFunc(child, known)
-					f.HasComm = child.HasComm
+					f.HasComm = f.HasComm || child.HasComm
 				}
 				known[f.Name] = f.HasComm
 			}
