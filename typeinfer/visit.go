@@ -48,6 +48,25 @@ func visitBasicBlock(blk *ssa.BasicBlock, infer *TypeInfer, f *Function, bPrev *
 		if _, ok := f.Visited[blk]; ok {
 			infer.Logger.Printf(f.Sprintf(BlockSymbol+"%s %d (visited)", fmtBlock("block"), blk.Index))
 			f.Visited[blk]++
+			for i := 0; i < len(f.FuncDef.Params); i++ {
+				for k, ea := range f.extraargs {
+					if phi, ok := ea.(*ssa.Phi); ok {
+						if bPrev.Index < len(phi.Edges) {
+							for _, e := range phi.Edges {
+								if f.FuncDef.Params[i].Caller.Name() == e.Name() {
+									f.FuncDef.Params[i].Callee = phi
+									// Remove from extra args
+									if k < len(f.extraargs) {
+										f.extraargs = append(f.extraargs[:k], f.extraargs[k+1:]...)
+									} else {
+										f.extraargs = f.extraargs[:k]
+									}
+								}
+							}
+						}
+					}
+				}
+			}
 			return
 		}
 	}
@@ -725,18 +744,40 @@ func visitJump(jump *ssa.Jump, infer *TypeInfer, ctx *Context) {
 			stmt = &migo.CallStatement{Name: fmt.Sprintf("%s#%d_loop%d", ctx.F.Fn.String(), next.Index, ctx.L.Index), Params: []*migo.Parameter{}}
 		} else {
 			stmt = &migo.CallStatement{Name: fmt.Sprintf("%s#%d", ctx.F.Fn.String(), next.Index)}
-			for _, p := range ctx.F.FuncDef.Params {
-				stmt.AddParams(&migo.Parameter{Caller: p.Callee, Callee: p.Callee})
+			for i := 0; i < len(ctx.F.FuncDef.Params); i++ {
+				for k, ea := range ctx.F.extraargs {
+					if phi, ok := ea.(*ssa.Phi); ok {
+						if jump.Block().Index < len(phi.Edges) {
+							for _, e := range phi.Edges {
+								if ctx.F.FuncDef.Params[i].Caller.Name() == e.Name() {
+									ctx.F.FuncDef.Params[i].Callee = phi
+									// Remove from extra args
+									if k < len(ctx.F.extraargs) {
+										ctx.F.extraargs = append(ctx.F.extraargs[:k], ctx.F.extraargs[k+1:]...)
+									} else {
+										ctx.F.extraargs = ctx.F.extraargs[:k]
+									}
+								}
+							}
+						}
+					}
+				}
+				// This loop copies args from current function to Successor.
+				if phi, ok := ctx.F.FuncDef.Params[i].Callee.(*ssa.Phi); ok {
+					// Resolve in current scope if phi
+					stmt.AddParams(&migo.Parameter{Caller: phi.Edges[jump.Block().Index], Callee: ctx.F.FuncDef.Params[i].Callee})
+				} else {
+					stmt.AddParams(&migo.Parameter{Caller: ctx.F.FuncDef.Params[i].Callee, Callee: ctx.F.FuncDef.Params[i].Callee})
+				}
+			}
+			for _, ea := range ctx.F.extraargs {
+				if phi, ok := ea.(*ssa.Phi); ok {
+					stmt.AddParams(&migo.Parameter{Caller: phi.Edges[jump.Block().Index], Callee: phi})
+				} else {
+					stmt.AddParams(&migo.Parameter{Caller: ea, Callee: ea})
+				}
 			}
 		}
-		//for _, s := range ctx.F.FuncDef.Stmts {
-		//	if nc, ok := s.(*migo.NewChanStatement); ok {
-		//		stmt.AddParams(&migo.Parameter{Caller: nc.Name, Callee: nc.Name})
-		//	}
-		//}
-		//for _, p := range ctx.F.FuncDef.Params {
-		//	stmt.AddParams(&migo.Parameter{Caller: p.Callee, Callee: p.Callee})
-		//}
 		ctx.F.FuncDef.AddStmts(stmt)
 		if _, visited := ctx.F.Visited[next]; !visited {
 			newBlock := NewBlock(ctx.F, next, ctx.B.Index)
@@ -805,6 +846,20 @@ func visitMakeChan(instr *ssa.MakeChan, infer *TypeInfer, ctx *Context) {
 		bufSz.Int64(),
 		fmtPos(infer.SSA.FSet.Position(instr.Pos()).String())))
 	ctx.F.FuncDef.AddStmts(&migo.NewChanStatement{Name: instr, Chan: newch.String(), Size: bufSz.Int64()})
+	// Make sure it is not a duplicated extraargs
+	var found bool
+	for _, ea := range ctx.F.extraargs {
+		if phi, ok := ea.(*ssa.Phi); ok {
+			if instr.Block().Index < len(phi.Edges) {
+				if phi.Edges[instr.Block().Index].Name() == instr.Name() {
+					found = true
+				}
+			}
+		}
+	}
+	if !found {
+		ctx.F.extraargs = append(ctx.F.extraargs, instr)
+	}
 }
 
 func visitMakeClosure(instr *ssa.MakeClosure, infer *TypeInfer, ctx *Context) {
@@ -880,6 +935,19 @@ func visitNext(instr *ssa.Next, infer *TypeInfer, ctx *Context) {
 
 func visitPhi(instr *ssa.Phi, infer *TypeInfer, ctx *Context) {
 	loopDetectBounds(instr, infer, ctx)
+	if _, ok := instr.Type().(*types.Chan); ok {
+		// Replace existing non-edge extra args with the same name.
+		for _, e := range instr.Edges {
+		EALOOP:
+			for i, ea := range ctx.F.extraargs {
+				if e.Name() == ea.Name() {
+					ctx.F.extraargs = append(ctx.F.extraargs[:i], ctx.F.extraargs[i+1:]...)
+					break EALOOP
+				}
+			}
+		}
+		ctx.F.extraargs = append(ctx.F.extraargs, instr)
+	}
 }
 
 func visitRecv(instr *ssa.UnOp, infer *TypeInfer, ctx *Context) {
@@ -900,7 +968,11 @@ func visitRecv(instr *ssa.UnOp, infer *TypeInfer, ctx *Context) {
 	if paramName, ok := ctx.F.revlookup[ch.String()]; ok {
 		ctx.F.FuncDef.AddStmts(&migo.RecvStatement{Chan: paramName})
 	} else {
-		ctx.F.FuncDef.AddStmts(&migo.RecvStatement{Chan: ch.(*Value).Name()})
+		if _, ok := instr.X.(*ssa.Phi); ok { // if it's a phi, selection is made in the parameter
+			ctx.F.FuncDef.AddStmts(&migo.RecvStatement{Chan: instr.X.Name()})
+		} else {
+			ctx.F.FuncDef.AddStmts(&migo.RecvStatement{Chan: ch.(*Value).Name()})
+		}
 	}
 
 	// Initialise received value if needed.
@@ -968,14 +1040,22 @@ func visitSelect(instr *ssa.Select, infer *TypeInfer, ctx *Context) {
 			if paramName, ok := ctx.F.revlookup[ch.String()]; ok {
 				stmt = &migo.SendStatement{Chan: paramName}
 			} else {
-				stmt = &migo.SendStatement{Chan: ch.(*Value).Name()}
+				if _, ok := sel.Chan.(*ssa.Phi); ok { // if it's a phi, selection is made in the parameter
+					stmt = &migo.SendStatement{Chan: sel.Chan.Name()}
+				} else {
+					stmt = &migo.SendStatement{Chan: ch.(*Value).Name()}
+				}
 			}
 		case types.RecvOnly:
 			if paramName, ok := ctx.F.revlookup[ch.String()]; ok {
 				stmt = &migo.RecvStatement{Chan: paramName}
 			} else {
 				if _, ok := ch.(*Value); ok {
-					stmt = &migo.RecvStatement{Chan: ch.(*Value).Name()}
+					if _, ok := sel.Chan.(*ssa.Phi); ok { // if it's a phi, selection is made in the parameter
+						stmt = &migo.RecvStatement{Chan: sel.Chan.Name()}
+					} else {
+						stmt = &migo.RecvStatement{Chan: ch.(*Value).Name()}
+					}
 				} else {
 					// Warning: receiving from external channels (e.g. cgo)
 					// will cause problems
@@ -1003,7 +1083,11 @@ func visitSend(instr *ssa.Send, infer *TypeInfer, ctx *Context) {
 	if paramName, ok := ctx.F.revlookup[ch.String()]; ok {
 		ctx.F.FuncDef.AddStmts(&migo.SendStatement{Chan: paramName})
 	} else {
-		ctx.F.FuncDef.AddStmts(&migo.SendStatement{Chan: ch.(*Value).Name()})
+		if _, ok := instr.Chan.(*ssa.Phi); ok {
+			ctx.F.FuncDef.AddStmts(&migo.SendStatement{Chan: instr.Chan.Name()})
+		} else {
+			ctx.F.FuncDef.AddStmts(&migo.SendStatement{Chan: ch.(*Value).Name()})
+		}
 	}
 }
 

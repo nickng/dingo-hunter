@@ -79,11 +79,12 @@ type Function struct {
 	defers    []*ssa.Defer           // Deferred calls.
 	locals    map[ssa.Value]Instance // Local variable instances.
 	revlookup map[string]string      // Reverse lookup names.
-	retvals   []Instance             // Return value instances.
-	selects   map[Instance]*Select   // Select cases mapping.
-	tuples    map[Instance]Tuples    // Tuples.
-	loopstack *LoopStack             // Stack of Loop.
-	*Storage                         // Storage.
+	extraargs []ssa.Value
+	retvals   []Instance           // Return value instances.
+	selects   map[Instance]*Select // Select cases mapping.
+	tuples    map[Instance]Tuples  // Tuples.
+	loopstack *LoopStack           // Stack of Loop.
+	*Storage                       // Storage.
 }
 
 // NewMainFunction returns a new main() call context.
@@ -99,6 +100,7 @@ func NewMainFunction(prog *Program, mainFn *ssa.Function) *Function {
 		defers:    []*ssa.Defer{},
 		locals:    make(map[ssa.Value]Instance),
 		retvals:   []Instance{},
+		extraargs: []ssa.Value{},
 		revlookup: make(map[string]string),
 		selects:   make(map[Instance]*Select),
 		tuples:    make(map[Instance]Tuples),
@@ -122,6 +124,7 @@ func NewFunction(caller *Function) *Function {
 		defers:    []*ssa.Defer{},
 		locals:    make(map[ssa.Value]Instance),
 		revlookup: make(map[string]string),
+		extraargs: []ssa.Value{},
 		retvals:   []Instance{},
 		selects:   make(map[Instance]*Select),
 		tuples:    make(map[Instance]Tuples),

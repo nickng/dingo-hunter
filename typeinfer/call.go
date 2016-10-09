@@ -29,7 +29,11 @@ func (caller *Function) Call(call *ssa.Call, infer *TypeInfer, b *Block, l *Loop
 			if paramName, ok := caller.revlookup[ch.String()]; ok {
 				caller.FuncDef.AddStmts(&migo.CloseStatement{Chan: paramName})
 			} else {
-				caller.FuncDef.AddStmts(&migo.CloseStatement{Chan: ch.String()})
+				if _, ok := common.Args[0].(*ssa.Phi); ok {
+					caller.FuncDef.AddStmts(&migo.CloseStatement{Chan: common.Args[0].Name()})
+				} else {
+					caller.FuncDef.AddStmts(&migo.CloseStatement{Chan: ch.String()})
+				}
 			}
 			infer.Logger.Print(caller.Sprintf("close %s", common.Args[0]))
 			return
