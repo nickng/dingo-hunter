@@ -496,7 +496,6 @@ func visitIf(instr *ssa.If, infer *TypeInfer, ctx *Context) {
 			visitBasicBlock(instr.Block().Succs[0], infer, ctx.F, NewBlock(ctx.F, instr.Block().Succs[0], ctx.B.Index), ctx.L)
 		} else {
 			infer.Logger.Printf(ctx.F.Sprintf(LoopSymbol+"loop exit %s", ctx.L))
-			//ctx.F.Visited[instr.Block()] = 0
 			visitBasicBlock(instr.Block().Succs[1], infer, ctx.F, NewBlock(ctx.F, instr.Block().Succs[1], ctx.B.Index), ctx.L)
 		}
 		return
@@ -740,44 +739,44 @@ func visitJump(jump *ssa.Jump, infer *TypeInfer, ctx *Context) {
 	if len(next.Preds) > 1 {
 		infer.Logger.Printf(ctx.F.Sprintf(SplitSymbol+"Jump (%d ⇾ %d) %s", curr.Index, next.Index, ctx.L.String()))
 		var stmt *migo.CallStatement
-		if ctx.L.Bound == Static && ctx.L.HasNext() {
-			stmt = &migo.CallStatement{Name: fmt.Sprintf("%s#%d_loop%d", ctx.F.Fn.String(), next.Index, ctx.L.Index), Params: []*migo.Parameter{}}
-		} else {
-			stmt = &migo.CallStatement{Name: fmt.Sprintf("%s#%d", ctx.F.Fn.String(), next.Index)}
-			for i := 0; i < len(ctx.F.FuncDef.Params); i++ {
-				for k, ea := range ctx.F.extraargs {
-					if phi, ok := ea.(*ssa.Phi); ok {
-						if jump.Block().Index < len(phi.Edges) {
-							for _, e := range phi.Edges {
-								if ctx.F.FuncDef.Params[i].Caller.Name() == e.Name() {
-									ctx.F.FuncDef.Params[i].Callee = phi
-									// Remove from extra args
-									if k < len(ctx.F.extraargs) {
-										ctx.F.extraargs = append(ctx.F.extraargs[:k], ctx.F.extraargs[k+1:]...)
-									} else {
-										ctx.F.extraargs = ctx.F.extraargs[:k]
-									}
+		//if ctx.L.Bound == Static && ctx.L.HasNext() {
+		//stmt = &migo.CallStatement{Name: fmt.Sprintf("%s#%d_loop%d", ctx.F.Fn.String(), next.Index, ctx.L.Index), Params: []*migo.Parameter{}}
+		//} else {
+		stmt = &migo.CallStatement{Name: fmt.Sprintf("%s#%d", ctx.F.Fn.String(), next.Index)}
+		for i := 0; i < len(ctx.F.FuncDef.Params); i++ {
+			for k, ea := range ctx.F.extraargs {
+				if phi, ok := ea.(*ssa.Phi); ok {
+					if jump.Block().Index < len(phi.Edges) {
+						for _, e := range phi.Edges {
+							if ctx.F.FuncDef.Params[i].Caller.Name() == e.Name() {
+								ctx.F.FuncDef.Params[i].Callee = phi
+								// Remove from extra args
+								if k < len(ctx.F.extraargs) {
+									ctx.F.extraargs = append(ctx.F.extraargs[:k], ctx.F.extraargs[k+1:]...)
+								} else {
+									ctx.F.extraargs = ctx.F.extraargs[:k]
 								}
 							}
 						}
 					}
 				}
-				// This loop copies args from current function to Successor.
-				if phi, ok := ctx.F.FuncDef.Params[i].Callee.(*ssa.Phi); ok {
-					// Resolve in current scope if phi
-					stmt.AddParams(&migo.Parameter{Caller: phi.Edges[jump.Block().Index], Callee: ctx.F.FuncDef.Params[i].Callee})
-				} else {
-					stmt.AddParams(&migo.Parameter{Caller: ctx.F.FuncDef.Params[i].Callee, Callee: ctx.F.FuncDef.Params[i].Callee})
-				}
 			}
-			for _, ea := range ctx.F.extraargs {
-				if phi, ok := ea.(*ssa.Phi); ok {
-					stmt.AddParams(&migo.Parameter{Caller: phi.Edges[jump.Block().Index], Callee: phi})
-				} else {
-					stmt.AddParams(&migo.Parameter{Caller: ea, Callee: ea})
-				}
+			// This loop copies args from current function to Successor.
+			if phi, ok := ctx.F.FuncDef.Params[i].Callee.(*ssa.Phi); ok {
+				// Resolve in current scope if phi
+				stmt.AddParams(&migo.Parameter{Caller: phi.Edges[jump.Block().Index], Callee: ctx.F.FuncDef.Params[i].Callee})
+			} else {
+				stmt.AddParams(&migo.Parameter{Caller: ctx.F.FuncDef.Params[i].Callee, Callee: ctx.F.FuncDef.Params[i].Callee})
 			}
 		}
+		for _, ea := range ctx.F.extraargs {
+			if phi, ok := ea.(*ssa.Phi); ok {
+				stmt.AddParams(&migo.Parameter{Caller: phi.Edges[jump.Block().Index], Callee: phi})
+			} else {
+				stmt.AddParams(&migo.Parameter{Caller: ea, Callee: ea})
+			}
+		}
+		//}
 		ctx.F.FuncDef.AddStmts(stmt)
 		if _, visited := ctx.F.Visited[next]; !visited {
 			newBlock := NewBlock(ctx.F, next, ctx.B.Index)
