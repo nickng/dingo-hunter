@@ -1059,6 +1059,7 @@ func visitSelect(instr *ssa.Select, infer *TypeInfer, ctx *Context) {
 				} else {
 					// Warning: receiving from external channels (e.g. cgo)
 					// will cause problems
+					stmt = &migo.TauStatement{}
 				}
 			}
 		}
