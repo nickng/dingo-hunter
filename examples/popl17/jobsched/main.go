@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+var i int
+
 func worker(id int, jobQueue <-chan int, done <-chan struct{}) {
 	for {
 		select {
@@ -17,11 +19,14 @@ func worker(id int, jobQueue <-chan int, done <-chan struct{}) {
 	}
 }
 
+func morejob() bool {
+	i++
+	return i < 20
+}
+
 func producer(q chan int, done chan struct{}) {
-	cond := true
-	for cond {
+	for morejob() {
 		q <- 42
-		cond = false
 	}
 	close(done)
 }
