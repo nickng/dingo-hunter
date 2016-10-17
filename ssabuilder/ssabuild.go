@@ -18,13 +18,26 @@ import (
 	"github.com/nickng/dingo-hunter/ssabuilder/callgraph"
 )
 
+// A Mode value is a flag indicating how the source code are supplied.
+type Mode uint
+
+const (
+	// FromFiles is option to use a list of filenames for initial packages.
+	FromFiles Mode = 1 << iota
+
+	// FromString is option to use a string as body of initial package.
+	FromString
+)
+
 // Config holds the configuration for building SSA IR.
 type Config struct {
-	Files    []string          // (Initial) files to load.
-	BuildLog io.Writer         // Build log.
-	PtaLog   io.Writer         // Pointer analysis log.
-	LogFlags int               // Flags for build/pta log.
-	BadPkgs  map[string]string // Packages not to load (with reasons).
+	BuildMode Mode
+	Files     []string          // (Initial) files to load.
+	Source    string            // Source code.
+	BuildLog  io.Writer         // Build log.
+	PtaLog    io.Writer         // Pointer analysis log.
+	LogFlags  int               // Flags for build/pta log.
+	BadPkgs   map[string]string // Packages not to load (with reasons).
 }
 
 // SSAInfo is the SSA IR + metainfo built from a given Config.
@@ -58,11 +71,24 @@ func NewConfig(files []string) (*Config, error) {
 		return nil, fmt.Errorf("no files specified or analysis")
 	}
 	return &Config{
-		Files:    files,
-		BuildLog: ioutil.Discard,
-		PtaLog:   ioutil.Discard,
-		LogFlags: log.LstdFlags,
-		BadPkgs:  badPkgs,
+		BuildMode: FromFiles,
+		Files:     files,
+		BuildLog:  ioutil.Discard,
+		PtaLog:    ioutil.Discard,
+		LogFlags:  log.LstdFlags,
+		BadPkgs:   badPkgs,
+	}, nil
+}
+
+// NewConfigFromString creates a new default build configuration.
+func NewConfigFromString(s string) (*Config, error) {
+	return &Config{
+		BuildMode: FromString,
+		Source:    s,
+		BuildLog:  ioutil.Discard,
+		PtaLog:    ioutil.Discard,
+		LogFlags:  log.LstdFlags,
+		BadPkgs:   badPkgs,
 	}, nil
 }
 
@@ -71,12 +97,23 @@ func (conf *Config) Build() (*SSAInfo, error) {
 	var lconf = loader.Config{Build: &build.Default}
 	buildLog := log.New(conf.BuildLog, "ssabuild: ", conf.LogFlags)
 
-	args, err := lconf.FromArgs(conf.Files, false /* No tests */)
-	if err != nil {
-		return nil, err
-	}
-	if len(args) > 0 {
-		return nil, fmt.Errorf("surplus arguments: %q", args)
+	if conf.BuildMode == FromFiles {
+		args, err := lconf.FromArgs(conf.Files, false /* No tests */)
+		if err != nil {
+			return nil, err
+		}
+		if len(args) > 0 {
+			return nil, fmt.Errorf("surplus arguments: %q", args)
+		}
+	} else if conf.BuildMode == FromString {
+		f, err := lconf.ParseFile("", conf.Source)
+		if err != nil {
+			return nil, err
+		}
+		lconf.CreateFromFiles("", f)
+	} else {
+		buildLog.Fatal("Unknown build mode")
+
 	}
 
 	// Load, parse and type-check program
