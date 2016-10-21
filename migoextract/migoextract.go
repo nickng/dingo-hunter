@@ -46,7 +46,7 @@ func (infer *TypeInfer) Run() {
 	infer.Env.MigoProg = migo.NewProgram()
 
 	startTime := time.Now()
-	mainPkg := ssabuilder.GetMainPkg(infer.SSA.Prog)
+	mainPkg := ssabuilder.MainPkg(infer.SSA.Prog)
 	if mainPkg == nil {
 		infer.Error <- ErrNoMainPkg
 	}

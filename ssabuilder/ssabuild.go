@@ -160,7 +160,7 @@ func (conf *Config) Build() (*SSAInfo, error) {
 // CallGraph).
 // TODO(nickng) cache previously built CallGraph.
 func (info *SSAInfo) CallGraph() *callgraph.Node {
-	mainPkg := GetMainPkg(info.Prog)
+	mainPkg := MainPkg(info.Prog)
 	if mainFunc := mainPkg.Func("main"); mainFunc != nil {
 		return callgraph.Build(mainFunc)
 	}

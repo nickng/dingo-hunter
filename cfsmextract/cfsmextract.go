@@ -46,7 +46,7 @@ func New(ssainfo *ssabuilder.SSAInfo, prefix, outdir string) *CFSMExtract {
 // finally output the analysis results.
 func (extract *CFSMExtract) Run() {
 	startTime := time.Now()
-	mainPkg := ssabuilder.GetMainPkg(extract.SSA.Prog)
+	mainPkg := ssabuilder.MainPkg(extract.SSA.Prog)
 	if mainPkg == nil {
 		fmt.Fprintf(os.Stderr, "Error: 'main' package not found\n")
 		os.Exit(1)

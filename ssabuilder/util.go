@@ -5,7 +5,7 @@ import (
 )
 
 // GetMainPkg returns main package of a command.
-func GetMainPkg(prog *ssa.Program) *ssa.Package {
+func MainPkg(prog *ssa.Program) *ssa.Package {
 	pkgs := prog.AllPackages()
 	for _, pkg := range pkgs {
 		if pkg.Pkg.Name() == "main" {
