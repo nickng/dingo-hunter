@@ -33,8 +33,10 @@ func setupPTA(prog *ssa.Program, lprog *loader.Program, ptaLog io.Writer) (*poin
 		}
 	}
 	if testPkgs != nil {
-		if p := prog.CreateTestMainPackage(testPkgs...); p != nil {
-			mains = append(mains, p)
+		for _, testPkg := range testPkgs {
+			if p := prog.CreateTestMainPackage(testPkg); p != nil {
+				mains = append(mains, p)
+			}
 		}
 	}
 	if mains == nil {
