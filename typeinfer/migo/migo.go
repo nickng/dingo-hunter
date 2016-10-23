@@ -101,23 +101,36 @@ func (p *Program) CleanUp() {
 	}
 	p.Funcs = fns
 	for _, f := range p.Funcs {
-		stmts := []Statement{}
-		for i, s := range f.Stmts {
-			switch stmt := s.(type) {
-			case *CallStatement:
-				if _, ok := validFns[stmt.Name]; ok {
-					stmts = append(stmts, f.Stmts[i])
-				}
-			case *SpawnStatement:
-				if _, ok := validFns[stmt.Name]; ok {
-					stmts = append(stmts, f.Stmts[i])
-				}
-			default:
-				stmts = append(stmts, f.Stmts[i])
-			}
-		}
-		f.Stmts = stmts
+		f.Stmts = removeInvalidFns(f.Stmts, validFns)
 	}
+}
+
+func removeInvalidFns(stmts []Statement, validFns map[string]bool) []Statement {
+	validStmts := []Statement{}
+	for _, s := range stmts {
+		switch stmt := s.(type) {
+		case *CallStatement:
+			if _, ok := validFns[stmt.Name]; ok {
+				validStmts = append(validStmts, stmt)
+			}
+		case *SpawnStatement:
+			if _, ok := validFns[stmt.Name]; ok {
+				validStmts = append(validStmts, stmt)
+			}
+		case *IfStatement:
+			stmt.Then = removeInvalidFns(stmt.Then, validFns)
+			stmt.Else = removeInvalidFns(stmt.Else, validFns)
+			validStmts = append(validStmts, stmt)
+		case *SelectStatement:
+			for i := range stmt.Cases {
+				stmt.Cases[i] = removeInvalidFns(stmt.Cases[i], validFns)
+			}
+			validStmts = append(validStmts, stmt)
+		default:
+			validStmts = append(validStmts, stmt)
+		}
+	}
+	return validStmts
 }
 
 func (p *Program) String() string {
