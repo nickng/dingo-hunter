@@ -1,4 +1,4 @@
-package typeinfer
+package migoextract
 
 // Loop related functions and utilities.
 

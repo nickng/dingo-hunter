@@ -1,4 +1,4 @@
-package typeinfer
+package migoextract
 
 // Context captures variables (and invariants) of scopes during execution.
 // Different contexts are used for different level of fine-grainedness.
@@ -9,7 +9,7 @@ import (
 	"go/types"
 	"log"
 
-	"github.com/nickng/dingo-hunter/typeinfer/migo"
+	"github.com/nickng/dingo-hunter/migoextract/migo"
 	"golang.org/x/tools/go/ssa"
 )
 

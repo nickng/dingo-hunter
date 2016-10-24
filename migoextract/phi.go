@@ -1,4 +1,4 @@
-package typeinfer
+package migoextract
 
 // Deal with Phi nodes.
 

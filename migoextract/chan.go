@@ -1,4 +1,4 @@
-package typeinfer
+package migoextract
 
 // Utility functions to work with channels.
 

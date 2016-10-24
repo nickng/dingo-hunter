@@ -1,6 +1,6 @@
-// Package typeinfer provides session type inference from Go code.
+// Package migoextract provides session type inference from Go code.
 //
-package typeinfer // import "github.com/nickng/dingo-hunter/typeinfer"
+package migoextract // import "github.com/nickng/dingo-hunter/migoextract"
 
 import (
 	"go/types"
@@ -8,8 +8,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/nickng/dingo-hunter/migoextract/migo"
 	"github.com/nickng/dingo-hunter/ssabuilder"
-	"github.com/nickng/dingo-hunter/typeinfer/migo"
 	"golang.org/x/tools/go/ssa"
 )
 
@@ -29,7 +29,7 @@ type TypeInfer struct {
 func New(ssainfo *ssabuilder.SSAInfo, inferlog io.Writer) (*TypeInfer, error) {
 	infer := &TypeInfer{
 		SSA:    ssainfo,
-		Logger: log.New(inferlog, "typeinfer: ", ssainfo.BuildConf.LogFlags),
+		Logger: log.New(inferlog, "migoextract: ", ssainfo.BuildConf.LogFlags),
 
 		Done:  make(chan struct{}),
 		Error: make(chan error, 1),

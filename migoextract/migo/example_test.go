@@ -3,7 +3,7 @@ package migo_test
 import (
 	"fmt"
 
-	"github.com/nickng/dingo-hunter/typeinfer/migo"
+	"github.com/nickng/dingo-hunter/migoextract/migo"
 )
 
 func ExampleStmtsStack() {

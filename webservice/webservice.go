@@ -13,8 +13,8 @@ import (
 	"strings"
 
 	"github.com/nickng/dingo-hunter/logwriter"
+	"github.com/nickng/dingo-hunter/migoextract"
 	"github.com/nickng/dingo-hunter/ssabuilder"
-	"github.com/nickng/dingo-hunter/typeinfer"
 )
 
 var (
@@ -44,13 +44,13 @@ func IndexHandler(w http.ResponseWriter, r *http.Request) *wsError {
 	if err != nil {
 		return &wsError{Error: err, Message: "Cannot load template", Code: 500}
 	}
-	if d, err := ioutil.ReadDir(ExampleDir); err != nil {
+	d, err := ioutil.ReadDir(ExampleDir)
+	if err != nil {
 		return &wsError{Error: err, Message: "Cannot read examples dir", Code: 500}
-	} else {
-		for _, f := range d {
-			if f.IsDir() {
-				examples = append(examples, f.Name())
-			}
+	}
+	for _, f := range d {
+		if f.IsDir() {
+			examples = append(examples, f.Name())
 		}
 	}
 
@@ -107,25 +107,25 @@ func ExampleAnalysisHandler(w http.ResponseWriter, r *http.Request) *wsError {
 	if err != nil {
 		return &wsError{Error: err, Message: "SSA build failed", Code: 500}
 	}
-	infer, err := typeinfer.New(ssainfo, l.Writer)
+	extract, err := migoextract.New(ssainfo, l.Writer)
 	if err != nil {
 		return &wsError{Error: err, Message: "Type inference init failed", Code: 500}
 	}
-	go infer.Run()
+	go extract.Run()
 
 	goSrc := make([]string, len(goFiles))
 	for i, goFile := range goFiles {
-		if content, err := ioutil.ReadFile(goFile); err != nil {
+		content, err := ioutil.ReadFile(goFile)
+		if err != nil {
 			return &wsError{Error: err, Message: "Cannot read source files", Code: 500}
-		} else {
-			goSrc[i] = string(content)
 		}
+		goSrc[i] = string(content)
 	}
 
 	select {
-	case err := <-infer.Error:
+	case err := <-extract.Error:
 		return &wsError{Error: err, Message: "Analysis error", Code: 500}
-	case <-infer.Done:
+	case <-extract.Done:
 		// Block until infer is done
 	}
 
@@ -137,7 +137,7 @@ func ExampleAnalysisHandler(w http.ResponseWriter, r *http.Request) *wsError {
 		SSA   string
 	}{
 		Title: exampleName,
-		Time:  infer.Time.String(),
+		Time:  extract.Time.String(),
 		Code:  strings.Join(goSrc, "\n// ----- source file separator ----- \n"),
 		Log:   buf.String(),
 		SSA:   bufSSA.String(),

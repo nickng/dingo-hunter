@@ -1,4 +1,4 @@
-package typeinfer
+package migoextract
 
 // Storage is a grouping of auxiliary extra storage.
 type Storage struct {

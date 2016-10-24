@@ -1,4 +1,4 @@
-package typeinfer
+package migoextract
 
 // Wrapper of values and constants in an SSA program.
 // Designed for tracking usage and instances of values used in SSA program.

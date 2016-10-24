@@ -1,4 +1,4 @@
-package typeinfer
+package migoextract
 
 // CommaOK tests.
 

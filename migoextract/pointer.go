@@ -1,4 +1,4 @@
-package typeinfer
+package migoextract
 
 // Utility functions for dealing with pointers.
 

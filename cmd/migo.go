@@ -19,8 +19,8 @@ import (
 	"os"
 
 	"github.com/nickng/dingo-hunter/logwriter"
+	"github.com/nickng/dingo-hunter/migoextract"
 	"github.com/nickng/dingo-hunter/ssabuilder"
-	"github.com/nickng/dingo-hunter/typeinfer"
 	"github.com/spf13/cobra"
 )
 
@@ -28,26 +28,26 @@ var (
 	outfile string // Path to output file
 )
 
-// inferCmd represents the analyse command
-var inferCmd = &cobra.Command{
-	Use:   "infer",
-	Short: "Run analysis on the inputs",
-	Long: `Run analysis and type inference on the inputs
+// migoCmd represents the analyse command
+var migoCmd = &cobra.Command{
+	Use:   "migo",
+	Short: "Extract MiGo types from source code",
+	Long: `Extract MiGo types from source code
 
 The inputs should be a list of .go files in the same directory (of package main)
 One of the .go file should contain the main function.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		infer(args)
+		extractMigo(args)
 	},
 }
 
 func init() {
-	inferCmd.Flags().StringVar(&outfile, "output", "", "output migo file")
+	migoCmd.Flags().StringVar(&outfile, "output", "", "output migo file")
 
-	RootCmd.AddCommand(inferCmd)
+	RootCmd.AddCommand(migoCmd)
 }
 
-func infer(files []string) {
+func extractMigo(files []string) {
 	logFile, err := RootCmd.PersistentFlags().GetString("log")
 	if err != nil {
 		log.Fatal(err)
@@ -75,17 +75,17 @@ func infer(files []string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	infer, err := typeinfer.New(ssainfo, l.Writer)
+	extract, err := migoextract.New(ssainfo, l.Writer)
 	if err != nil {
 		log.Fatal(err)
 	}
-	go infer.Run()
+	go extract.Run()
 
 	select {
-	case err := <-infer.Error:
+	case <-extract.Error:
 		log.Fatal(err)
-	case <-infer.Done:
-		infer.Logger.Println("Analysis finished in", infer.Time)
+	case <-extract.Done:
+		extract.Logger.Println("Analysis finished in", extract.Time)
 	}
 
 	if outfile != "" {
@@ -93,9 +93,9 @@ func infer(files []string) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		f.WriteString(infer.Env.MigoProg.String())
+		f.WriteString(extract.Env.MigoProg.String())
 		defer f.Close()
 	} else {
-		os.Stdout.WriteString(infer.Env.MigoProg.String())
+		os.Stdout.WriteString(extract.Env.MigoProg.String())
 	}
 }

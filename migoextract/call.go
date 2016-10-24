@@ -1,4 +1,4 @@
-package typeinfer
+package migoextract
 
 // Functions for handling function call-like instructions
 // i.e. builtin, call, closure, defer, go.
@@ -6,7 +6,7 @@ package typeinfer
 import (
 	"go/types"
 
-	"github.com/nickng/dingo-hunter/typeinfer/migo"
+	"github.com/nickng/dingo-hunter/migoextract/migo"
 	"golang.org/x/tools/go/ssa"
 )
 
