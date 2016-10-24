@@ -9,7 +9,7 @@ import (
 	"go/types"
 	"log"
 
-	"github.com/nickng/dingo-hunter/migoextract/migo"
+	"github.com/nickng/migo"
 	"golang.org/x/tools/go/ssa"
 )
 

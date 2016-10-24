@@ -6,7 +6,7 @@ package migoextract
 import (
 	"go/types"
 
-	"github.com/nickng/dingo-hunter/migoextract/migo"
+	"github.com/nickng/migo"
 	"golang.org/x/tools/go/ssa"
 )
 
