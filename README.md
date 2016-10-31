@@ -60,9 +60,9 @@ The `SMC check` line indicates if the global graph satisfies SMC (i.e. safe) or 
 
 ### MiGo types approach
 
-This approach generates MiGo types, a behavioural type introduced in [this work][popl17],
+This approach generates MiGo types, a behavioural type
 to check for safety and liveness by a restriction called *fencing* on channel
-usage (See [paper][popl17]).
+usage.
 
 The checker for MiGo types is available at
 [nickng/gong](https://github.com/nickng/gong), follow the instructions to build
@@ -73,7 +73,7 @@ the tool:
 
 To run MiGo types generation on `example/local-deadlock/main.go`:
 
-    $ dingo-hunter infer example/local-deadlock/main.go --no-logging --output deadlock.migo
+    $ dingo-hunter migo example/local-deadlock/main.go --no-logging --output deadlock.migo
     $ /path/to/Gong -A deadlock.migo
 
 #### Limitations
@@ -87,9 +87,6 @@ To run MiGo types generation on `example/local-deadlock/main.go`:
   * [Static Deadlock Detection for Concurrent Go by Global Session Graph Synthesis][cc16],
     Nicholas Ng and Nobuko Yoshida,
     Int'l Conference on Compiler Construction (CC 2016), ACM
-  * [Fencing off Go: Liveness and Safety for Channel-based Programming][popl17],
-    Julien Lange, Nicholas Ng, Bernardo Toninho and Nobuko Yoshida,
-    ACM SIGPLAN Symposium on Principles of Programming Languages (POPL 2017), ACM
 
 ## Notes
 
@@ -101,4 +98,3 @@ file an issue for problems that look like a bug.
   dingo-hunter is licensed under the [Apache License](http://www.apache.org/licenses/LICENSE-2.0)
 
 [cc16]: http://dl.acm.org/citation.cfm?doid=2892208.2892232 "Static Deadlock Detection for Concurrent Go by Global Graph Synthesis"
-[popl17]: http://mrg.doc.ic.ac.uk/publications/fencing-off-go-liveness-and-safety-for-channel-based-programming/ "Fencing off Go: Liveness and Safety for Channel-based Programming"
