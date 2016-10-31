@@ -524,20 +524,67 @@ func visitIf(instr *ssa.If, infer *TypeInfer, ctx *Context) {
 					// Test if select has default branch & if this is default
 					if !sel.Instr.Blocking && i.Int64() == int64(len(sel.Instr.States)-1) {
 						infer.Logger.Print(ctx.F.Sprintf(SelectSymbol + "default"))
-						parDef := ctx.F.FuncDef
-						parDef.PutAway() // Save select
-						visitBasicBlock(instr.Block().Succs[1], infer, ctx.F, NewBlock(ctx.F, instr.Block().Succs[1], ctx.B.Index), ctx.L)
-						ctx.F.FuncDef.PutAway() // Save case
-						selDefault, err := ctx.F.FuncDef.Restore()
-						if err != nil {
-							infer.Logger.Fatal("select-default:", err)
+						if instr.Block().Succs[1].Comment == "select.done" {
+							// Looks like it's empty
+							infer.Logger.Printf(SplitSymbol+"Empty default branch (%d ⇾ %d)", instr.Block().Index, instr.Block().Succs[1].Index)
+							selDefault := &migo.CallStatement{Name: fmt.Sprintf("%s#%d", ctx.F.Fn.String(), instr.Block().Succs[1].Index)}
+							for i := 0; i < len(ctx.F.FuncDef.Params); i++ {
+								for k, ea := range ctx.F.extraargs {
+									if phi, ok := ea.(*ssa.Phi); ok {
+										if instr.Block().Succs[1].Index < len(phi.Edges) {
+											for _, e := range phi.Edges {
+												if ctx.F.FuncDef.Params[i].Caller.Name() == e.Name() {
+													ctx.F.FuncDef.Params[i].Callee = phi
+													// Remove from extra args
+													if k < len(ctx.F.extraargs) {
+														ctx.F.extraargs = append(ctx.F.extraargs[:k], ctx.F.extraargs[k+1:]...)
+													} else {
+														ctx.F.extraargs = ctx.F.extraargs[:k]
+													}
+												}
+											}
+										}
+									}
+								}
+								// This loop copies args from current function to Successor.
+								if phi, ok := ctx.F.FuncDef.Params[i].Callee.(*ssa.Phi); ok {
+									// Resolve in current scope if phi
+									selDefault.AddParams(&migo.Parameter{Caller: phi.Edges[instr.Block().Succs[1].Index], Callee: ctx.F.FuncDef.Params[i].Callee})
+								} else {
+									selDefault.AddParams(&migo.Parameter{Caller: ctx.F.FuncDef.Params[i].Callee, Callee: ctx.F.FuncDef.Params[i].Callee})
+								}
+							}
+							for _, ea := range ctx.F.extraargs {
+								if phi, ok := ea.(*ssa.Phi); ok {
+									selDefault.AddParams(&migo.Parameter{Caller: phi.Edges[instr.Block().Succs[1].Index], Callee: phi})
+								} else {
+									selDefault.AddParams(&migo.Parameter{Caller: ea, Callee: ea})
+								}
+							}
+							parDef := ctx.F.FuncDef
+							parDef.PutAway() // Save select
+							sel.MigoStmt.Cases[len(sel.MigoStmt.Cases)-1] = append(sel.MigoStmt.Cases[len(sel.MigoStmt.Cases)-1], selDefault)
+							selParent, err := parDef.Restore()
+							if err != nil {
+								infer.Logger.Fatal("select-parent:", err)
+							}
+							parDef.AddStmts(selParent...)
+						} else {
+							parDef := ctx.F.FuncDef
+							parDef.PutAway() // Save select
+							visitBasicBlock(instr.Block().Succs[1], infer, ctx.F, NewBlock(ctx.F, instr.Block().Succs[1], ctx.B.Index), ctx.L)
+							ctx.F.FuncDef.PutAway() // Save case
+							selDefault, err := ctx.F.FuncDef.Restore()
+							if err != nil {
+								infer.Logger.Fatal("select-default:", err)
+							}
+							sel.MigoStmt.Cases[len(sel.MigoStmt.Cases)-1] = append(sel.MigoStmt.Cases[len(sel.MigoStmt.Cases)-1], selDefault...)
+							selParent, err := parDef.Restore()
+							if err != nil {
+								infer.Logger.Fatal("select-parent:", err)
+							}
+							parDef.AddStmts(selParent...)
 						}
-						sel.MigoStmt.Cases[len(sel.MigoStmt.Cases)-1] = append(sel.MigoStmt.Cases[len(sel.MigoStmt.Cases)-1], selDefault...)
-						selParent, err := parDef.Restore()
-						if err != nil {
-							infer.Logger.Fatal("select-parent:", err)
-						}
-						parDef.AddStmts(selParent...)
 					} else {
 						infer.Logger.Printf(ctx.F.Sprintf(IfSymbol+"select-else "+JumpSymbol+"%d", instr.Block().Succs[1].Index))
 						visitBasicBlock(instr.Block().Succs[1], infer, ctx.F, NewBlock(ctx.F, instr.Block().Succs[1], ctx.B.Index), ctx.L)
