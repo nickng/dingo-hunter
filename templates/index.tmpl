@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.6.0/pure-min.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href='https://fonts.googleapis.com/css?family=Fira+Mono|Roboto:100,400' rel='stylesheet'/>
+  <link href="/static/style.css" rel="stylesheet" />
+</head>
+<body>
+  <header></header>
+  <div class='full-width'>
+  <div class='gocode'>
+    <div class='code playground' contenteditable='true' spellcheck='false' id='go'></div>
+  </div>
+  </div>
+  <div class='controls'>
+    <button name='cfsm' id='cfsm'>Show CFSM</button>
+    <button name='migo' id='migo'>Show MiGo (to run Gong)</button>
+    <button name='ssa' id='ssa'>Show SSA</button>
+    {{- if .Examples -}}
+    <select name='example' id='examples' class='left'>
+        {{ range .Examples }}<option value='{{ . }}'>{{ . }}</option>{{ end }}
+    </select>
+    <button name='load' id='example' class='right'>Load</button>
+    {{- end -}}
+    <span id='time'></span>
+  </div>
+  <div class='generated'>
+    <div class='code' id='out' spellcheck='false' contenteditable='false'>No output.</div>
+    <div class='buttons'><button name='gong' id='gong'>Run Gong</button></div>
+    <div id='gong-wrap'><div id='gong-output'></div><div class='buttons'><button id='gong-output-close'>Close</button></div></div>
+  </div>
+  <script src='/play.js'></script>
+  <script src='/static/script.js'></script>
+</body>
+</html>

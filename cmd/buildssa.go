@@ -29,7 +29,7 @@ var buildssaCmd = &cobra.Command{
 	Short: "Build SSA IR of the input source files",
 	Long:  `Build SSA IR of the input source files`,
 	Run: func(cmd *cobra.Command, args []string) {
-		build(args)
+		Build(args)
 	},
 }
 
@@ -48,7 +48,7 @@ func init() {
 	}
 }
 
-func build(files []string) {
+func Build(files []string) {
 	logFile, err := RootCmd.PersistentFlags().GetString("log")
 	if err != nil {
 		log.Fatal(err)

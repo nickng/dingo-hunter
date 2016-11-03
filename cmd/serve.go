@@ -15,28 +15,54 @@
 package cmd
 
 import (
+	"go/build"
+	"log"
+	"path"
+
 	"github.com/nickng/dingo-hunter/webservice"
 	"github.com/spf13/cobra"
 )
 
 // serveCmd represents the serve command
 var serveCmd = &cobra.Command{
-	Use:   "serve",
-	Short: "Serve analysis examples as a webservice",
-	Long: `Serve analysis examples as a webservice
+	Use:     "serve",
+	Aliases: []string{"server"},
+	Short:   "Run an HTTP webservice for demo",
+	Long: `Run an HTTP webservice for analysis demo.
 
 The analysis will be presented side-by-side with its source code.
 Each example is a Go command (i.e. package main) in a directory, under the examples directory.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		webservice.Serve()
+		Serve()
 	},
 }
+
+const basePkg = "github.com/nickng/dingo-hunter"
+
+var (
+	addr string // Listen interface.
+	port string // Listen port.
+)
 
 func init() {
 	RootCmd.AddCommand(serveCmd)
 
-	serveCmd.Flags().IntVarP(&webservice.PortNumber, "port", "p", 6060, "Port number to serve on")
-	serveCmd.Flags().StringVar(&webservice.ExampleDir, "example-dir", "examples/", "Path to examples directory")
-	serveCmd.Flags().StringVar(&webservice.TemplateDir, "template-dir", "webservice/templates/", "Path to HTML templates directory")
-	serveCmd.Flags().StringVar(&webservice.StaticDir, "static-dir", "webservice/static/", "Path to static files directory")
+	p, err := build.Default.Import(basePkg, "", build.FindOnly)
+	if err != nil {
+		log.Fatal("Could not find base path")
+	}
+	basePath := p.Dir
+
+	serveCmd.Flags().StringVar(&addr, "bind", "127.0.0.1", "Bind address. Defaults to 127.0.0.1.")
+	serveCmd.Flags().StringVar(&port, "port", "6060", "Listen port. Defaults to 6060.")
+	serveCmd.Flags().StringVar(&webservice.ExamplesDir, "examples", path.Join(basePath, "examples", "popl17"), "Path to examples directory")
+	serveCmd.Flags().StringVar(&webservice.TemplateDir, "templates", path.Join(basePath, "templates"), "Path to templates directory")
+	serveCmd.Flags().StringVar(&webservice.StaticDir, "static", path.Join(basePath, "static"), "Path to static files directory")
+}
+
+// Serve starts the HTTP server.
+func Serve() {
+	server := webservice.NewServer(addr, port)
+	server.Start()
+	server.Close()
 }

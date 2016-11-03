@@ -1,0 +1,171 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: 'Roboto', sans-serif;
+}
+
+div.gocode,
+div.generated {
+  position: relative;
+}
+
+div.gocode > div.buttons,
+div.generated > div.buttons {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+}
+
+div.output {
+  opacity: 0.95;
+  -moz-border-radius: 10px;
+  -webkit-border-radius: 10px;
+  border-radius: 10px;
+  padding: 10px;
+  background: #222;
+  color: #fff;
+  width: 50%;
+  right: 0;
+  bottom: 0;
+  position: absolute;
+}
+div#gong-wrap {
+  position: absolute;
+  display: none;
+  right: 10px;
+  bottom: 10px;
+}
+div#gong-wrap.visible {
+  opacity: 0.95;
+  position: absolute;
+  display: inline-block;
+  right: 10px;
+  bottom: 10px;
+  -moz-border-radius: 10px;
+  -webkit-border-radius: 10px;
+  border-radius: 10px;
+  padding: 10px;
+  background: #222;
+  color: #fff;
+}
+
+div.code {
+  white-space: pre;
+  background: #eee;
+  font-family: 'Fira Mono', monospace;
+  font-weight: 400;
+  padding: 20px;
+  -webkit-font-smoothing: antialiased;
+  -webkit-line-break: after-white-space;
+  -webkit-user-modify: read-write;
+}
+
+div#go:before {
+  content: 'Go';
+}
+div#out:before {
+  content: attr(lang);
+}
+div#go:before,
+div#out[lang]:before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: #888;
+  padding: 10px;
+  color: #fff;
+  opacity: 0.8;
+  font-family: 'Fira Mono', monospace;
+  -webkit-border-bottom-left-radius: 5;
+  -moz-border-bottom-left-radius: 5;
+  border-bottom-left-radius: 5px;
+}
+
+div#out:not([lang]) + div.buttons,
+div#out[lang] + div.buttons {
+  display: none;
+}
+div#out[lang='migo'] + div.buttons {
+  display: block;
+}
+#time {
+  font-family: 'Roboto';
+  font-weight: 100;
+  font-size: smaller;
+}
+
+div.code pre {
+  font-family: 'Fira Mono', monospace;
+  line-height: 24px;
+  margin: 0px 0px 0px 0px;
+  word-wrap: break-word;
+  overflow-x: visible;
+  overflow-y: visible;
+  -webkit-font-smoothing: antialiased;
+  -webkit-line-break: after-white-space;
+  -webkit-user-modify: read-write;
+}
+
+div.code pre span {
+  white-space: pre;
+}
+
+div.output div.buttons {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  color: #000;
+}
+
+div.controls {
+  width: 100%;
+  background: #ccc;/* url(/static/logo.png) center right no-repeat;*/
+  padding: 10px 0;
+}
+
+div.buttons button,
+div.controls button,
+div.controls select {
+  background: #44b6d0;
+  -webkit-border-radius: 10;
+  -moz-border-radius: 10;
+  border-radius: 10px;
+  color: #ffffff;
+  padding: 5px 10px 5px 10px;
+  text-decoration: none;
+  border-style: solid;
+  border-width: 2px;
+  border-color: #298ba3;
+  margin: 0 10px;
+}
+
+/* Half-buttons */
+div.output div.buttons button.close,
+div.output div.buttons button.kill,
+div.controls .right {
+  -webkit-border-bottom-left-radius: 0;
+  -moz-border-bottom-left-radius: 0;
+  border-bottom-left-radius: 0;
+  -webkit-border-top-left-radius: 0;
+  -moz-border-top-left-radius: 0;
+  border-top-left-radius: 0;
+  margin-left: 0;
+}
+div.output div.buttons button.run,
+div.output div.buttons button.kill,
+div.controls .left {
+  -webkit-border-bottom-right-radius: 0;
+  -moz-border-bottom-right-radius: 0;
+  border-bottom-right-radius: 0;
+  -webkit-border-top-right-radius: 0;
+  -moz-border-top-right-radius: 0;
+  border-top-right-radius: 0;
+  margin-right: 0;
+}
+
+div.controls button:hover {
+  background: #28849b;
+  text-decoration: none;
+}
