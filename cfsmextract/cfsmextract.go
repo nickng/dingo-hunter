@@ -7,11 +7,11 @@ package cfsmextract
 import (
 	"fmt"
 	"go/types"
+	"log"
 	"os"
 	"time"
 
 	"github.com/nickng/dingo-hunter/cfsmextract/sesstype"
-	"github.com/nickng/dingo-hunter/cfsmextract/sesstype/generator"
 	"github.com/nickng/dingo-hunter/cfsmextract/utils"
 	"github.com/nickng/dingo-hunter/ssabuilder"
 	"golang.org/x/tools/go/ssa"
@@ -104,6 +104,11 @@ func (extract *CFSMExtract) Run() {
 	extract.Done <- struct{}{}
 }
 
+// Session returns the session after extraction.
+func (extract *CFSMExtract) Session() *sesstype.Session {
+	return extract.session
+}
+
 func (extract *CFSMExtract) WriteOutput() {
 	fmt.Printf(" ----- Results ----- \n%s\n", extract.session.String())
 
@@ -115,7 +120,8 @@ func (extract *CFSMExtract) WriteOutput() {
 	}
 	defer dotFile.Close()
 
-	if _, err = generator.GenDot(extract.session, dotFile); err != nil {
+	dot := sesstype.NewGraphvizDot(extract.session)
+	if _, err = dot.WriteTo(dotFile); err != nil {
 		panic(err)
 	}
 
@@ -127,10 +133,11 @@ func (extract *CFSMExtract) WriteOutput() {
 	}
 	defer cfsmFile.Close()
 
-	if _, err = generator.GenCFSMs(extract.session, cfsmFile); err != nil {
-		panic(err)
+	cfsms := sesstype.NewCFSMs(extract.session)
+	if _, err := cfsms.WriteTo(cfsmFile); err != nil {
+		log.Fatalf("Cannot write CFSMs to file: %v", err)
 	}
 
 	fmt.Fprintf(os.Stderr, "CFSMs written to %s\n", cfsmPath)
-	generator.PrintCFSMSummary()
+	cfsms.PrintSummary()
 }
