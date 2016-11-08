@@ -88,6 +88,7 @@ func extractMigo(files []string) {
 		extract.Logger.Println("Analysis finished in", extract.Time)
 	}
 
+	extract.Env.MigoProg.CleanUp()
 	if outfile != "" {
 		f, err := os.Create(outfile)
 		if err != nil {

@@ -32,6 +32,7 @@ func migoHandler(w http.ResponseWriter, req *http.Request) {
 		NewErrInternal(err, "MiGo type inference failed").Report(w)
 	case <-extract.Done:
 		log.Println("MiGo: analysis completed in", extract.Time)
+		extract.Env.MigoProg.CleanUp()
 	}
 
 	reply := struct {
