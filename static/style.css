@@ -31,12 +31,14 @@ div.output {
   bottom: 0;
   position: absolute;
 }
+div#synthesis-wrap,
 div#gong-wrap {
   position: absolute;
   display: none;
   right: 10px;
   bottom: 10px;
 }
+div#synthesis-wrap.visible,
 div#gong-wrap.visible {
   opacity: 0.95;
   position: absolute;
@@ -87,7 +89,8 @@ div#out:not([lang]) + div.buttons,
 div#out[lang] + div.buttons {
   display: none;
 }
-div#out[lang='migo'] + div.buttons {
+div#out[lang='MiGo'] + div.buttons,
+div#out[lang='CFSM'] + div.buttons {
   display: block;
 }
 #time {
@@ -169,3 +172,17 @@ div.controls button:hover {
   background: #28849b;
   text-decoration: none;
 }
+
+div#synthesis-graphics {
+  max-width: 1000px;
+  overflow-x: auto;
+  background: #ccc;
+}
+
+div#synthesis-graphics div#synthesis-machines,
+div#synthesis-graphics div#synthesis-global {
+  display: table-cell;
+  padding: 5px;
+  vertical-align: middle;
+}
+

@@ -120,6 +120,33 @@ $('#gong').on('click', function() {
 $('#gong-output-close').on('click', function() {
   $('#gong-wrap').removeClass('visible');
 })
+$('#synthesis').on('click', function() {
+  if ($('#out').attr('lang') != 'CFSM') {
+    return false
+  }
+  reportTime('');
+  $.ajax({
+    url: '/synthesis?chan='+$('#chan-cfsm').val(),
+    type: 'POST',
+    data: migoCode(),
+    async: true,
+    success: function(msg) {
+      var obj = JSON.parse(msg);
+      if (obj!=null&&obj.SMC!=null) {
+        writeTo(obj.SMC, '#synthesis-output');
+        $('#synthesis-global').html(obj.Global)
+        $('#synthesis-machines').html(obj.Machines)
+        reportTime(obj.time);
+        $('#synthesis-wrap').addClass('visible');
+      } else {
+        writeTo("JSON error", '#synthesis-output');
+      }
+    }
+  });
+});
+$('#synthesis-output-close').on('click', function() {
+  $('#synthesis-wrap').removeClass('visible');
+})
 writeTo('// Write Go code here\n'
   + 'package main\n\n'
   + 'import "fmt"\n\n'

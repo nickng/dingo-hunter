@@ -17,7 +17,7 @@
   </div>
   <div class='controls'>
     <button name='cfsm' id='cfsm'>Show CFSM</button>
-    <button name='migo' id='migo'>Show MiGo (to run Gong)</button>
+    <button name='migo' id='migo'>Show MiGo</button>
     <button name='ssa' id='ssa'>Show SSA</button>
     {{- if .Examples -}}
     <select name='example' id='examples' class='left'>
@@ -29,8 +29,15 @@
   </div>
   <div class='generated'>
     <div class='code' id='out' spellcheck='false' contenteditable='false'>No output.</div>
-    <div class='buttons'><button name='gong' id='gong'>Run Gong</button></div>
+    <div class='buttons'>
+        <button name='gong' id='gong'>Run Gong</button>
+        <button name='synthesis' id='synthesis'>Run Synthesis</button> <input name='chan-cfsm' id='chan-cfsm' value='1' placeholder='Chan CFSMs'/>
+    </div>
     <div id='gong-wrap'><div id='gong-output'></div><div class='buttons'><button id='gong-output-close'>Close</button></div></div>
+    <div id='synthesis-wrap'><div id='synthesis-output'></div>
+        <div id='synthesis-graphics'><div id='synthesis-machines'></div><div id='synthesis-global'></div></div>
+        <div class='buttons'><button id='synthesis-output-close'>Close</button></div>
+    </div>
   </div>
   <script src='/play.js'></script>
   <script src='/static/script.js'></script>

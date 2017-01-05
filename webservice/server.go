@@ -35,6 +35,7 @@ func (s *Server) Start() {
 	http.HandleFunc("/cfsm", cfsmHandler)
 	http.HandleFunc("/migo", migoHandler)
 	http.HandleFunc("/gong", gongHandler)
+	http.HandleFunc("/synthesis", synthesisHandler)
 
 	log.Printf("Listening at %s", s.URL())
 	(&http.Server{}).Serve(s.Listener())
