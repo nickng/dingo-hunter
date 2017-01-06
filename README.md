@@ -101,4 +101,4 @@ file an issue for problems that look like a bug.
   dingo-hunter is licensed under the [Apache License](http://www.apache.org/licenses/LICENSE-2.0)
 
 [cc16]: http://dl.acm.org/citation.cfm?doid=2892208.2892232 "Static Deadlock Detection for Concurrent Go by Global Graph Synthesis"
-[popl17]: http://mrg.doc.ic.ac.uk/publications/fencing-off-go-liveness-and-safety-for-channel-based-programming/ "Fencing off Go: Liveness and Safety for Channel-based Programming"
+[popl17]: http://dl.acm.org/citation.cfm?doiid=3009837.3009847 "Fencing off Go: Liveness and Safety for Channel-based Programming"
