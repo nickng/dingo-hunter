@@ -3,6 +3,7 @@ package sesstype
 import (
 	"fmt"
 	"io"
+	"log"
 
 	"github.com/awalterschulze/gographviz"
 )
@@ -45,24 +46,32 @@ func (dot *GraphvizDot) nodeToDotNode(node Node) *gographviz.Node {
 	case *LabelNode:
 		defer func() { dot.Count++ }()
 		dot.LabelNodes[node.Name()] = fmt.Sprintf("label%d", dot.Count)
+		attrs, err := gographviz.NewAttrs(map[string]string{
+			"label": fmt.Sprintf("\"%s\"", node.String()),
+			"shape": "plaintext,",
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
 		dotNode := gographviz.Node{
-			Name: dot.LabelNodes[node.Name()],
-			Attrs: map[string]string{
-				"label": fmt.Sprintf("\"%s\"", node.String()),
-				"shape": "plaintext,",
-			},
+			Name:  dot.LabelNodes[node.Name()],
+			Attrs: attrs,
 		}
 		return &dotNode
 
 	case *NewChanNode:
 		defer func() { dot.Count++ }()
+		attrs, err := gographviz.NewAttrs(map[string]string{
+			"label": fmt.Sprintf("Channel %s Type:%s", node.Chan().Name(), node.Chan().Type()),
+			"shape": "rect",
+			"color": "red",
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
 		return &gographviz.Node{
-			Name: fmt.Sprintf("%s%d", node.Kind(), dot.Count),
-			Attrs: map[string]string{
-				"label": fmt.Sprintf("Channel %s Type:%s", node.Chan().Name(), node.Chan().Type()),
-				"shape": "rect",
-				"color": "red",
-			},
+			Name:  fmt.Sprintf("%s%d", node.Kind(), dot.Count),
+			Attrs: attrs,
 		}
 
 	case *SendNode:
@@ -73,13 +82,17 @@ func (dot *GraphvizDot) nodeToDotNode(node Node) *gographviz.Node {
 			style = "dashed"
 			desc = " nondet"
 		}
+		attrs, err := gographviz.NewAttrs(map[string]string{
+			"label": fmt.Sprintf("Send %s%s", node.To().Name(), desc),
+			"shape": "rect",
+			"style": style,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
 		return &gographviz.Node{
-			Name: fmt.Sprintf("%s%d", node.Kind(), dot.Count),
-			Attrs: map[string]string{
-				"label": fmt.Sprintf("Send %s%s", node.To().Name(), desc),
-				"shape": "rect",
-				"style": style,
-			},
+			Name:  fmt.Sprintf("%s%d", node.Kind(), dot.Count),
+			Attrs: attrs,
 		}
 
 	case *RecvNode:
@@ -90,13 +103,17 @@ func (dot *GraphvizDot) nodeToDotNode(node Node) *gographviz.Node {
 			style = "dashed"
 			desc = " nondet"
 		}
+		attrs, err := gographviz.NewAttrs(map[string]string{
+			"label": fmt.Sprintf("Recv %s%s", node.From().Name(), desc),
+			"shape": "rect",
+			"style": style,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
 		return &gographviz.Node{
-			Name: fmt.Sprintf("%s%d", node.Kind(), dot.Count),
-			Attrs: map[string]string{
-				"label": fmt.Sprintf("Recv %s%s", node.From().Name(), desc),
-				"shape": "rect",
-				"style": style,
-			},
+			Name:  fmt.Sprintf("%s%d", node.Kind(), dot.Count),
+			Attrs: attrs,
 		}
 
 	case *GotoNode:
@@ -104,12 +121,16 @@ func (dot *GraphvizDot) nodeToDotNode(node Node) *gographviz.Node {
 
 	default:
 		defer func() { dot.Count++ }()
+		attrs, err := gographviz.NewAttrs(map[string]string{
+			"label": fmt.Sprintf("\"%s\"", node.String()),
+			"shape": "rect",
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
 		dotNode := gographviz.Node{
-			Name: fmt.Sprintf("%s%d", node.Kind(), dot.Count),
-			Attrs: map[string]string{
-				"label": fmt.Sprintf("\"%s\"", node.String()),
-				"shape": "rect",
-			},
+			Name:  fmt.Sprintf("%s%d", node.Kind(), dot.Count),
+			Attrs: attrs,
 		}
 		return &dotNode
 	}
@@ -129,7 +150,11 @@ func (dot *GraphvizDot) visitNode(node Node, subgraph *gographviz.SubGraph, pare
 		return parent // GotoNode's children are children of parent. So return parent.
 	}
 
-	dot.Graph.AddNode(subgraph.Name, dotNode.Name, dotNode.Attrs)
+	attrs := make(map[string]string)
+	for k, v := range dotNode.Attrs {
+		attrs[string(k)] = v
+	}
+	dot.Graph.AddNode(subgraph.Name, dotNode.Name, attrs)
 	if parent != nil { // Parent is not toplevel
 		dot.Graph.AddEdge(parent.Name, dotNode.Name, true, nil)
 	}
