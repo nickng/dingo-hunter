@@ -1,9 +1,13 @@
 package sesstype
 
 import (
+	"go/token"
+	"go/types"
 	"testing"
 
+	"github.com/nickng/cfsm"
 	"github.com/nickng/dingo-hunter/cfsmextract/utils"
+	"golang.org/x/tools/go/ssa"
 )
 
 // Tests SendNode creation.
@@ -143,5 +147,40 @@ func TestEndNode(t *testing.T) {
 	}
 	if len(n.Children()) != 1 {
 		t.Errorf("Expecting node to have 1 children but got %d\n", len(n.Children()))
+	}
+}
+
+type mockChan struct{}
+
+func (mc mockChan) Name() string                  { return "MockChan" }
+func (mc mockChan) String() string                { return "Mock Chan" }
+func (mc mockChan) Type() types.Type              { return types.NewChan(types.SendRecv, types.NewStruct(nil, nil)) }
+func (mc mockChan) Parent() *ssa.Function         { return nil }
+func (mc mockChan) Referrers() *[]ssa.Instruction { return nil }
+func (mc mockChan) Pos() token.Pos                { return token.NoPos }
+
+func TestSelfLoop(t *testing.T) {
+	s := CreateSession()
+	r := s.GetRole("main")
+	c := s.MakeChan(utils.NewDef(mockChan{}), r)
+
+	n0 := NewLabelNode("BeforeReceive")
+	n1 := NewRecvNode(c, r, types.NewStruct(nil, nil))
+	n2 := NewGotoNode("BeforeReceive")
+	n0.Append(n1)
+	n1.Append(n2)
+
+	ms := NewCFSMs(s)
+	m := ms.Sys.NewMachine()
+	ms.States[m] = make(map[string]*cfsm.State)
+	ms.rootToMachine(r, n0, m)
+	if want, got := 1, len(m.States()); want != got {
+		t.Errorf("expecting %d states for self-loop but got %d", want, got)
+	}
+	if want, got := 1, len(m.States()[0].Transitions()); want != got {
+		t.Errorf("expecting %d transitions for self-loop but got %d", want, got)
+	}
+	if from, to := m.States()[0], m.States()[0].Transitions()[0].State(); from != to {
+		t.Errorf("expecting self-loop but got %s", m.String())
 	}
 }
