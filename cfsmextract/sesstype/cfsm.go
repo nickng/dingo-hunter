@@ -80,9 +80,14 @@ func (sys *CFSMs) nodeToMachine(role Role, node Node, q0 *cfsm.State, m *cfsm.CF
 			log.Fatal("Cannot Send to unknown channel", node.To().Name())
 		}
 		tr := cfsm.NewSend(to, node.To().Type().String())
-		qSent := m.NewState()
-		for _, c := range node.Children() {
-			sys.nodeToMachine(role, c, qSent, m)
+		var qSent *cfsm.State
+		if sys.isSelfLoop(m, q0, node) {
+			qSent = q0
+		} else {
+			qSent = m.NewState()
+			for _, c := range node.Children() {
+				sys.nodeToMachine(role, c, qSent, m)
+			}
 		}
 		tr.SetNext(qSent)
 		q0.AddTransition(tr)
@@ -97,9 +102,14 @@ func (sys *CFSMs) nodeToMachine(role Role, node Node, q0 *cfsm.State, m *cfsm.CF
 			msg = STOP
 		}
 		tr := cfsm.NewRecv(from, msg)
-		qRcvd := m.NewState()
-		for _, c := range node.Children() {
-			sys.nodeToMachine(role, c, qRcvd, m)
+		var qRcvd *cfsm.State
+		if sys.isSelfLoop(m, q0, node) {
+			qRcvd = q0
+		} else {
+			qRcvd = m.NewState()
+			for _, c := range node.Children() {
+				sys.nodeToMachine(role, c, qRcvd, m)
+			}
 		}
 		tr.SetNext(qRcvd)
 		q0.AddTransition(tr)
@@ -170,4 +180,17 @@ func (sys *CFSMs) chanToMachine(ch Role, T string, m *cfsm.CFSM) {
 		}
 	}
 	m.Start = q0
+}
+
+// isSelfLoop returns true if the action of node is a self-loop
+// i.e. the state before and after the transition is the same.
+func (sys *CFSMs) isSelfLoop(m *cfsm.CFSM, q0 *cfsm.State, node Node) bool {
+	if len(node.Children()) == 1 {
+		if gotoNode, ok := node.Child(0).(*GotoNode); ok {
+			if loopback, ok := sys.States[m][gotoNode.Name()]; ok {
+				return loopback == q0
+			}
+		}
+	}
+	return false
 }
