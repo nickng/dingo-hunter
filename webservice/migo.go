@@ -8,6 +8,7 @@ import (
 
 	"github.com/nickng/dingo-hunter/migoextract"
 	"github.com/nickng/dingo-hunter/ssabuilder"
+	"github.com/nickng/migo/v3/migoutil"
 )
 
 func migoHandler(w http.ResponseWriter, req *http.Request) {
@@ -32,7 +33,7 @@ func migoHandler(w http.ResponseWriter, req *http.Request) {
 		NewErrInternal(err, "MiGo type inference failed").Report(w)
 	case <-extract.Done:
 		log.Println("MiGo: analysis completed in", extract.Time)
-		extract.Env.MigoProg.CleanUp()
+		migoutil.SimplifyProgram(extract.Env.MigoProg)
 	}
 
 	reply := struct {
