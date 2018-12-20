@@ -1,7 +1,7 @@
 package migoextract
 
 import (
-	"github.com/nickng/migo"
+	"github.com/nickng/migo/v3"
 	"golang.org/x/tools/go/ssa"
 )
 

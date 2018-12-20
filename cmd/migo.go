@@ -21,6 +21,7 @@ import (
 	"github.com/nickng/dingo-hunter/logwriter"
 	"github.com/nickng/dingo-hunter/migoextract"
 	"github.com/nickng/dingo-hunter/ssabuilder"
+	"github.com/nickng/migo/v3/migoutil"
 	"github.com/spf13/cobra"
 )
 
@@ -88,7 +89,7 @@ func extractMigo(files []string) {
 		extract.Logger.Println("Analysis finished in", extract.Time)
 	}
 
-	extract.Env.MigoProg.CleanUp()
+	migoutil.SimplifyProgram(extract.Env.MigoProg)
 	if outfile != "" {
 		f, err := os.Create(outfile)
 		if err != nil {
