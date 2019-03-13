@@ -73,7 +73,7 @@ the tool:
 
 To run MiGo types generation on `example/local-deadlock/main.go`:
 
-    $ dingo-hunter infer example/local-deadlock/main.go --no-logging --output deadlock.migo
+    $ dingo-hunter migo example/local-deadlock/main.go --no-logging --output deadlock.migo
     $ /path/to/Gong -A deadlock.migo
 
 #### Limitations
