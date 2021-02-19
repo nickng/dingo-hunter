@@ -90,6 +90,9 @@ type Const struct {
 func (c *Const) Instance() (int, int) { return 0, 0 }
 
 func (c *Const) String() string {
+	if c.Const.IsNil() {
+		return "nil" // Constant is a nil (uninitialised pointer)
+	}
 	switch c.Const.Value.Kind() {
 	case constant.Bool:
 		return fmt.Sprintf("%s", c.Const.String())
